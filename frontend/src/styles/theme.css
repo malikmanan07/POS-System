@@ -1,0 +1,275 @@
+:root {
+  --bg: #0b1020;
+  --panel: #0f172a;
+  --panel2: #111c36;
+  --card: #0f1b33;
+  --text: #e8eefc;
+  --muted: #9fb0d0;
+  --primary: #6d5efc;
+  --primary2: #22c55e;
+  --danger: #ef4444;
+  --radius: 18px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden !important;
+}
+
+body {
+  background: radial-gradient(1200px 700px at 20% 10%, rgba(109, 94, 252, .35), transparent 60%),
+    radial-gradient(900px 600px at 90% 30%, rgba(34, 197, 94, .18), transparent 55%),
+    linear-gradient(180deg, #070b16 0%, #0b1020 40%, #070b16 100%);
+  color: var(--text);
+}
+
+a {
+  text-decoration: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.app-navbar {
+  margin: 0 !important;
+  border-radius: 0 !important;
+
+}
+
+.app-main {
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  /* safe padding */
+  box-sizing: border-box;
+}
+
+.app-sidebar {
+  position: sticky;
+  top: 86px;
+  /* navbar height approx */
+  height: calc(100vh - 100px);
+}
+
+.app-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sidebar {
+  width: 100%;
+  height: 100%;
+}
+
+.glass {
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .10);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius);
+}
+
+.shadow-soft {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, .35);
+}
+
+.brand-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(109, 94, 252, 1), rgba(34, 197, 94, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+}
+
+
+
+.nav-itemx {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  color: var(--muted);
+}
+
+.nav-itemx:hover {
+  background: rgba(255, 255, 255, .06);
+  color: var(--text);
+}
+
+.nav-itemx.active {
+  background: linear-gradient(135deg, rgba(109, 94, 252, .35), rgba(34, 197, 94, .18));
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, .12);
+}
+
+.page-title {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.kpi {
+  padding: 18px;
+}
+
+.kpi .icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, .07);
+}
+
+.btn-gradient {
+  border: 0;
+  color: white !important;
+  background: linear-gradient(135deg, rgba(109, 94, 252, 1), rgba(34, 197, 94, 1));
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+
+.btn-soft {
+  background: rgba(255, 255, 255, .08) !important;
+  border: 1px solid rgba(255, 255, 255, .12) !important;
+  color: var(--text) !important;
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+
+.table-darkx {
+  background: rgba(255, 255, 255, .06);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .10);
+}
+
+.table-darkx table {
+  color: var(--text);
+  margin: 0;
+}
+
+.table-darkx th {
+  color: #fff;
+  background: rgba(255, 255, 255, .04);
+  border-bottom: 1px solid rgba(255, 255, 255, .10);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.table-darkx td {
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  color: #f1f5f9;
+}
+
+.badge-soft {
+  background: rgba(255, 255, 255, .08) !important;
+  border: 1px solid rgba(255, 255, 255, .12) !important;
+  color: var(--text) !important;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+/* Responsive grid */
+.app-main {
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 991.98px) {
+  .app-main {
+    grid-template-columns: 1fr;
+    /* sidebar hidden, content full */
+  }
+
+  .app-sidebar {
+    display: none;
+  }
+}
+
+/* Offcanvas theme */
+.offcanvas-dark {
+  background: rgba(15, 23, 42, .95) !important;
+  color: var(--text) !important;
+  border-right: 1px solid rgba(255, 255, 255, .12) !important;
+}
+
+.offcanvas-dark .btn-close {
+  filter: invert(1);
+}
+
+/* Modal form controls */
+.modal-body .form-control,
+.modal-body .form-select {
+  color: #ffffff !important;
+}
+
+.modal-body .form-control::placeholder {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.modal-body option {
+  background: #111c36;
+  color: #fff;
+}
+
+/* Fix Modal Text & Headings */
+.modal-content.glass {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+}
+
+.modal-title,
+.modal-header,
+.form-label,
+label {
+  color: var(--text) !important;
+}
+
+/* Fix Table Transparent Background */
+.table-darkx table,
+.table-darkx tbody,
+.table-darkx tr,
+.table-darkx td,
+.table-darkx th {
+  background-color: transparent !important;
+}
+
+/* Custom Glass Dropdown hover effects */
+.dropdown-menu.glass .dropdown-item {
+  transition: all 0.2s ease-in-out;
+}
+
+.dropdown-menu.glass .dropdown-item:hover,
+.dropdown-menu.glass .dropdown-item:focus {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text) !important;
+}
+
+/* Specific styling for the danger/logout button on hover */
+.dropdown-menu.glass .dropdown-item.text-danger:hover,
+.dropdown-menu.glass .dropdown-item.text-danger:focus {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #f87171 !important;
+}
