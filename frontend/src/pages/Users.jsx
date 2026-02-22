@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
 
@@ -13,8 +13,8 @@ export default function Users() {
     const [form, setForm] = useState({ name: "", email: "", password: "", roleId: "" });
 
     const { token } = useAuth();
-    const API_URL = "http://localhost:5000/api/users";
-    const ROLES_URL = "http://localhost:5000/api/roles";
+    const API_PATH = "/api/users";
+    const ROLES_PATH = "/api/roles";
 
     useEffect(() => {
         fetchUsers();
@@ -23,7 +23,7 @@ export default function Users() {
 
     const fetchUsers = async () => {
         try {
-            const res = await axios.get(API_URL, {
+            const res = await api.get(API_PATH, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setUsers(res.data);
@@ -34,7 +34,7 @@ export default function Users() {
 
     const fetchRoles = async () => {
         try {
-            const res = await axios.get(ROLES_URL, {
+            const res = await api.get(ROLES_PATH, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setRolesList(res.data);
@@ -73,7 +73,7 @@ export default function Users() {
     const handleDelete = async (userId) => {
         if (!window.confirm("Are you sure you want to delete this user?")) return;
         try {
-            await axios.delete(`${API_URL}/${userId}`, {
+            await api.delete(`${API_PATH}/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success("User deleted successfully");
@@ -110,12 +110,12 @@ export default function Users() {
             }
 
             if (editMode) {
-                await axios.put(`${API_URL}/${editId}`, payload, {
+                await api.put(`${API_PATH}/${editId}`, payload, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success("User updated successfully");
             } else {
-                await axios.post(API_URL, payload, {
+                await api.post(API_PATH, payload, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success("User created successfully");
