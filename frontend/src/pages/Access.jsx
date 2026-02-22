@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Form, Button, Card, Row, Col, Spinner } from "react-bootstrap";
 
@@ -14,7 +14,7 @@ export default function Access() {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    const API_URL = "http://localhost:5000/api/roles";
+    const API_PATH = "/api/roles";
 
     useEffect(() => {
         fetchRolesAndPermissions();
@@ -24,8 +24,8 @@ export default function Access() {
         try {
             setLoading(true);
             const [rolesRes, permsRes] = await Promise.all([
-                axios.get(API_URL, { headers: { Authorization: `Bearer ${token}` } }),
-                axios.get(`${API_URL}/permissions/all`, { headers: { Authorization: `Bearer ${token}` } })
+                api.get(API_PATH, { headers: { Authorization: `Bearer ${token}` } }),
+                api.get(`${API_PATH}/permissions/all`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
             setRoles(rolesRes.data);
             setPermissions(permsRes.data);
@@ -46,7 +46,7 @@ export default function Access() {
         }
 
         try {
-            const res = await axios.get(`${API_URL}/${roleId}/permissions`, {
+            const res = await api.get(`${API_PATH}/${roleId}/permissions`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setRolePermissions(res.data);
@@ -69,8 +69,8 @@ export default function Access() {
 
         try {
             setSaving(true);
-            await axios.post(
-                `${API_URL}/${selectedRoleId}/permissions`,
+            await api.post(
+                `${API_PATH}/${selectedRoleId}/permissions`,
                 { permissions: rolePermissions },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

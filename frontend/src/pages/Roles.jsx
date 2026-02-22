@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
+import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
 
@@ -11,7 +11,7 @@ export default function Roles() {
     const [editMode, setEditMode] = useState(false);
     const [editId, setEditId] = useState(null);
     const { token } = useAuth();
-    const API_URL = "http://localhost:5000/api/roles";
+    const API_PATH = "/api/roles";
 
     useEffect(() => {
         fetchRoles();
@@ -19,7 +19,7 @@ export default function Roles() {
 
     const fetchRoles = async () => {
         try {
-            const res = await axios.get(API_URL, {
+            const res = await api.get(API_PATH, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setRoles(res.data);
@@ -45,7 +45,7 @@ export default function Roles() {
     const handleDelete = async (roleId) => {
         if (!window.confirm("Are you sure you want to delete this role?")) return;
         try {
-            await axios.delete(`${API_URL}/${roleId}`, {
+            await api.delete(`${API_PATH}/${roleId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success("Role deleted successfully");
@@ -61,12 +61,12 @@ export default function Roles() {
 
         try {
             if (editMode) {
-                await axios.put(`${API_URL}/${editId}`, { name }, {
+                await api.put(`${API_PATH}/${editId}`, { name }, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success("Role updated successfully");
             } else {
-                await axios.post(API_URL, { name }, {
+                await api.post(API_PATH, { name }, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success("Role created successfully");
