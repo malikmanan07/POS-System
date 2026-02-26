@@ -25,7 +25,7 @@ export default function Access() {
             setLoading(true);
             const [rolesRes, permsRes] = await Promise.all([
                 api.get(API_PATH, { headers: { Authorization: `Bearer ${token}` } }),
-                api.get(`${API_PATH}/permissions/all`, { headers: { Authorization: `Bearer ${token}` } })
+                api.get(`${API_PATH}/permissions`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
             setRoles(rolesRes.data);
             setPermissions(permsRes.data);
@@ -69,7 +69,7 @@ export default function Access() {
 
         try {
             setSaving(true);
-            await api.post(
+            await api.put(
                 `${API_PATH}/${selectedRoleId}/permissions`,
                 { permissions: rolePermissions },
                 { headers: { Authorization: `Bearer ${token}` } }
