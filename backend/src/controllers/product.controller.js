@@ -1,15 +1,31 @@
 const pool = require("../config/db");
+const { eq, desc, sql } = require("drizzle-orm");
+const { products, categories, stockMovements, saleItems } = require("../db/schema");
+
+const db = pool.db;
 
 // GET /api/products
 exports.getAll = async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT p.*, c.name as category_name 
-      FROM products p 
-      LEFT JOIN categories c ON p.category_id = c.id 
-      ORDER BY p.id DESC
-    `);
-    res.json(result.rows);
+    const result = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: products.sku,
+        category_id: products.categoryId,
+        category_name: categories.name,
+        cost_price: products.costPrice,
+        price: products.price,
+        stock: products.stock,
+        alert_quantity: products.alertQuantity,
+        is_active: products.isActive,
+        createdAt: products.createdAt,
+      })
+      .from(products)
+      .leftJoin(categories, eq(products.categoryId, categories.id))
+      .orderBy(desc(products.id));
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -22,31 +38,29 @@ exports.create = async (req, res) => {
 
     if (!name) return res.status(400).json({ error: "Name is required" });
 
-    const result = await pool.query(
-      `INSERT INTO products (name, sku, category_id, cost_price, price, stock, is_active, alert_quantity)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [
+    const [product] = await db.insert(products)
+      .values({
         name,
-        sku || null,
-        category_id || null,
-        cost_price ?? 0,
-        price ?? 0,
-        stock ?? 0,
-        is_active ?? true,
-        alert_quantity ?? 5
-      ]
-    );
-
-    const product = result.rows[0];
+        sku: sku || null,
+        categoryId: category_id || null,
+        costPrice: String(cost_price ?? 0),
+        price: String(price ?? 0),
+        stock: stock ?? 0,
+        isActive: is_active ?? true,
+        alertQuantity: alert_quantity ?? 5,
+      })
+      .returning();
 
     // Record initial stock movement
     if (product.stock > 0) {
-      await pool.query(
-        `INSERT INTO stock_movements (product_id, type, qty, reference, note)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [product.id, 'increase', product.stock, 'Initial Stock', 'Product created with opening balance']
-      );
+      await db.insert(stockMovements)
+        .values({
+          productId: product.id,
+          type: 'increase',
+          qty: product.stock,
+          reference: 'Initial Stock',
+          note: 'Product created with opening balance',
+        });
     }
 
     res.status(201).json(product);
@@ -61,28 +75,24 @@ exports.update = async (req, res) => {
     const { id } = req.params;
     const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
 
-    const result = await pool.query(
-      `UPDATE products
-       SET name=$1, sku=$2, category_id=$3, cost_price=$4, price=$5, stock=$6, is_active=$7, alert_quantity=$8
-       WHERE id=$9
-       RETURNING *`,
-      [
+    const [updatedProduct] = await db.update(products)
+      .set({
         name,
-        sku || null,
-        category_id || null,
-        cost_price ?? 0,
-        price ?? 0,
-        stock ?? 0,
-        is_active ?? true,
-        alert_quantity ?? 5,
-        id
-      ]
-    );
+        sku: sku || null,
+        categoryId: category_id || null,
+        costPrice: String(cost_price ?? 0),
+        price: String(price ?? 0),
+        stock: stock ?? 0,
+        isActive: is_active ?? true,
+        alertQuantity: alert_quantity ?? 5,
+      })
+      .where(eq(products.id, parseInt(id)))
+      .returning();
 
-    if (result.rowCount === 0)
+    if (!updatedProduct)
       return res.status(404).json({ error: "Product not found" });
 
-    res.json(result.rows[0]);
+    res.json(updatedProduct);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -92,16 +102,23 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
+    const productId = parseInt(id);
 
-    // Optional: Check if product is used in sales
-    const saleCheck = await pool.query("SELECT id FROM sale_items WHERE product_id = $1 LIMIT 1", [id]);
-    if (saleCheck.rowCount > 0) {
+    // Check if product is used in sales
+    const existingSales = await db.select({ id: saleItems.id })
+      .from(saleItems)
+      .where(eq(saleItems.productId, productId))
+      .limit(1);
+
+    if (existingSales.length > 0) {
       return res.status(400).json({ error: "Cannot delete product that has sales history" });
     }
 
-    const result = await pool.query("DELETE FROM products WHERE id=$1", [id]);
+    const [deletedProduct] = await db.delete(products)
+      .where(eq(products.id, productId))
+      .returning();
 
-    if (result.rowCount === 0)
+    if (!deletedProduct)
       return res.status(404).json({ error: "Product not found" });
 
     res.json({ message: "Deleted successfully" });

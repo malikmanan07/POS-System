@@ -1,99 +1,89 @@
 const pool = require("../config/db");
+const { sql, eq, and, gte, lte, desc } = require("drizzle-orm");
+const { products, sales, customers, saleItems } = require("../db/schema");
+
+const db = pool.db;
 
 exports.getStats = async (req, res) => {
   try {
-    // 1. Total & Low Stock Products
-    const products = await pool.query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE stock <= 10) as low_stock
-      FROM products
-    `);
-
-    // 2. Today's Sales
-    //     const todaySales = await pool.query(`
-    //   SELECT COALESCE(SUM(total), 0) as revenue
-    //   FROM sales
-    //   WHERE created_at >= CURRENT_DATE
-    // `);
-    // 2. Today's Sales (cashier => only their sales)
     const isCashier = req.user?.roles?.some(r => r.toLowerCase() === "cashier");
+    const userId = req.user?.id;
 
-    const todaySales = isCashier
-      ? await pool.query(
-        `
-      SELECT COALESCE(SUM(total), 0) as revenue
-      FROM sales
-      WHERE created_at >= CURRENT_DATE
-        AND user_id = $1
-      `,
-        [req.user.id]
-      )
-      : await pool.query(
-        `
-      SELECT COALESCE(SUM(total), 0) as revenue
-      FROM sales
-      WHERE created_at >= CURRENT_DATE
-      `
-      );
+    // 1. Total & Low Stock Products (Global)
+    const [productStats] = await db.select({
+      total: sql`count(*)::int`,
+      low_stock: sql`count(*) FILTER (WHERE ${products.stock} <= 10)::int`
+    }).from(products);
+
+    // 2. Today's Revenue
+    const todayRevenueQuery = db.select({
+      revenue: sql`COALESCE(SUM(${sales.total}), 0)`
+    })
+      .from(sales)
+      .where(gte(sales.createdAt, sql`CURRENT_DATE`));
+
+    if (isCashier) {
+      todayRevenueQuery.where(and(gte(sales.createdAt, sql`CURRENT_DATE`), eq(sales.userId, userId)));
+    }
+    const [todayRevenue] = await todayRevenueQuery;
 
     // 3. Total Customers
-    const customers = await pool.query("SELECT COUNT(*) as total FROM customers");
+    const [customerStats] = await db.select({ total: sql`count(*)::int` }).from(customers);
 
     // 4. Revenue Chart (Last 7 Days)
     const revenueChart = isCashier
-      ? await pool.query(`
-      SELECT 
-        TO_CHAR(d, 'Mon') || ' ' || TO_CHAR(d, 'DD') as name,
-        COALESCE(SUM(s.total), 0) as revenue
-      FROM (
-        SELECT CURRENT_DATE - i as d
-        FROM generate_series(0, 6) i
-      ) dates
-      LEFT JOIN sales s ON DATE(s.created_at) = dates.d AND s.user_id = $1
-      GROUP BY d
-      ORDER BY d ASC
-    `, [req.user.id])
-      : await pool.query(`
-      SELECT 
-        TO_CHAR(d, 'Mon') || ' ' || TO_CHAR(d, 'DD') as name,
-        COALESCE(SUM(s.total), 0) as revenue
-      FROM (
-        SELECT CURRENT_DATE - i as d
-        FROM generate_series(0, 6) i
-      ) dates
-      LEFT JOIN sales s ON DATE(s.created_at) = dates.d
-      GROUP BY d
-      ORDER BY d ASC
-    `);
+      ? await db.execute(sql`
+          SELECT 
+            TO_CHAR(d, 'Mon') || ' ' || TO_CHAR(d, 'DD') as name,
+            COALESCE(SUM(s.total), 0) as revenue
+          FROM (
+            SELECT CURRENT_DATE - i as d
+            FROM generate_series(0, 6) i
+          ) dates
+          LEFT JOIN sales s ON DATE(s.created_at) = dates.d AND s.user_id = ${userId}
+          GROUP BY d
+          ORDER BY d ASC
+        `)
+      : await db.execute(sql`
+          SELECT 
+            TO_CHAR(d, 'Mon') || ' ' || TO_CHAR(d, 'DD') as name,
+            COALESCE(SUM(s.total), 0) as revenue
+          FROM (
+            SELECT CURRENT_DATE - i as d
+            FROM generate_series(0, 6) i
+          ) dates
+          LEFT JOIN sales s ON DATE(s.created_at) = dates.d
+          GROUP BY d
+          ORDER BY d ASC
+        `);
 
     // 5. Top Products
     const topProducts = isCashier
-      ? await pool.query(`
-      SELECT p.name, SUM(si.qty) as sales
-      FROM sale_items si
-      JOIN products p ON si.product_id = p.id
-      JOIN sales s ON si.sale_id = s.id
-      WHERE s.user_id = $1
-      GROUP BY p.name
-      ORDER BY sales DESC
-      LIMIT 5
-    `, [req.user.id])
-      : await pool.query(`
-      SELECT p.name, SUM(si.qty) as sales
-      FROM sale_items si
-      JOIN products p ON si.product_id = p.id
-      GROUP BY p.name
-      ORDER BY sales DESC
-      LIMIT 5
-    `);
+      ? await db.execute(sql`
+          SELECT p.name, SUM(si.qty) as sales
+          FROM sale_items si
+          JOIN products p ON si.product_id = p.id
+          JOIN sales s ON si.sale_id = s.id
+          WHERE s.user_id = ${userId}
+          GROUP BY p.name
+          ORDER BY sales DESC
+          LIMIT 5
+        `)
+      : await db.execute(sql`
+          SELECT p.name, SUM(si.qty) as sales
+          FROM sale_items si
+          JOIN products p ON si.product_id = p.id
+          GROUP BY p.name
+          ORDER BY sales DESC
+          LIMIT 5
+        `);
 
     res.json({
       kpis: {
-        totalProducts: products.rows[0].total,
-        lowStock: products.rows[0].low_stock,
-        todayRevenue: todaySales.rows[0].revenue,
-        totalCustomers: customers.rows[0].total
+        totalProducts: productStats.total,
+        lowStock: productStats.low_stock,
+        todayRevenue: todayRevenue.revenue,
+        totalCustomers: customerStats.total
       },
       revenueData: revenueChart.rows,
       topProducts: topProducts.rows
