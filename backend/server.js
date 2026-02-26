@@ -11,8 +11,12 @@ const categoryRoutes = require("./src/routes/category.routes");
 const customerRoutes = require("./src/routes/customer.routes");
 const saleRoutes = require("./src/routes/sale.routes");
 const dashboardRoutes = require("./src/routes/dashboard.routes");
+<<<<<<< HEAD
 const settingsRoutes = require("./src/routes/settingsRoutes");
 
+=======
+const stockRoutes = require("./src/routes/stock.routes");
+>>>>>>> Asifwebdev
 
 const app = express();
 
@@ -27,8 +31,12 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/sales", saleRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+<<<<<<< HEAD
 app.use("/api/settings", settingsRoutes);
 
+=======
+app.use("/api/stock", stockRoutes);
+>>>>>>> Asifwebdev
 
 app.get("/db-test", async (req, res) => {
   try {

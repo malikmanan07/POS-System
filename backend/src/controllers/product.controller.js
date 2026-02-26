@@ -18,41 +18,13 @@ exports.getAll = async (req, res) => {
 // POST /api/products
 exports.create = async (req, res) => {
   try {
-    const { name, sku, category_id, cost_price, price, stock, is_active } = req.body;
+    const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
 
     if (!name) return res.status(400).json({ error: "Name is required" });
 
     const result = await pool.query(
-      `INSERT INTO products (name, sku, category_id, cost_price, price, stock, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [
-        name,
-        sku || null,
-        category_id || null,
-        cost_price ?? 0,
-        price ?? 0,
-        stock ?? 0,
-        is_active ?? true
-      ]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// PUT /api/products/:id
-exports.update = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, sku, category_id, cost_price, price, stock, is_active } = req.body;
-
-    const result = await pool.query(
-      `UPDATE products
-       SET name=$1, sku=$2, category_id=$3, cost_price=$4, price=$5, stock=$6, is_active=$7
-       WHERE id=$8
+      `INSERT INTO products (name, sku, category_id, cost_price, price, stock, is_active, alert_quantity)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         name,
@@ -62,6 +34,47 @@ exports.update = async (req, res) => {
         price ?? 0,
         stock ?? 0,
         is_active ?? true,
+        alert_quantity ?? 5
+      ]
+    );
+
+    const product = result.rows[0];
+
+    // Record initial stock movement
+    if (product.stock > 0) {
+      await pool.query(
+        `INSERT INTO stock_movements (product_id, type, qty, reference, note)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [product.id, 'increase', product.stock, 'Initial Stock', 'Product created with opening balance']
+      );
+    }
+
+    res.status(201).json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// PUT /api/products/:id
+exports.update = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
+
+    const result = await pool.query(
+      `UPDATE products
+       SET name=$1, sku=$2, category_id=$3, cost_price=$4, price=$5, stock=$6, is_active=$7, alert_quantity=$8
+       WHERE id=$9
+       RETURNING *`,
+      [
+        name,
+        sku || null,
+        category_id || null,
+        cost_price ?? 0,
+        price ?? 0,
+        stock ?? 0,
+        is_active ?? true,
+        alert_quantity ?? 5,
         id
       ]
     );
