@@ -4,22 +4,22 @@ import { api } from "../api/client";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [permissions, setPermissions] = useState([]);
-  const [token, setToken] = useState(null);
-
-  useEffect(() => {
-    const t = localStorage.getItem("token");
+  // Initialize state directly from localStorage to prevent logout on refresh
+  const [user, setUser] = useState(() => {
     const u = localStorage.getItem("user");
+    return u ? JSON.parse(u) : null;
+  });
+  const [permissions, setPermissions] = useState(() => {
     const p = localStorage.getItem("permissions");
-
-    if (t && u) {
-      setToken(t);
-      setUser(JSON.parse(u));
-      setPermissions(p ? JSON.parse(p) : []);
+    return p ? JSON.parse(p) : [];
+  });
+  const [token, setToken] = useState(() => {
+    const t = localStorage.getItem("token");
+    if (t) {
       api.defaults.headers.common.Authorization = `Bearer ${t}`;
     }
-  }, []);
+    return t;
+  });
 
   const login = async (email, password) => {
     const res = await api.post("/api/auth/login", { email, password });
@@ -44,6 +44,7 @@ export function AuthProvider({ children }) {
     setPermissions([]);
     setToken(null);
     localStorage.clear();
+    delete api.defaults.headers.common.Authorization;
   };
 
   const hasPermission = (perm) => permissions.includes(perm);
