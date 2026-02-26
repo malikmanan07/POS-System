@@ -50,12 +50,8 @@ export default function Sidebar() {
         </>
       )}
 
-      {(hasPermission("manage_inventory") || hasPermission("manage_products")) && (
+      {hasPermission("manage_inventory") && (
         <>
-          {/* <div className="nav-section mt-2 mb-1 text-muted small">
-            INVENTORY
-          </div> */}
-
           <NavLink to="/app/inventory" className="nav-itemx" end>
             <i className="bi bi-boxes"></i> Manage Stock
           </NavLink>

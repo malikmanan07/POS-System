@@ -16,14 +16,3 @@ exports.requireAuth = (req, res, next) => {
     return res.status(401).json({ error: "Invalid/expired token" });
   }
 };
-
-exports.allowRoles = (...roles) => {
-  return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
-    const userRoles = req.user.roles || [];
-    const hasRole = roles.some(role => userRoles.includes(role));
-
-    if (!hasRole) return res.status(403).json({ error: "Forbidden" });
-    next();
-  };
-};

@@ -1,10 +1,16 @@
 const pool = require("../config/db");
+const { eq, asc } = require("drizzle-orm");
+const { customers, sales } = require("../db/schema");
+
+const db = pool.db;
 
 // GET /api/customers
 exports.getAll = async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM customers ORDER BY name ASC");
-        res.json(result.rows);
+        const result = await db.select()
+            .from(customers)
+            .orderBy(asc(customers.name));
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -16,13 +22,16 @@ exports.create = async (req, res) => {
         const { name, phone, email, address } = req.body;
         if (!name) return res.status(400).json({ error: "Name is required" });
 
-        const result = await pool.query(
-            `INSERT INTO customers (name, phone, email, address)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-            [name, phone || null, email || null, address || null]
-        );
-        res.status(201).json(result.rows[0]);
+        const [newCustomer] = await db.insert(customers)
+            .values({
+                name,
+                phone: phone || null,
+                email: email || null,
+                address: address || null,
+            })
+            .returning();
+
+        res.status(201).json(newCustomer);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -34,18 +43,20 @@ exports.update = async (req, res) => {
         const { id } = req.params;
         const { name, phone, email, address } = req.body;
 
-        const result = await pool.query(
-            `UPDATE customers
-       SET name=$1, phone=$2, email=$3, address=$4
-       WHERE id=$5
-       RETURNING *`,
-            [name, phone || null, email || null, address || null, id]
-        );
+        const [updatedCustomer] = await db.update(customers)
+            .set({
+                name,
+                phone: phone || null,
+                email: email || null,
+                address: address || null,
+            })
+            .where(eq(customers.id, parseInt(id)))
+            .returning();
 
-        if (result.rowCount === 0) {
+        if (!updatedCustomer) {
             return res.status(404).json({ error: "Customer not found" });
         }
-        res.json(result.rows[0]);
+        res.json(updatedCustomer);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -58,15 +69,23 @@ exports.remove = async (req, res) => {
             return res.status(403).json({ error: "Access denied" });
         }
         const { id } = req.params;
+        const customerId = parseInt(id);
 
-        // Optional: Check if customer has sales
-        const saleCheck = await pool.query("SELECT id FROM sales WHERE customer_id = $1 LIMIT 1", [id]);
-        if (saleCheck.rowCount > 0) {
+        // Check if customer has sales
+        const existingSales = await db.select({ id: sales.id })
+            .from(sales)
+            .where(eq(sales.customerId, customerId))
+            .limit(1);
+
+        if (existingSales.length > 0) {
             return res.status(400).json({ error: "Cannot delete customer with purchase history" });
         }
 
-        const result = await pool.query("DELETE FROM customers WHERE id = $1", [id]);
-        if (result.rowCount === 0) {
+        const [deletedCustomer] = await db.delete(customers)
+            .where(eq(customers.id, customerId))
+            .returning();
+
+        if (!deletedCustomer) {
             return res.status(404).json({ error: "Customer not found" });
         }
         res.json({ message: "Customer deleted" });
