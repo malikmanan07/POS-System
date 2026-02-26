@@ -9,8 +9,12 @@ export default function Customers() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
-  const { token } = useAuth();
+  const { token, hasPermission, user } = useAuth();
   const API_PATH = "/api/customers";
+  const isCashierLike =
+    typeof hasPermission === "function"
+      ? hasPermission("create_sale") && !hasPermission("view_reports")
+      : user?.roles?.includes("cashier");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -94,8 +98,8 @@ export default function Customers() {
     <div className="p-4 h-100">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="page-title mb-1">Manage Customers</h2>
-          <p className="text-white mb-0">Maintain your customer database</p>
+          <h2 className="page-title mb-1">{isCashierLike ? "Customers" : "Manage Customers"}</h2>
+          <p className="text-white mb-0">{isCashierLike ? "Add & search customers" : "Maintain your customer database"}</p>
         </div>
         <button
           className="btn btn-gradient gap-2 d-flex align-items-center"
@@ -130,12 +134,14 @@ export default function Customers() {
                   >
                     <i className="bi bi-pencil-square text-primary"></i>
                   </button>
-                  <button
-                    className="btn btn-sm btn-outline-light rounded-3 border-0"
-                    onClick={() => handleDelete(c.id)}
-                  >
-                    <i className="bi bi-trash text-danger"></i>
-                  </button>
+                  {!isCashierLike && (
+                    <button
+                      className="btn btn-sm btn-outline-light rounded-3 border-0"
+                      onClick={() => handleDelete(c.id)}
+                    >
+                      <i className="bi bi-trash text-danger"></i>
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

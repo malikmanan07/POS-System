@@ -75,15 +75,48 @@ exports.create = async (req, res) => {
 };
 
 // GET /api/sales
+// exports.getAll = async (req, res) => {
+//     try {
+//         const result = await pool.query(`
+//       SELECT s.*, u.name as user_name, c.name as customer_name
+//       FROM sales s
+//       LEFT JOIN users u ON s.user_id = u.id
+//       LEFT JOIN customers c ON s.customer_id = c.id
+//       ORDER BY s.created_at DESC
+//     `);
+//         res.json(result.rows);
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// };
+// GET /api/sales
 exports.getAll = async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT s.*, u.name as user_name, c.name as customer_name
-      FROM sales s
-      LEFT JOIN users u ON s.user_id = u.id
-      LEFT JOIN customers c ON s.customer_id = c.id
-      ORDER BY s.created_at DESC
-    `);
+        // If cashier => only their sales
+        const isCashier = req.user?.roles?.some(r => r.toLowerCase() === "cashier");
+
+        const result = isCashier
+            ? await pool.query(
+                `
+          SELECT s.*, u.name as user_name, c.name as customer_name
+          FROM sales s
+          LEFT JOIN users u ON s.user_id = u.id
+          LEFT JOIN customers c ON s.customer_id = c.id
+          WHERE s.user_id = $1
+          ORDER BY s.created_at DESC
+          `,
+                [req.user.id]
+            )
+            : await pool.query(
+                `
+          SELECT s.*, u.name as user_name, c.name as customer_name
+          FROM sales s
+          LEFT JOIN users u ON s.user_id = u.id
+          LEFT JOIN customers c ON s.customer_id = c.id
+          ORDER BY s.created_at DESC
+          `
+            );
+
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -94,7 +127,9 @@ exports.getAll = async (req, res) => {
 exports.getById = async (req, res) => {
     try {
         const { id } = req.params;
-
+        if (!req.user) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
         const sale = await pool.query(`
       SELECT s.*, u.name as user_name, c.name as customer_name
       FROM sales s
@@ -105,6 +140,10 @@ exports.getById = async (req, res) => {
 
         if (sale.rowCount === 0) {
             return res.status(404).json({ error: "Sale not found" });
+        }
+
+        if (req.user.roles?.some(r => r.toLowerCase() === "cashier") && sale.rows[0].user_id !== req.user.id) {
+            return res.status(403).json({ error: "Access denied" });
         }
 
         const items = await pool.query(`

@@ -8,7 +8,8 @@ export default function Sales() {
   const [sales, setSales] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
-  const { token } = useAuth();
+  const { token, hasPermission } = useAuth();
+  const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
   const API_PATH = "/api/sales";
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function Sales() {
               <th className="px-4 py-3">CUSTOMER</th>
               <th className="px-4 py-3">TOTAL</th>
               <th className="px-4 py-3 text-center">PAYMENT</th>
-              <th className="px-4 py-3">CASHIER</th>
+              {!isCashierLike && <th className="px-4 py-3">CASHIER</th>}
               <th className="px-4 py-3 text-end">ACTIONS</th>
             </tr>
           </thead>
@@ -76,7 +77,7 @@ export default function Sales() {
                     {s.payment_method.toUpperCase()}
                   </span>
                 </td>
-                <td className="px-4 py-3 align-middle small">{s.user_name}</td>
+                {!isCashierLike && <td className="px-4 py-3 align-middle small">{s.user_name}</td>}
                 <td className="px-4 py-3 text-end align-middle">
                   <button
                     className="btn btn-sm btn-outline-light rounded-3 border-0"

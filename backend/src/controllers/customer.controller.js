@@ -54,6 +54,9 @@ exports.update = async (req, res) => {
 // DELETE /api/customers/:id
 exports.remove = async (req, res) => {
     try {
+        if (req.user?.roles?.some(r => r.toLowerCase() === "cashier")) {
+            return res.status(403).json({ error: "Access denied" });
+        }
         const { id } = req.params;
 
         // Optional: Check if customer has sales
