@@ -18,14 +18,11 @@ import NotFound from "./pages/NotFound";
 import Roles from "./pages/Roles";
 import Users from "./pages/Users";
 import Access from "./pages/Access";
-<<<<<<< HEAD
 import Settings from "./pages/Settings";
 
-=======
 import ManageStock from "./pages/ManageStock";
 import StockHistory from "./pages/StockHistory";
 import LowStock from "./pages/LowStock";
->>>>>>> Asifwebdev
 
 export default function App() {
   return (
@@ -129,13 +126,15 @@ export default function App() {
               }
             />
 
-<<<<<<< HEAD
             <Route
               path="settings"
               element={
                 <PermissionRoute permission="system_settings">
                   <Settings />
-=======
+                </PermissionRoute>
+              }
+            />
+
             {/* ✅ Inventory Routes */}
             <Route
               path="inventory"
@@ -158,13 +157,11 @@ export default function App() {
               element={
                 <PermissionRoute permission="manage_products">
                   <LowStock />
->>>>>>> Asifwebdev
                 </PermissionRoute>
               }
             />
 
             <Route path="*" element={<NotFound />} />
-
           </Route>
 
           {/* fallback */}
