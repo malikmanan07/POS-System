@@ -56,6 +56,13 @@ export default function Sidebar() {
         </NavLink>
       )}
 
+      {hasPermission("system_settings") && (
+        <NavLink to="/app/settings" className="nav-itemx">
+          <i className="bi bi-gear"></i> Settings
+        </NavLink>
+      )}
+
     </div>
+
   );
 }
