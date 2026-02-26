@@ -22,6 +22,8 @@ export default function Access() {
 
     const fetchRolesAndPermissions = async () => {
         try {
+
+            
             setLoading(true);
             const [rolesRes, permsRes] = await Promise.all([
                 api.get(API_PATH, { headers: { Authorization: `Bearer ${token}` } }),
