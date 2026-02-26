@@ -15,11 +15,27 @@ export default function POS() {
   const [paidAmount, setPaidAmount] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastSale, setLastSale] = useState(null);
+  const [settings, setSettings] = useState({
+    business: { currency: "USD" },
+    tax: { taxRate: 0, enableTax: false, taxName: "Tax" }
+  });
 
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await api.get("/api/settings", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSettings(prev => ({ ...prev, ...res.data }));
+    } catch (err) {
+      console.error("Failed to load settings in POS");
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -91,8 +107,15 @@ export default function POS() {
     }).filter(item => item.qty > 0));
   };
 
+  // Settings helpers
+  const currency = settings.business?.currency === 'PKR' ? 'Rs' :
+    settings.business?.currency === 'EUR' ? '€' :
+      settings.business?.currency === 'GBP' ? '£' : '$';
+  const taxRate = settings.tax?.enableTax ? (parseFloat(settings.tax.taxRate) || 0) : 0;
+  const taxName = settings.tax?.taxName || "Tax";
+
   const cartSubtotal = cart.reduce((sum, item) => sum + item.line_total, 0);
-  const tax = cartSubtotal * 0.02; // 5% flat tax for example
+  const tax = cartSubtotal * (taxRate / 100);
   const total = cartSubtotal + tax;
   const change = paidAmount ? parseFloat(paidAmount) - total : 0;
 
@@ -129,6 +152,7 @@ export default function POS() {
     }
   };
 
+
   return (
     <div className="p-3 h-100">
       <Row className="h-100">
@@ -161,7 +185,7 @@ export default function POS() {
                       <div className="fw-bold text-truncate">{p.name}</div>
                       <div className="small text-muted mb-2">{p.category_name || "General"}</div>
                       <div className="mt-auto d-flex justify-content-between align-items-center">
-                        <span className="fw-bold text-primary fs-5">${parseFloat(p.price).toFixed(2)}</span>
+                        <span className="fw-bold text-primary fs-5">{currency}{parseFloat(p.price).toFixed(2)}</span>
                         <span className={`small ${p.stock < 10 ? 'text-danger' : 'text-muted'}`}>Stock: {p.stock}</span>
                       </div>
                     </Card.Body>
@@ -192,14 +216,14 @@ export default function POS() {
                 <div key={item.id} className="d-flex align-items-center gap-2 mb-3 border-bottom border-secondary pb-3">
                   <div className="flex-grow-1">
                     <div className="fw-bold small">{item.name}</div>
-                    <div className="small text-muted">${item.price.toFixed(2)} x {item.qty}</div>
+                    <div className="small text-muted">{currency}{item.price.toFixed(2)} x {item.qty}</div>
                   </div>
                   <div className="d-flex align-items-center gap-2">
                     <button className="btn btn-sm btn-soft p-1" onClick={() => updateQty(item.id, -1)}>-</button>
                     <span className="fw-bold px-1">{item.qty}</span>
                     <button className="btn btn-sm btn-soft p-1" onClick={() => updateQty(item.id, 1)}>+</button>
                   </div>
-                  <div className="fw-bold ms-2">${item.line_total.toFixed(2)}</div>
+                  <div className="fw-bold ms-2">{currency}{item.line_total.toFixed(2)}</div>
                 </div>
               ))}
               {cart.length === 0 && <div className="text-center py-5 text-muted">Order is empty</div>}
@@ -208,16 +232,17 @@ export default function POS() {
             <div className="mt-auto border-top border-secondary pt-3">
               <div className="d-flex justify-content-between mb-1 text-muted small">
                 <span>Subtotal</span>
-                <span>${cartSubtotal.toFixed(2)}</span>
+                <span>{currency}{cartSubtotal.toFixed(2)}</span>
               </div>
               <div className="d-flex justify-content-between mb-3 text-muted small">
-                <span>Tax (2%)</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>{taxName} ({taxRate}%)</span>
+                <span>{currency}{tax.toFixed(2)}</span>
               </div>
               <div className="d-flex justify-content-between mb-4 h4 fw-bold text-white">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>{currency}{total.toFixed(2)}</span>
               </div>
+
 
               <div className="mb-3">
                 <Form.Label className="small text-muted fw-bold">PAYMENT METHOD</Form.Label>
@@ -239,12 +264,13 @@ export default function POS() {
                 <Form.Label className="small text-muted fw-bold">PAID AMOUNT</Form.Label>
                 <Form.Control
                   type="number"
-                  placeholder={`$${total.toFixed(2)}`}
+                  placeholder={`${currency}${total.toFixed(2)}`}
                   value={paidAmount}
                   onChange={e => setPaidAmount(e.target.value)}
                   className="bg-dark text-light border-secondary shadow-none fw-bold text-center fs-4 py-2"
                 />
-                {change > 0 && <div className="text-success text-center mt-2 fw-bold">Change: ${change.toFixed(2)}</div>}
+                {change > 0 && <div className="text-success text-center mt-2 fw-bold">Change: {currency}{change.toFixed(2)}</div>}
+
               </Form.Group>
 
               <button
@@ -275,13 +301,14 @@ export default function POS() {
             {lastSale?.items.map((item, i) => (
               <div key={i} className="d-flex justify-content-between small mb-2">
                 <span>{item.qty}x {item.name}</span>
-                <span>${item.line_total.toFixed(2)}</span>
+                <span>{currency}{item.line_total.toFixed(2)}</span>
               </div>
             ))}
             <div className="d-flex justify-content-between fw-bold mt-3 fs-5">
               <span>TOTAL PAID</span>
-              <span>${parseFloat(lastSale?.total || 0).toFixed(2)}</span>
+              <span>{currency}{parseFloat(lastSale?.total || 0).toFixed(2)}</span>
             </div>
+
           </div>
 
           <Button variant="outline-light" className="w-100 py-2 border-0 btn-soft" onClick={() => setShowReceipt(false)}>
