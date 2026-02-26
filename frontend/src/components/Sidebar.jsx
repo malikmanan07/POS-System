@@ -14,8 +14,25 @@ export default function Sidebar() {
       )}
 
       {hasPermission("manage_products") && (
-        <NavLink to="/app/products" className="nav-itemx">
-          <i className="bi bi-box-seam"></i> Products
+        <>
+          <NavLink to="/app/products" className="nav-itemx">
+            <i className="bi bi-box-seam"></i> Products
+          </NavLink>
+          <NavLink to="/app/categories" className="nav-itemx">
+            <i className="bi bi-tags"></i> Categories
+          </NavLink>
+        </>
+      )}
+
+      {hasPermission("manage_customers") && (
+        <NavLink to="/app/customers" className="nav-itemx">
+          <i className="bi bi-person-badge"></i> Customers
+        </NavLink>
+      )}
+
+      {hasPermission("view_sales") && (
+        <NavLink to="/app/sales" className="nav-itemx">
+          <i className="bi bi-receipt"></i> Sales
         </NavLink>
       )}
 
