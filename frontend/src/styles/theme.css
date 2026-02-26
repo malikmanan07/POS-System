@@ -11,6 +11,19 @@
   --radius: 18px;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text) !important;
+}
+
+.text-muted {
+  color: var(--muted) !important;
+}
+
 html,
 body,
 #root {
@@ -19,6 +32,16 @@ body,
   margin: 0;
   padding: 0;
   overflow-x: hidden !important;
+  color: var(--text);
+}
+
+/* Global text safety */
+p,
+span,
+div,
+td,
+th {
+  color: inherit;
 }
 
 body {
@@ -175,7 +198,11 @@ a {
 
 .table-darkx td {
   border-top: 1px solid rgba(255, 255, 255, .08);
-  color: #f1f5f9;
+  color: #f1f5f9 !important;
+}
+
+.table-hover tbody tr:hover td {
+  color: #ffffff !important;
 }
 
 .badge-soft {
@@ -221,16 +248,22 @@ a {
 
 /* Modal form controls */
 .modal-body .form-control,
-.modal-body .form-select {
+.modal-body .form-select,
+.form-control,
+.form-select {
   color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-.modal-body .form-control::placeholder {
+.modal-body .form-control::placeholder,
+.form-control::placeholder {
   color: rgba(255, 255, 255, 0.4) !important;
 }
 
-.modal-body option {
-  background: #111c36;
+.modal-body option,
+option {
+  background: #0f172a;
   color: #fff;
 }
 
@@ -272,4 +305,38 @@ label {
 .dropdown-menu.glass .dropdown-item.text-danger:focus {
   background-color: rgba(239, 68, 68, 0.1) !important;
   color: #f87171 !important;
+}
+
+/* Auth Toggle Switch */
+.auth-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 5px;
+  margin-bottom: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-toggle-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.auth-toggle-btn.active {
+  background: linear-gradient(135deg, rgba(109, 94, 252, 1), rgba(34, 197, 94, 1));
+  color: white;
+  box-shadow: 0 4px 15px rgba(109, 94, 252, 0.2);
+}
+
+.auth-toggle-btn:hover:not(.active) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
 }

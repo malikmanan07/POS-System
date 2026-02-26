@@ -7,7 +7,7 @@ import ProtectedRoute from "./auth/ProtectedRoute";
 import PageShell from "./components/PageShell";
 import PermissionRoute from "./auth/PermissionRoute";
 
-import Login from "./pages/login";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Categories from "./pages/Categories";
@@ -29,6 +29,7 @@ export default function App() {
 
           {/* Public */}
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Login />} />
 
           {/* Protected Layout */}
           <Route

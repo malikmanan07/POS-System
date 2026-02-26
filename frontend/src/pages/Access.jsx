@@ -118,7 +118,7 @@ export default function Access() {
 
                                 {selectedRoleId && (
                                     <div className="mt-4">
-                                        <p className="text-muted small">
+                                        <p className="text-light small">
                                             Select a role to view or modify its access levels across the system. Ensure you save changes after modifying permissions.
                                         </p>
                                         <Button

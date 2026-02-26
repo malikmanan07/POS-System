@@ -2,8 +2,7 @@ const pool = require("../config/db");
 
 async function initDB() {
   try {
-
-    // 1️⃣ USERS (NO role column now)
+    // 1️⃣ USERS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -101,7 +100,7 @@ async function initDB() {
       );
     `);
 
-    // 🔟 SALE_ITEMS
+    // 10️⃣ SALE_ITEMS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS sale_items (
         id SERIAL PRIMARY KEY,
@@ -113,7 +112,7 @@ async function initDB() {
       );
     `);
 
-    // 1️⃣1️⃣ STOCK_MOVEMENTS
+    // 11️⃣ STOCK_MOVEMENTS
     await pool.query(`
       CREATE TABLE IF NOT EXISTS stock_movements (
         id SERIAL PRIMARY KEY,
@@ -126,9 +125,60 @@ async function initDB() {
       );
     `);
 
-    console.log("✅ RBAC DB schema created successfully.");
+    // 🔟 Seed Roles & Permissions if they don't exist
+    await seedData();
+
+    console.log("✅ DB schema and seed data initialized successfully.");
   } catch (err) {
     console.error("❌ DB init failed:", err.message);
+  }
+}
+
+async function seedData() {
+  const roles = ['super admin', 'admin', 'cashier'];
+  const allPerms = [
+    "view_dashboard",
+    "manage_products",
+    "manage_categories",
+    "manage_customers",
+    "view_sales",
+    "create_sale",
+    "manage_users",
+    "view_reports",
+    "manage_roles",
+    "system_settings"
+  ];
+
+  // 1. Ensure Roles
+  const roleIds = {};
+  for (const role of roles) {
+    const res = await pool.query("INSERT INTO roles (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id", [role]);
+    roleIds[role] = res.rows[0].id;
+  }
+
+  // 2. Ensure Permissions
+  const permIds = {};
+  for (const perm of allPerms) {
+    const res = await pool.query("INSERT INTO permissions (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id", [perm]);
+    permIds[perm] = res.rows[0].id;
+  }
+
+  // 3. Grant Permissions to Super Admin (EVERYTHING)
+  for (const perm of allPerms) {
+    await pool.query("INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [roleIds['super admin'], permIds[perm]]);
+  }
+
+  // 4. Grant Permissions to Admin (Almost everything except super admin only perms)
+  const adminExcluded = ["manage_roles", "system_settings"];
+  const adminPerms = allPerms.filter(p => !adminExcluded.includes(p));
+  for (const perm of adminPerms) {
+    await pool.query("INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [roleIds['admin'], permIds[perm]]);
+  }
+
+  // 5. Grant Permissions to Cashier (Limited)
+  const cashierPerms = ["view_sales", "create_sale"];
+  for (const perm of cashierPerms) {
+    await pool.query("INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [roleIds['cashier'], permIds[perm]]);
   }
 }
 

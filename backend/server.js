@@ -7,6 +7,10 @@ const authRoutes = require("./src/routes/auth.routes");
 const productRoutes = require("./src/routes/product.routes");
 const roleRoutes = require("./src/routes/role.routes");
 const userRoutes = require("./src/routes/user.routes");
+const categoryRoutes = require("./src/routes/category.routes");
+const customerRoutes = require("./src/routes/customer.routes");
+const saleRoutes = require("./src/routes/sale.routes");
+const dashboardRoutes = require("./src/routes/dashboard.routes");
 
 const app = express();
 
@@ -17,6 +21,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/sales", saleRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.get("/db-test", async (req, res) => {
   try {
