@@ -44,6 +44,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard() {
   const { hasPermission, user, token } = useAuth();
   const [loading, setLoading] = useState(true);
+  // Cashier-like user = can create sale but cannot view reports
+  const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
   const [data, setData] = useState({
     kpis: {
       totalProducts: 0,
@@ -84,9 +86,14 @@ export default function Dashboard() {
     <>
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
         <div>
-          <h2 className="page-title text-white">Dashboard</h2>
+          <h2 className="page-title text-white">
+            {isCashierLike ? "Cashier Dashboard" : "Dashboard"}
+          </h2>
           <div style={{ color: "var(--muted)", textTransform: "capitalize" }}>
-            Welcome back, {user?.name} — Here's what's happening today.
+            Welcome back, {user?.name} —{" "}
+            {isCashierLike
+              ? "Ready to start your shift?"
+              : "Here's what's happening today."}
           </div>
         </div>
 
@@ -97,7 +104,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {hasPermission("view_sales") && (
+      {/* {hasPermission("view_sales") && (
         <>
           <Row className="g-3 mb-4">
             <Col md={6} xl={3}>
@@ -115,7 +122,7 @@ export default function Dashboard() {
           </Row>
 
           <Row className="g-3">
-            {/* Revenue Chart */}
+            {/* Revenue Chart }
             <Col lg={8}>
               <Card className="glass shadow-soft border-0 h-100">
                 <Card.Body>
@@ -148,7 +155,7 @@ export default function Dashboard() {
               </Card>
             </Col>
 
-            {/* Top Selling Chart */}
+            {/* Top Selling Chart }
             <Col lg={4}>
               <Card className="glass shadow-soft border-0 h-100">
                 <Card.Body>
@@ -177,15 +184,222 @@ export default function Dashboard() {
             </Col>
           </Row>
         </>
-      )}
+      )} */}
 
-      {!hasPermission("view_sales") && (
+      {/* {!hasPermission("view_sales") && (
         <div className="text-center py-5 mt-5">
           <div className="brand-badge mx-auto mb-3" style={{ width: 60, height: 60, fontSize: "24px" }}>
             <i className="bi bi-shop"></i>
           </div>
           <h4 className="text-white">Ready for another great shift!</h4>
           <p className="text-muted mb-4">You're logged in as an active team member. Select an action from the menu to get started.</p>
+        </div>
+      )} */}
+
+      {hasPermission("view_sales") && (
+        <>
+          <Row className="g-3 mb-4">
+            {/* Products - ONLY if manage_products */}
+            {hasPermission("manage_products") && (
+              <Col md={6} xl={3}>
+                <KPI
+                  title="Products"
+                  value={data.kpis.totalProducts}
+                  icon="bi-box-seam"
+                  hint="Total registered items"
+                />
+              </Col>
+            )}
+
+            {/* Sales Today - still for anyone who can view sales */}
+            <Col md={6} xl={3}>
+              <KPI
+                title="Sales Today"
+                value={`$${parseFloat(data.kpis.todayRevenue).toFixed(2)}`}
+                icon="bi-graph-up-arrow"
+                hint="Real-time revenue"
+              />
+            </Col>
+
+
+            {/* Low Stock - ONLY if manage_products */}
+            {hasPermission("manage_products") && (
+              <Col md={6} xl={3}>
+                <KPI
+                  title="Low Stock"
+                  value={data.kpis.lowStock}
+                  icon="bi-exclamation-triangle"
+                  hint="SKUs needing refill"
+                />
+              </Col>
+            )}
+
+            {/* Customers - ONLY if manage_customers */}
+            {hasPermission("manage_customers") && (
+              <Col md={6} xl={3}>
+                <KPI
+                  title="Customers"
+                  value={data.kpis.totalCustomers}
+                  icon="bi-people"
+                  hint={
+                    isCashierLike
+                      ? "Add & search customers"
+                      : "Total registered"
+                  }
+                />
+              </Col>
+            )}
+
+          </Row>
+
+          {/* Charts - ONLY if view_reports */}
+          {hasPermission("view_reports") && (
+            <Row className="g-3">
+              {/* Revenue Chart */}
+              <Col lg={8}>
+                <Card className="glass shadow-soft border-0 h-100">
+                  <Card.Body>
+                    <div className="d-flex align-items-center justify-content-between mb-4">
+                      <div>
+                        <h6 className="fw-bold text-white mb-0">Revenue Overview</h6>
+                        <small className="text-muted">Sales performance last 7 days</small>
+                      </div>
+                      <Badge className="badge-soft">
+                        <i
+                          className="bi bi-circle-fill text-success me-2"
+                          style={{ fontSize: "8px" }}
+                        ></i>
+                        Live Data
+                      </Badge>
+                    </div>
+
+                    <div style={{ width: "100%", height: 300 }}>
+                      <ResponsiveContainer>
+                        <AreaChart
+                          data={data.revenueData}
+                          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                        >
+                          <defs>
+                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
+                            stroke="rgba(255,255,255,0.05)"
+                          />
+                          <XAxis
+                            dataKey="name"
+                            stroke="rgba(255,255,255,0.5)"
+                            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="rgba(255,255,255,0.5)"
+                            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(value) => `$${value}`}
+                          />
+                          <Tooltip
+                            content={<CustomTooltip />}
+                            cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="revenue"
+                            stroke="#22c55e"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#colorRevenue)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              {/* Top Selling Chart */}
+              <Col lg={4}>
+                <Card className="glass shadow-soft border-0 h-100">
+                  <Card.Body>
+                    <div className="mb-4">
+                      <h6 className="fw-bold text-white mb-0">Top Products</h6>
+                      <small className="text-muted">By total volume sold</small>
+                    </div>
+
+                    <div style={{ width: "100%", height: 300 }}>
+                      <ResponsiveContainer>
+                        <BarChart
+                          data={data.topProducts}
+                          margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
+                            stroke="rgba(255,255,255,0.05)"
+                          />
+                          <XAxis
+                            dataKey="name"
+                            stroke="rgba(255,255,255,0.5)"
+                            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }}
+                            tickLine={false}
+                            axisLine={false}
+                            interval={0}
+                            angle={-30}
+                            textAnchor="end"
+                            height={60}
+                          />
+                          <YAxis
+                            stroke="rgba(255,255,255,0.5)"
+                            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <Tooltip
+                            cursor={{ fill: "rgba(255,255,255,0.05)" }}
+                            contentStyle={{
+                              backgroundColor: "rgba(15, 23, 42, 0.9)",
+                              border: "none",
+                              borderRadius: "8px",
+                              color: "#fff",
+                            }}
+                          />
+                          <Bar dataKey="sales" radius={[4, 4, 0, 0]}>
+                            {data.topProducts.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={index === 0 ? "#22c55e" : "#6d5efc"}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+          )}
+        </>
+      )}
+
+      {!hasPermission("view_sales") && (
+        <div className="text-center py-5 mt-5">
+          <div
+            className="brand-badge mx-auto mb-3"
+            style={{ width: 60, height: 60, fontSize: "24px" }}
+          >
+            <i className="bi bi-shop"></i>
+          </div>
+          <h4 className="text-white">Ready for another great shift!</h4>
+          <p className="text-muted mb-4">
+            You're logged in as an active team member. Select an action from the menu to get started.
+          </p>
         </div>
       )}
     </>
