@@ -6,15 +6,19 @@ import { Modal, Button, Form } from "react-bootstrap";
 
 export default function Users() {
     const [users, setUsers] = useState([]);
-    const [rolesList, setRolesList] = useState([]);
+    const [roles, setRoles] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [editId, setEditId] = useState(null);
-    const [form, setForm] = useState({ name: "", email: "", password: "", roleId: "" });
-
     const { token } = useAuth();
     const API_PATH = "/api/users";
-    const ROLES_PATH = "/api/roles";
+
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        password: "",
+        role_ids: [] // Store as array to match backend expectations
+    });
 
     useEffect(() => {
         fetchUsers();
@@ -34,10 +38,10 @@ export default function Users() {
 
     const fetchRoles = async () => {
         try {
-            const res = await api.get(ROLES_PATH, {
+            const res = await api.get("/api/roles", {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setRolesList(res.data);
+            setRoles(res.data);
         } catch (err) {
             toast.error("Failed to load roles");
         }
@@ -46,82 +50,66 @@ export default function Users() {
     const handleOpenAdd = () => {
         setEditMode(false);
         setEditId(null);
-        setForm({ name: "", email: "", password: "", roleId: "" });
+        setFormData({ name: "", email: "", password: "", role_ids: [] });
         setShowModal(true);
     };
 
     const handleOpenEdit = (user) => {
         setEditMode(true);
         setEditId(user.id);
-
-        let roleIdToSet = "";
-        if (user.roles && user.roles.length > 0) {
-            const primaryRoleName = user.roles[0];
-            const matchingRoleObj = rolesList.find(r => r.name.toLowerCase() === primaryRoleName.toLowerCase());
-            if (matchingRoleObj) roleIdToSet = matchingRoleObj.id;
-        }
-
-        setForm({
+        setFormData({
             name: user.name,
             email: user.email,
             password: "",
-            roleId: roleIdToSet
+            role_ids: user.roles ? user.roles.map(r => r.id) : []
         });
         setShowModal(true);
     };
 
-    const handleDelete = async (userId) => {
+    const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this user?")) return;
         try {
-            await api.delete(`${API_PATH}/${userId}`, {
+            await api.delete(`${API_PATH}/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success("User deleted successfully");
             fetchUsers();
         } catch (err) {
-            toast.error("Failed to delete user");
+            toast.error(err.response?.data?.error || "Error deleting user");
         }
+    };
+
+    const handleRoleChange = (e) => {
+        const value = e.target.value;
+        // Convert to array of a single ID if a value is selected, otherwise empty array
+        setFormData({
+            ...formData,
+            role_ids: value ? [Number(value)] : []
+        });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (editMode && (!form.name || !form.email || !form.roleId)) {
-            return toast.error("Name, email and role are required");
-        }
-
-        if (!editMode && (!form.name || !form.email || !form.password || !form.roleId)) {
-            return toast.error("All fields including role are required");
-        }
+        if (!formData.name || !formData.email) return toast.error("Name and Email are required");
+        if (!editMode && !formData.password) return toast.error("Password is required for new users");
+        if (formData.role_ids.length === 0) return toast.error("Please select a role for the user");
 
         try {
-            const payload = {
-                name: form.name,
-                email: form.email,
-                roleId: parseInt(form.roleId)
-            };
-
-            // For creating or if password is provided during update
-            if (form.password) {
-                payload.password = form.password;
-            }
-            if (!editMode) {
-                payload.roles = [parseInt(form.roleId)];
-            }
-
             if (editMode) {
-                await api.put(`${API_PATH}/${editId}`, payload, {
+                const updateData = { ...formData };
+                if (!updateData.password) delete updateData.password;
+
+                await api.put(`${API_PATH}/${editId}`, updateData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success("User updated successfully");
             } else {
-                await api.post(API_PATH, payload, {
+                await api.post(API_PATH, formData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 toast.success("User created successfully");
             }
 
-            setForm({ name: "", email: "", password: "", roleId: "" });
             setShowModal(false);
             fetchUsers();
         } catch (err) {
@@ -134,13 +122,13 @@ export default function Users() {
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h2 className="page-title mb-1">Manage Users</h2>
-                    <p className="text-white mb-0">System access and accounts</p>
+                    <p className="text-white mb-0">Staff and administrator accounts</p>
                 </div>
                 <button
                     className="btn btn-gradient gap-2 d-flex align-items-center"
                     onClick={handleOpenAdd}
                 >
-                    <i className="bi bi-person-plus-fill"></i> Add User
+                    <i className="bi bi-person-plus"></i> Add User
                 </button>
             </div>
 
@@ -148,29 +136,23 @@ export default function Users() {
                 <table className="table table-borderless table-hover mb-0">
                     <thead>
                         <tr>
-                            <th className="px-4 py-3">ID</th>
                             <th className="px-4 py-3">NAME</th>
                             <th className="px-4 py-3">EMAIL</th>
-                            <th className="px-4 py-3">ROLE(S)</th>
+                            <th className="px-4 py-3">ROLES</th>
                             <th className="px-4 py-3 text-end">ACTIONS</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.map(u => (
                             <tr key={u.id}>
-                                <td className="px-4 py-3 align-middle">#{u.id}</td>
-                                <td className="px-4 py-3 fw-bold align-middle">{u.name}</td>
-                                <td className="px-4 py-3 text-white align-middle">{u.email}</td>
+                                <td className="px-4 py-3 align-middle fw-bold text-white">{u.name}</td>
+                                <td className="px-4 py-3 align-middle text-white">{u.email}</td>
                                 <td className="px-4 py-3 align-middle">
-                                    {u.roles && u.roles.length > 0 ? (
-                                        u.roles.map((r, i) => (
-                                            <span key={i} className="badge-soft me-2" style={{ textTransform: "capitalize" }}>
-                                                {r}
-                                            </span>
-                                        ))
-                                    ) : (
-                                        <span className="text-muted small">No Role</span>
-                                    )}
+                                    {u.roles && u.roles.length > 0 ? u.roles.map(r => (
+                                        <span key={r.id} className="badge-soft me-1" style={{ fontSize: '10px', textTransform: 'capitalize' }}>
+                                            {r.name}
+                                        </span>
+                                    )) : <span className="text-muted small">No roles</span>}
                                 </td>
                                 <td className="px-4 py-3 text-end align-middle">
                                     <button
@@ -188,69 +170,59 @@ export default function Users() {
                                 </td>
                             </tr>
                         ))}
-                        {users.length === 0 && (
-                            <tr>
-                                <td colSpan="5" className="text-center py-4 text-muted">No users found</td>
-                            </tr>
-                        )}
                     </tbody>
                 </table>
             </div>
 
-            <Modal
-                show={showModal}
-                onHide={() => setShowModal(false)}
-                centered
-                contentClassName="glass border-0"
-            >
+            <Modal show={showModal} onHide={() => setShowModal(false)} centered contentClassName="glass border-0">
                 <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">
-                    <Modal.Title className="fw-bold">{editMode ? "Edit User" : "Create New User"}</Modal.Title>
+                    <Modal.Title className="fw-bold">{editMode ? "Edit User" : "Add New User"}</Modal.Title>
                 </Modal.Header>
                 <Form onSubmit={handleSubmit}>
-                    <Modal.Body>
+                    <Modal.Body className="p-4">
                         <Form.Group className="mb-3">
                             <Form.Label className="text-muted small fw-bold">FULL NAME</Form.Label>
                             <Form.Control
                                 type="text"
-                                placeholder="e.g., John Doe"
-                                value={form.name}
-                                onChange={e => setForm({ ...form, name: e.target.value })}
+                                placeholder="Enter staff name"
+                                value={formData.name}
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 className="bg-dark text-light border-secondary shadow-none"
+                                required
                             />
                         </Form.Group>
-
                         <Form.Group className="mb-3">
                             <Form.Label className="text-muted small fw-bold">EMAIL ADDRESS</Form.Label>
                             <Form.Control
                                 type="email"
-                                placeholder="name@company.com"
-                                value={form.email}
-                                onChange={e => setForm({ ...form, email: e.target.value })}
+                                placeholder="staff@example.com"
+                                value={formData.email}
+                                onChange={e => setFormData({ ...formData, email: e.target.value })}
                                 className="bg-dark text-light border-secondary shadow-none"
+                                required
                             />
                         </Form.Group>
-
                         <Form.Group className="mb-3">
-                            <Form.Label className="text-muted small fw-bold">PASSWORD {editMode && <span className="text-warning fw-normal ms-1">(Leave blank to keep current)</span>}</Form.Label>
+                            <Form.Label className="text-muted small fw-bold">PASSWORD {editMode && "(leave blank to keep current)"}</Form.Label>
                             <Form.Control
                                 type="password"
-                                placeholder={editMode ? "Enter new password..." : "Enter password"}
-                                value={form.password}
-                                onChange={e => setForm({ ...form, password: e.target.value })}
+                                placeholder="Minimum 6 characters"
+                                value={formData.password}
+                                onChange={e => setFormData({ ...formData, password: e.target.value })}
                                 className="bg-dark text-light border-secondary shadow-none"
                             />
                         </Form.Group>
-
                         <Form.Group className="mb-3">
-                            <Form.Label className="text-muted small fw-bold">ASSIGN ROLE</Form.Label>
+                            <Form.Label className="text-muted small fw-bold">USER ROLE</Form.Label>
                             <Form.Select
-                                value={form.roleId}
-                                onChange={e => setForm({ ...form, roleId: e.target.value })}
                                 className="bg-dark text-light border-secondary shadow-none"
+                                value={formData.role_ids[0] || ""}
+                                onChange={handleRoleChange}
+                                required
                             >
                                 <option value="">-- Select Role --</option>
-                                {rolesList.map(r => (
-                                    <option key={r.id} value={r.id} style={{ textTransform: "capitalize" }}>
+                                {roles.map(r => (
+                                    <option key={r.id} value={r.id} style={{ textTransform: 'capitalize' }}>
                                         {r.name}
                                     </option>
                                 ))}
