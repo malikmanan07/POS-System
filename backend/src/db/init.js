@@ -156,7 +156,8 @@ async function seedData() {
     "manage_users",
     "view_reports",
     "manage_roles",
-    "system_settings"
+    "system_settings",
+    "manage_inventory"
   ];
 
   // 1. Ensure Roles
