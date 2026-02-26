@@ -18,6 +18,8 @@ import NotFound from "./pages/NotFound";
 import Roles from "./pages/Roles";
 import Users from "./pages/Users";
 import Access from "./pages/Access";
+import Settings from "./pages/Settings";
+
 
 export default function App() {
   return (
@@ -121,7 +123,17 @@ export default function App() {
               }
             />
 
+            <Route
+              path="settings"
+              element={
+                <PermissionRoute permission="system_settings">
+                  <Settings />
+                </PermissionRoute>
+              }
+            />
+
             <Route path="*" element={<NotFound />} />
+
           </Route>
 
           {/* fallback */}

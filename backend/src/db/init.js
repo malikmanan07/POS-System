@@ -125,6 +125,16 @@ async function initDB() {
       );
     `);
 
+    // 12️⃣ SETTINGS
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key VARCHAR(50) PRIMARY KEY,
+        value JSONB NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+
     // 🔟 Seed Roles & Permissions if they don't exist
     await seedData();
 
@@ -180,6 +190,19 @@ async function seedData() {
   for (const perm of cashierPerms) {
     await pool.query("INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [roleIds['cashier'], permIds[perm]]);
   }
+
+  // 6. Default Settings
+  const defaultSettings = [
+    { key: 'business', value: { storeName: 'My POS System', address: '', phone: '', email: '', currency: 'USD' } },
+    { key: 'tax', value: { taxName: 'GST', taxRate: 0, enableTax: false } },
+    { key: 'invoice', value: { prefix: 'INV-', suffix: '', footerNote: 'Thank you!' } },
+    { key: 'payment', value: { acceptedMethods: ['Cash'], defaultMethod: 'Cash', enableChangeCalculation: true } }
+  ];
+
+  for (const s of defaultSettings) {
+    await pool.query("INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING", [s.key, s.value]);
+  }
+
 }
 
 module.exports = initDB;
