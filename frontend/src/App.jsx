@@ -18,6 +18,9 @@ import NotFound from "./pages/NotFound";
 import Roles from "./pages/Roles";
 import Users from "./pages/Users";
 import Access from "./pages/Access";
+import ManageStock from "./pages/ManageStock";
+import StockHistory from "./pages/StockHistory";
+import LowStock from "./pages/LowStock";
 
 export default function App() {
   return (
@@ -117,6 +120,32 @@ export default function App() {
               element={
                 <PermissionRoute permission="create_sale">
                   <POS />
+                </PermissionRoute>
+              }
+            />
+
+            {/* ✅ Inventory Routes */}
+            <Route
+              path="inventory"
+              element={
+                <PermissionRoute permission="manage_products">
+                  <ManageStock />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="inventory/history"
+              element={
+                <PermissionRoute permission="manage_products">
+                  <StockHistory />
+                </PermissionRoute>
+              }
+            />
+            <Route
+              path="inventory/low-stock"
+              element={
+                <PermissionRoute permission="manage_products">
+                  <LowStock />
                 </PermissionRoute>
               }
             />

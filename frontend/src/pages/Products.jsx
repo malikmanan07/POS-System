@@ -20,7 +20,8 @@ export default function Products() {
     cost_price: 0,
     price: 0,
     stock: 0,
-    is_active: true
+    is_active: true,
+    alert_quantity: 5
   });
 
   useEffect(() => {
@@ -60,7 +61,8 @@ export default function Products() {
       cost_price: 0,
       price: 0,
       stock: 0,
-      is_active: true
+      is_active: true,
+      alert_quantity: 5
     });
     setShowModal(true);
   };
@@ -75,7 +77,8 @@ export default function Products() {
       cost_price: p.cost_price,
       price: p.price,
       stock: p.stock,
-      is_active: p.is_active
+      is_active: p.is_active,
+      alert_quantity: p.alert_quantity || 5
     });
     setShowModal(true);
   };
@@ -162,7 +165,7 @@ export default function Products() {
                 </td>
                 <td className="px-4 py-3 align-middle">${parseFloat(p.price).toFixed(2)}</td>
                 <td className="px-4 py-3 align-middle">
-                  <span className={`fw-bold ${p.stock <= 5 ? 'text-danger' : ''}`}>
+                  <span className={`fw-bold ${p.stock <= (p.alert_quantity || 5) ? 'text-danger' : ''}`}>
                     {p.stock}
                   </span>
                 </td>
@@ -305,6 +308,22 @@ export default function Products() {
                     onChange={e => setFormData({ ...formData, stock: e.target.value })}
                     className="bg-dark text-light border-secondary shadow-none"
                   />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-muted small fw-bold text-warning">ALERT QUANTITY</Form.Label>
+                  <Form.Control
+                    type="number"
+                    value={formData.alert_quantity}
+                    onChange={e => setFormData({ ...formData, alert_quantity: e.target.value })}
+                    className="bg-dark text-warning border-warning shadow-none"
+                    placeholder="Alert at e.g., 5"
+                  />
+                  <Form.Text className="text-muted small">Show alert when stock hits this level.</Form.Text>
                 </Form.Group>
               </Col>
             </Row>
