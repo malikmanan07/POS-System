@@ -76,9 +76,7 @@ export default function Login() {
             </Button>
           </Form>
 
-          <div className="mt-4 text-center">
-            <small className="text-muted">Default admin: admin@pos.com / admin123</small>
-          </div>
+
         </Card.Body>
       </Card>
     </div>
