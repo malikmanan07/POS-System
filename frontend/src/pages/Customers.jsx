@@ -2,19 +2,25 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Modal, Button, Form, Table, Badge } from "react-bootstrap";
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
   const { token, hasPermission, user } = useAuth();
   const API_PATH = "/api/customers";
+
   const isCashierLike =
     typeof hasPermission === "function"
       ? hasPermission("create_sale") && !hasPermission("view_reports")
-      : user?.roles?.includes("cashier");
+      : user?.roles?.some(r => r.toLowerCase() === "cashier");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -38,11 +44,82 @@ export default function Customers() {
     }
   };
 
-  const handleOpenAdd = () => {
-    setEditMode(false);
-    setEditId(null);
-    setFormData({ name: "", phone: "", email: "", address: "" });
-    setShowModal(true);
+  const fetchHistory = async (customer) => {
+    setSelectedCustomer(customer);
+    setShowHistoryModal(true);
+    setIsLoadingHistory(true);
+    try {
+      const res = await api.get(`${API_PATH}/${customer.id}/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setHistory(res.data);
+    } catch (err) {
+      toast.error("Failed to load history");
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handlePrintHistory = () => {
+    const printWindow = window.open('', '_blank');
+    const content = `
+      <html>
+        <head>
+          <title>Purchase History - ${selectedCustomer?.name}</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #333; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #f8f9fa; }
+            .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+            .sale-block { margin-bottom: 40px; page-break-inside: avoid; }
+            .sale-header { background: #eee; padding: 10px; font-weight: bold; display: flex; justify-content: space-between; }
+            .text-end { text-align: right; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>Purchase History: ${selectedCustomer?.name}</h2>
+            <p>Phone: ${selectedCustomer?.phone || 'N/A'} | Email: ${selectedCustomer?.email || 'N/A'}</p>
+          </div>
+          ${history.map(sale => `
+            <div class="sale-block">
+              <div class="sale-header">
+                <span>SALE #${sale.id}</span>
+                <span>${new Date(sale.created_at).toLocaleString()}</span>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${sale.items.map(item => `
+                    <tr>
+                      <td>${item.name}</td>
+                      <td>${item.qty}</td>
+                      <td>$${parseFloat(item.price).toFixed(2)}</td>
+                      <td>$${parseFloat(item.line_total).toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+              <div class="text-end" style="margin-top: 10px;">
+                <strong>Grand Total: $${parseFloat(sale.total).toFixed(2)}</strong><br>
+                <small>Paid: $${parseFloat(sale.paid_amount).toFixed(2)} | Change: $${parseFloat(sale.change_amount).toFixed(2)}</small>
+              </div>
+            </div>
+          `).join('')}
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `;
+    printWindow.document.write(content);
+    printWindow.document.close();
   };
 
   const handleOpenEdit = (c) => {
@@ -80,13 +157,7 @@ export default function Customers() {
           headers: { Authorization: `Bearer ${token}` }
         });
         toast.success("Customer updated successfully");
-      } else {
-        await api.post(API_PATH, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        toast.success("Customer created successfully");
       }
-
       setShowModal(false);
       fetchCustomers();
     } catch (err) {
@@ -99,14 +170,8 @@ export default function Customers() {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h2 className="page-title mb-1">{isCashierLike ? "Customers" : "Manage Customers"}</h2>
-          <p className="text-white mb-0">{isCashierLike ? "Add & search customers" : "Maintain your customer database"}</p>
+          <p className="text-white mb-0">{isCashierLike ? "View customer purchase history" : "Maintain your customer database and view history"}</p>
         </div>
-        <button
-          className="btn btn-gradient gap-2 d-flex align-items-center"
-          onClick={handleOpenAdd}
-        >
-          <i className="bi bi-person-plus-fill"></i> Add Customer
-        </button>
       </div>
 
       <div className="table-darkx">
@@ -130,17 +195,28 @@ export default function Customers() {
                 <td className="px-4 py-3 text-end align-middle">
                   <button
                     className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                    onClick={() => handleOpenEdit(c)}
+                    onClick={() => fetchHistory(c)}
+                    title="View History"
                   >
-                    <i className="bi bi-pencil-square text-primary"></i>
+                    <i className="bi bi-eye text-info"></i>
                   </button>
                   {!isCashierLike && (
-                    <button
-                      className="btn btn-sm btn-outline-light rounded-3 border-0"
-                      onClick={() => handleDelete(c.id)}
-                    >
-                      <i className="bi bi-trash text-danger"></i>
-                    </button>
+                    <>
+                      <button
+                        className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
+                        onClick={() => handleOpenEdit(c)}
+                        title="Edit Customer"
+                      >
+                        <i className="bi bi-pencil-square text-primary"></i>
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-light rounded-3 border-0"
+                        onClick={() => handleDelete(c.id)}
+                        title="Delete Customer"
+                      >
+                        <i className="bi bi-trash text-danger"></i>
+                      </button>
+                    </>
                   )}
                 </td>
               </tr>
@@ -154,6 +230,82 @@ export default function Customers() {
         </table>
       </div>
 
+      {/* History Modal */}
+      <Modal show={showHistoryModal} onHide={() => setShowHistoryModal(false)} size="lg" centered contentClassName="glass border-0">
+        <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">
+          <Modal.Title className="fw-bold">Purchase History - {selectedCustomer?.name}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="p-4 overflow-auto" style={{ maxHeight: '70vh' }}>
+          {isLoadingHistory ? (
+            <div className="text-center py-5"><div className="spinner-border text-primary"></div></div>
+          ) : history.length > 0 ? (
+            history.map((sale) => (
+              <div key={sale.id} className="mb-4 bg-dark bg-opacity-25 p-3 rounded-4 border border-secondary border-opacity-25">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <Badge bg="primary" className="mb-1">SALE #{sale.id}</Badge>
+                    <div className="small text-muted">{new Date(sale.created_at).toLocaleString()}</div>
+                  </div>
+                  <div className="text-end">
+                    <div className="fw-bold text-white fs-5">${parseFloat(sale.total).toFixed(2)}</div>
+                    <div className="small text-success">Paid: ${parseFloat(sale.paid_amount).toFixed(2)}</div>
+                    {parseFloat(sale.change_amount) > 0 && (
+                      <div className="small text-info">Change: ${parseFloat(sale.change_amount).toFixed(2)}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="table-responsive">
+                  <Table borderless size="sm" className="text-white mb-0 bg-transparent">
+                    <thead>
+                      <tr className="border-bottom border-secondary border-opacity-25" style={{ background: 'transparent' }}>
+                        <th className="small text-muted py-2 bg-transparent text-uppercase ls-1" style={{ fontSize: '10px' }}>PRODUCT</th>
+                        <th className="small text-muted py-2 text-center bg-transparent text-uppercase ls-1" style={{ fontSize: '10px' }}>QTY</th>
+                        <th className="small text-muted py-2 text-end bg-transparent text-uppercase ls-1" style={{ fontSize: '10px' }}>PRICE</th>
+                        <th className="small text-muted py-2 text-end bg-transparent text-uppercase ls-1" style={{ fontSize: '10px' }}>TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sale.items.map((item, idx) => (
+                        <tr key={idx} className="align-middle border-bottom border-white border-opacity-5">
+                          <td className="py-2 bg-transparent text-white">
+                            <div className="d-flex align-items-center gap-2">
+                              {item.image ? (
+                                <img src={`${api.defaults.baseURL}${item.image}`} alt="" className="rounded shadow-sm" style={{ width: '35px', height: '35px', objectFit: 'cover' }} />
+                              ) : (
+                                <div className="rounded bg-primary bg-opacity-20 text-primary d-flex align-items-center justify-content-center fw-bold" style={{ width: '35px', height: '35px', fontSize: '12px' }}>{item.name.charAt(0)}</div>
+                              )}
+                              <span className="small fw-semibold text-white">{item.name}</span>
+                            </div>
+                          </td>
+                          <td className="py-2 text-center small bg-transparent text-white">{item.qty}</td>
+                          <td className="py-2 text-end small bg-transparent text-white-50">${parseFloat(item.price).toFixed(2)}</td>
+                          <td className="py-2 text-end small fw-bold bg-transparent text-primary">${parseFloat(item.line_total).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-5 text-muted">No purchase history found</div>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="border-top border-secondary">
+          <Button variant="outline-light" onClick={() => setShowHistoryModal(false)} className="border-0 btn-soft">
+            Close
+          </Button>
+          <Button
+            className="btn-gradient border-0 px-4 d-flex align-items-center gap-2"
+            onClick={handlePrintHistory}
+            disabled={history.length === 0}
+          >
+            <i className="bi bi-printer"></i> Print History
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit Modal (Admin Only) */}
       <Modal
         show={showModal}
         onHide={() => setShowModal(false)}
@@ -161,7 +313,7 @@ export default function Customers() {
         contentClassName="glass border-0"
       >
         <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">
-          <Modal.Title className="fw-bold">{editMode ? "Edit Customer" : "Add New Customer"}</Modal.Title>
+          <Modal.Title className="fw-bold">Edit Customer</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleSubmit}>
           <Modal.Body className="p-4">
@@ -213,7 +365,7 @@ export default function Customers() {
               Cancel
             </Button>
             <Button type="submit" className="btn-gradient border-0 px-4">
-              {editMode ? "Save Changes" : "Add Customer"}
+              Save Changes
             </Button>
           </Modal.Footer>
         </Form>
