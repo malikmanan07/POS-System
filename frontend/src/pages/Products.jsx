@@ -82,7 +82,43 @@ export default function Products() {
       const res = await api.get("/api/categories?limit=all", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCategories(res.data);
+      const data = res.data || [];
+
+      const getCategoryInfo = (catId, cats, level = 0) => {
+        const cat = cats.find(c => c.id === catId);
+        if (!cat) return { path: "", level: 0 };
+        if (!cat.parentId) return { path: cat.name, level };
+        const parent = getCategoryInfo(cat.parentId, cats, level + 1);
+        return {
+          path: parent.path ? `${parent.path} > ${cat.name}` : cat.name,
+          level: parent.level
+        };
+      };
+
+      const getLevel = (catId, cats) => {
+        const cat = cats.find(c => c.id === catId);
+        if (!cat || !cat.parentId) return 0;
+        return 1 + getLevel(cat.parentId, cats);
+      };
+
+      // Recursive function to flatten the tree in order: Parent -> Child -> Grandchild
+      const flattenTree = (parentId = null, cats) => {
+        const levelItems = cats
+          .filter(c => c.parentId === parentId)
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        let flat = [];
+        levelItems.forEach(item => {
+          const level = getLevel(item.id, cats);
+          flat.push({ ...item, level });
+          const children = flattenTree(item.id, cats);
+          flat = [...flat, ...children];
+        });
+        return flat;
+      };
+
+      const processed = flattenTree(null, data);
+      setCategories(processed);
     } catch (err) {
       toast.error("Failed to load categories");
     }

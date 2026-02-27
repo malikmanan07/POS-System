@@ -69,6 +69,7 @@ const userRoles = pgTable(
 const categories = pgTable("categories", {
     id: serial("id").primaryKey(),
     name: varchar("name", { length: 100 }).unique().notNull(),
+    parentId: integer("parent_id").references(() => categories.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -187,8 +188,16 @@ const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
     }),
 }));
 
-const categoriesRelations = relations(categories, ({ many }) => ({
+const categoriesRelations = relations(categories, ({ one, many }) => ({
     products: many(products),
+    parent: one(categories, {
+        fields: [categories.parentId],
+        references: [categories.id],
+        relationName: "categoryChildren",
+    }),
+    subCategories: many(categories, {
+        relationName: "categoryChildren",
+    }),
 }));
 
 const productsRelations = relations(products, ({ one, many }) => ({

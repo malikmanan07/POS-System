@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
 import ConfirmDialog from "../components/ConfirmDialog";
+import PaginationControl from "../components/PaginationControl";
 
 export default function Roles() {
     const [roles, setRoles] = useState([]);
@@ -14,6 +15,7 @@ export default function Roles() {
     const { token } = useAuth();
     const API_PATH = "/api/roles";
     const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
+    const [pagination, setPagination] = useState({ page: 1, limit: 10 });
 
     useEffect(() => {
         fetchRoles();
@@ -25,10 +27,18 @@ export default function Roles() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setRoles(res.data);
+            setPagination(prev => ({ ...prev, page: 1 }));
         } catch (err) {
             toast.error("Failed to load roles");
         }
     };
+
+    const paginatedRoles = useMemo(() => {
+        const start = (pagination.page - 1) * pagination.limit;
+        return roles.slice(start, start + pagination.limit);
+    }, [roles, pagination.page, pagination.limit]);
+
+    const totalPages = Math.ceil(roles.length / pagination.limit);
 
     const handleOpenAdd = () => {
         setEditMode(false);
@@ -106,15 +116,17 @@ export default function Roles() {
                 <table className="table table-borderless table-hover mb-0">
                     <thead>
                         <tr>
-                            <th className="px-4 py-3">ID</th>
+                            <th className="px-4 py-3">S.NO</th>
                             <th className="px-4 py-3">NAME</th>
                             <th className="px-4 py-3 text-end">ACTIONS</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {roles.map(r => (
+                        {paginatedRoles.map((r, index) => (
                             <tr key={r.id}>
-                                <td className="px-4 py-3 align-middle">#{r.id}</td>
+                                <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${r.id}`}>
+                                    {(pagination.page - 1) * pagination.limit + index + 1}
+                                </td>
                                 <td className="px-4 py-3 align-middle">
                                     <span className="badge-soft" style={{ textTransform: "capitalize" }}>
                                         {r.name}
@@ -144,6 +156,15 @@ export default function Roles() {
                     </tbody>
                 </table>
             </div>
+
+            <PaginationControl
+                pagination={{
+                    ...pagination,
+                    total: roles.length,
+                    pages: totalPages
+                }}
+                setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+            />
 
             <Modal
                 show={showModal}
