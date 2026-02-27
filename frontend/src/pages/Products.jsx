@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Form, Row, Col } from "react-bootstrap";
+import { Modal, Button, Form, Row, Col, Pagination } from "react-bootstrap";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -10,6 +10,7 @@ export default function Products() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const { token } = useAuth();
   const API_PATH = "/api/products";
 
@@ -25,16 +26,17 @@ export default function Products() {
   });
 
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(pagination.page);
     fetchCategories();
-  }, []);
+  }, [pagination.page]);
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (page = 1) => {
     try {
-      const res = await api.get(API_PATH, {
+      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setProducts(res.data);
+      setProducts(res.data.data);
+      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages }));
     } catch (err) {
       toast.error("Failed to load products");
     }
@@ -42,7 +44,7 @@ export default function Products() {
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get("/api/categories", {
+      const res = await api.get("/api/categories?limit=all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCategories(res.data);
@@ -90,7 +92,7 @@ export default function Products() {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Product deleted successfully");
-      fetchProducts();
+      fetchProducts(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting product");
     }
@@ -119,7 +121,7 @@ export default function Products() {
       }
 
       setShowModal(false);
-      fetchProducts();
+      fetchProducts(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving product");
     }
@@ -199,6 +201,33 @@ export default function Products() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center mt-4">
+        <div className="text-muted small">
+          Showing {products.length} of {pagination.total} products
+        </div>
+        <div className="d-flex gap-2">
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page <= 1}
+            onClick={() => setPagination(p => ({ ...p, page: Math.max(p.page - 1, 1) }))}
+          >
+            <i className="bi bi-chevron-left"></i> Previous
+          </Button>
+          <div className="badge-soft px-3 py-1 d-flex align-items-center">
+            Page {pagination.page} of {pagination.pages}
+          </div>
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page >= pagination.pages}
+            onClick={() => setPagination(p => ({ ...p, page: Math.min(p.page + 1, pagination.pages) }))}
+          >
+            Next <i className="bi bi-chevron-right"></i>
+          </Button>
+        </div>
       </div>
 
       <Modal

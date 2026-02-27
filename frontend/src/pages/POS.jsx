@@ -39,7 +39,7 @@ export default function POS() {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get("/api/products", {
+      const res = await api.get("/api/products?limit=all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(res.data.filter(p => p.is_active));

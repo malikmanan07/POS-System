@@ -7,7 +7,11 @@ const db = pool.db;
 // GET /api/products
 exports.getAll = async (req, res) => {
   try {
-    const result = await db
+    const page = parseInt(req.query.page) || 1;
+    const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
+    const offset = limit ? (page - 1) * limit : null;
+
+    let query = db
       .select({
         id: products.id,
         name: products.name,
@@ -25,7 +29,29 @@ exports.getAll = async (req, res) => {
       .leftJoin(categories, eq(products.categoryId, categories.id))
       .orderBy(desc(products.id));
 
-    res.json(result);
+    if (limit) {
+      query = query.limit(limit).offset(offset);
+    }
+
+    const result = await query;
+
+    // Get total count
+    const [countResult] = await db.select({ count: sql`count(*)::int` }).from(products);
+    const total = countResult.count;
+
+    if (limit) {
+      res.json({
+        data: result,
+        pagination: {
+          total,
+          totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          limit
+        }
+      });
+    } else {
+      res.json(result);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

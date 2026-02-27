@@ -7,8 +7,35 @@ const db = pool.db;
 // GET /api/categories
 exports.getAll = async (req, res) => {
   try {
-    const result = await db.select().from(categories).orderBy(asc(categories.name));
-    res.json(result);
+    const page = parseInt(req.query.page) || 1;
+    const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
+    const offset = limit ? (page - 1) * limit : null;
+
+    let query = db.select().from(categories).orderBy(asc(categories.name));
+
+    if (limit) {
+      query = query.limit(limit).offset(offset);
+    }
+
+    const result = await query;
+
+    // Get total count
+    const [countResult] = await db.select({ count: sql`count(*)::int` }).from(categories);
+    const total = countResult.count;
+
+    if (limit) {
+      res.json({
+        data: result,
+        pagination: {
+          total,
+          totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          limit
+        }
+      });
+    } else {
+      res.json(result);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

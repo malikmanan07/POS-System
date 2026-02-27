@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Table, Badge } from "react-bootstrap";
+import { Modal, Button, Table, Badge, Pagination } from "react-bootstrap";
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
@@ -118,12 +118,13 @@ export default function Sales() {
         <div className="text-muted small">
           Showing {sales.length} of {pagination.total} sales
         </div>
+
         <div className="d-flex gap-2">
           <Button
             variant="soft"
             size="sm"
             disabled={pagination.page <= 1}
-            onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
+            onClick={() => setPagination(p => ({ ...p, page: Math.max(p.page - 1, 1) }))}
           >
             <i className="bi bi-chevron-left"></i> Previous
           </Button>
@@ -134,7 +135,7 @@ export default function Sales() {
             variant="soft"
             size="sm"
             disabled={pagination.page >= pagination.pages}
-            onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
+            onClick={() => setPagination(p => ({ ...p, page: Math.min(p.page + 1, pagination.pages) }))}
           >
             Next <i className="bi bi-chevron-right"></i>
           </Button>
