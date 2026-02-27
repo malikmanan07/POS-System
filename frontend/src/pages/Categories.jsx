@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Form } from "react-bootstrap";
+// No react-bootstrap imports needed here
+
+import CategoryFormModal from "../components/CategoryFormModal";
+import PaginationControl from "../components/PaginationControl";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
@@ -10,19 +14,22 @@ export default function Categories() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
   const { token } = useAuth();
   const API_PATH = "/api/categories";
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    fetchCategories(pagination.page);
+  }, [pagination.page]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (page = 1) => {
     try {
-      const res = await api.get(API_PATH, {
+      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCategories(res.data);
+      setCategories(res.data.data);
+      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages || res.data.pagination.pages || 1 }));
     } catch (err) {
       toast.error("Failed to load categories");
     }
@@ -42,14 +49,19 @@ export default function Categories() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
+  const askDelete = (c) => {
+    setConfirmDialog({ show: true, id: c.id, name: c.name });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    const id = confirmDialog.id;
+    setConfirmDialog({ show: false, id: null, name: "" });
     try {
       await api.delete(`${API_PATH}/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Category deleted successfully");
-      fetchCategories();
+      fetchCategories(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting category");
     }
@@ -74,7 +86,7 @@ export default function Categories() {
 
       setName("");
       setShowModal(false);
-      fetchCategories();
+      fetchCategories(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving category");
     }
@@ -122,7 +134,7 @@ export default function Categories() {
                   </button>
                   <button
                     className="btn btn-sm btn-outline-light rounded-3 border-0"
-                    onClick={() => handleDelete(c.id)}
+                    onClick={() => askDelete(c)}
                   >
                     <i className="bi bi-trash text-danger"></i>
                   </button>
@@ -138,39 +150,28 @@ export default function Categories() {
         </table>
       </div>
 
-      <Modal
+      <PaginationControl
+        pagination={pagination}
+        setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+      />
+
+      <CategoryFormModal
         show={showModal}
         onHide={() => setShowModal(false)}
-        centered
-        contentClassName="glass border-0"
-      >
-        <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">
-          <Modal.Title className="fw-bold">{editMode ? "Edit Category" : "Create New Category"}</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body>
-            <Form.Group className="mb-3">
-              <Form.Label className="text-muted small fw-bold">CATEGORY NAME</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="e.g., Electronics, Food, Drinks"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoFocus
-                className="bg-dark text-light border-secondary shadow-none"
-              />
-            </Form.Group>
-          </Modal.Body>
-          <Modal.Footer className="border-top border-secondary">
-            <Button variant="outline-secondary" onClick={() => setShowModal(false)} className="border-0">
-              Cancel
-            </Button>
-            <Button type="submit" className="btn-gradient border-0 px-4">
-              {editMode ? "Save Changes" : "Add Category"}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+        handleSubmit={handleSubmit}
+        name={name}
+        setName={setName}
+        editMode={editMode}
+      />
+      <ConfirmDialog
+        show={confirmDialog.show}
+        title="Delete Category"
+        message={`Are you sure you want to delete "${confirmDialog.name}"? This cannot be undone.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setConfirmDialog({ show: false, id: null, name: "" })}
+      />
     </div>
   );
 }

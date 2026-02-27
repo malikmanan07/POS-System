@@ -12,7 +12,7 @@ exports.getStats = async (req, res) => {
     // 1. Total & Low Stock Products (Global)
     const [productStats] = await db.select({
       total: sql`count(*)::int`,
-      low_stock: sql`count(*) FILTER (WHERE ${products.stock} <= 10)::int`
+      low_stock: sql`count(*) FILTER (WHERE ${products.stock} <= ${products.alertQuantity})::int`
     }).from(products);
 
     // 2. Today's Revenue
