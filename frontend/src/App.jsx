@@ -34,7 +34,6 @@ export default function App() {
 
           {/* Public */}
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Login />} />
 
           {/* Protected Layout */}
           <Route
@@ -139,7 +138,7 @@ export default function App() {
             <Route
               path="inventory"
               element={
-                <PermissionRoute permission="manage_products">
+                <PermissionRoute permission="manage_inventory">
                   <ManageStock />
                 </PermissionRoute>
               }
@@ -147,7 +146,7 @@ export default function App() {
             <Route
               path="inventory/history"
               element={
-                <PermissionRoute permission="manage_products">
+                <PermissionRoute permission="manage_inventory">
                   <StockHistory />
                 </PermissionRoute>
               }
@@ -155,7 +154,7 @@ export default function App() {
             <Route
               path="inventory/low-stock"
               element={
-                <PermissionRoute permission="manage_products">
+                <PermissionRoute permission="manage_inventory">
                   <LowStock />
                 </PermissionRoute>
               }
@@ -171,6 +170,6 @@ export default function App() {
         <ToastContainer position="top-right" autoClose={2000} />
       </BrowserRouter>
     </AuthProvider>
-    
+
   );
 }

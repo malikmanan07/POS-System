@@ -1,15 +1,26 @@
 const pool = require("../config/db");
+const { eq, sql, asc, desc } = require("drizzle-orm");
+const { products, categories, stockMovements } = require("../db/schema");
+
+const db = pool.db;
 
 // GET /api/stock
 exports.getStockStatus = async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT p.id, p.name, p.sku, p.stock, p.price, p.alert_quantity, c.name as category_name
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      ORDER BY p.stock ASC
-    `);
-        res.json(result.rows);
+        const result = await db.select({
+            id: products.id,
+            name: products.name,
+            sku: products.sku,
+            stock: products.stock,
+            price: products.price,
+            alert_quantity: products.alertQuantity,
+            category_name: categories.name
+        })
+            .from(products)
+            .leftJoin(categories, eq(products.categoryId, categories.id))
+            .orderBy(asc(products.stock));
+
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -17,7 +28,6 @@ exports.getStockStatus = async (req, res) => {
 
 // POST /api/stock/adjust
 exports.adjustStock = async (req, res) => {
-    const client = await pool.connect();
     try {
         const { product_id, type, qty, note, reference } = req.body;
 
@@ -25,59 +35,89 @@ exports.adjustStock = async (req, res) => {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
-        await client.query("BEGIN");
+        const result = await db.transaction(async (tx) => {
+            // 1. Get current stock
+            const [prod] = await tx.select({ stock: products.stock })
+                .from(products)
+                .where(eq(products.id, product_id))
+                .limit(1);
 
-        // 1. Get current stock
-        const prodRes = await client.query("SELECT stock FROM products WHERE id = $1", [product_id]);
-        if (prodRes.rowCount === 0) {
-            throw new Error("Product not found");
-        }
-        const currentStock = prodRes.rows[0].stock;
-        let newStock = currentStock;
-        let movementQty = parseInt(qty);
+            if (!prod) {
+                throw new Error("Product not found");
+            }
 
-        if (type === "increase" || type === "return") {
-            newStock += movementQty;
-        } else if (type === "decrease" || type === "damaged") {
-            newStock -= movementQty;
-        } else if (type === "adjustment") {
-            newStock = movementQty;
-            movementQty = newStock - currentStock; // Calculate the delta for history
-        } else {
-            throw new Error("Invalid adjustment type");
-        }
+            const currentStock = prod.stock;
+            let newStock = currentStock;
+            let movementQty = parseInt(qty);
 
-        // 2. Update product stock
-        await client.query("UPDATE products SET stock = $1 WHERE id = $2", [newStock, product_id]);
+            if (type === "increase" || type === "return") {
+                newStock += movementQty;
+            } else if (type === "decrease" || type === "damaged") {
+                newStock -= movementQty;
+            } else if (type === "adjustment") {
+                newStock = movementQty;
+                movementQty = newStock - currentStock; // Calculate the delta for history
+            } else {
+                throw new Error("Invalid adjustment type");
+            }
 
-        // 3. Record movement
-        await client.query(
-            `INSERT INTO stock_movements (product_id, type, qty, reference, note)
-       VALUES ($1, $2, $3, $4, $5)`,
-            [product_id, type, movementQty, reference || "Manual Adjustment", note || ""]
-        );
+            // 2. Update product stock
+            await tx.update(products).set({ stock: newStock }).where(eq(products.id, product_id));
 
-        await client.query("COMMIT");
-        res.json({ message: "Stock adjusted successfully", newStock });
+            // 3. Record movement
+            await tx.insert(stockMovements).values({
+                productId: product_id,
+                type,
+                qty: movementQty,
+                reference: reference || "Manual Adjustment",
+                note: note || ""
+            });
+
+            return newStock;
+        });
+
+        res.json({ message: "Stock adjusted successfully", newStock: result });
     } catch (err) {
-        await client.query("ROLLBACK");
         res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
     }
 };
 
 // GET /api/stock/history
 exports.getMovementHistory = async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT sm.*, p.name as product_name, p.sku
-      FROM stock_movements sm
-      JOIN products p ON sm.product_id = p.id
-      ORDER BY sm.created_at DESC
-      LIMIT 100
-    `);
-        res.json(result.rows);
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        const result = await db.select({
+            id: stockMovements.id,
+            productId: stockMovements.productId,
+            type: stockMovements.type,
+            qty: stockMovements.qty,
+            reference: stockMovements.reference,
+            note: stockMovements.note,
+            created_at: stockMovements.createdAt,
+            product_name: products.name,
+            sku: products.sku
+        })
+            .from(stockMovements)
+            .innerJoin(products, eq(stockMovements.productId, products.id))
+            .orderBy(desc(stockMovements.createdAt))
+            .limit(limit)
+            .offset(offset);
+
+        // Get total count for pagination
+        const [totalCount] = await db.select({ count: sql`count(*)::int` }).from(stockMovements);
+
+        res.json({
+            data: result,
+            pagination: {
+                total: totalCount.count,
+                page,
+                limit,
+                pages: Math.ceil(totalCount.count / limit)
+            }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

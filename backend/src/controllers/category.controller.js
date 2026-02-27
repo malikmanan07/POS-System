@@ -1,10 +1,41 @@
 const pool = require("../config/db");
+const { eq, asc, sql } = require("drizzle-orm");
+const { categories, products } = require("../db/schema");
+
+const db = pool.db;
 
 // GET /api/categories
 exports.getAll = async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM categories ORDER BY name ASC");
-    res.json(result.rows);
+    const page = parseInt(req.query.page) || 1;
+    const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
+    const offset = limit ? (page - 1) * limit : null;
+
+    let query = db.select().from(categories).orderBy(asc(categories.name));
+
+    if (limit) {
+      query = query.limit(limit).offset(offset);
+    }
+
+    const result = await query;
+
+    // Get total count
+    const [countResult] = await db.select({ count: sql`count(*)::int` }).from(categories);
+    const total = countResult.count;
+
+    if (limit) {
+      res.json({
+        data: result,
+        pagination: {
+          total,
+          totalPages: Math.ceil(total / limit),
+          currentPage: page,
+          limit
+        }
+      });
+    } else {
+      res.json(result);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -16,11 +47,8 @@ exports.create = async (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
 
-    const result = await pool.query(
-      "INSERT INTO categories (name) VALUES ($1) RETURNING *",
-      [name]
-    );
-    res.status(201).json(result.rows[0]);
+    const [result] = await db.insert(categories).values({ name }).returning();
+    res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -32,15 +60,16 @@ exports.update = async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
 
-    const result = await pool.query(
-      "UPDATE categories SET name = $1 WHERE id = $2 RETURNING *",
-      [name, id]
-    );
+    const [result] = await db
+      .update(categories)
+      .set({ name, updatedAt: new Date() })
+      .where(eq(categories.id, id))
+      .returning();
 
-    if (result.rowCount === 0) {
+    if (!result) {
       return res.status(404).json({ error: "Category not found" });
     }
-    res.json(result.rows[0]);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -50,15 +79,19 @@ exports.update = async (req, res) => {
 exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Optional: Check if products exist in this category before deleting
-    const productCheck = await pool.query("SELECT id FROM products WHERE category_id = $1 LIMIT 1", [id]);
-    if (productCheck.rowCount > 0) {
+
+    // Check if products exist in this category before deleting
+    const [productCount] = await db
+      .select({ count: sql`count(*)::int` })
+      .from(products)
+      .where(eq(products.categoryId, id));
+
+    if (productCount.count > 0) {
       return res.status(400).json({ error: "Cannot delete category with associated products" });
     }
 
-    const result = await pool.query("DELETE FROM categories WHERE id = $1", [id]);
-    if (result.rowCount === 0) {
+    const [result] = await db.delete(categories).where(eq(categories.id, id)).returning();
+    if (!result) {
       return res.status(404).json({ error: "Category not found" });
     }
     res.json({ message: "Category deleted" });

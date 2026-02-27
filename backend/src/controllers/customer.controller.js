@@ -1,10 +1,113 @@
 const pool = require("../config/db");
+const { eq, asc, desc, sql, or, ilike } = require("drizzle-orm");
+const { customers, sales, saleItems, products } = require("../db/schema");
+
+const db = pool.db;
 
 // GET /api/customers
 exports.getAll = async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM customers ORDER BY name ASC");
-        res.json(result.rows);
+        const page = parseInt(req.query.page) || 1;
+        const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
+        const search = req.query.search || "";
+        const offset = limit ? (page - 1) * limit : null;
+
+        let whereClause = undefined;
+        if (search) {
+            whereClause = or(
+                ilike(customers.name, `%${search}%`),
+                ilike(customers.phone, `%${search}%`)
+            );
+        }
+
+        let query = db.select()
+            .from(customers)
+            .where(whereClause)
+            .orderBy(asc(customers.name));
+
+        if (limit) {
+            query = query.limit(limit).offset(offset);
+        }
+
+        const result = await query;
+
+        // Get total count for pagination with search filter
+        let countQuery = db.select({ count: sql`count(*)::int` }).from(customers);
+        if (whereClause) {
+            countQuery = countQuery.where(whereClause);
+        }
+        const [countResult] = await countQuery;
+        const total = countResult.count;
+
+        if (limit) {
+            res.json({
+                data: result,
+                pagination: {
+                    total,
+                    totalPages: Math.ceil(total / limit),
+                    currentPage: page,
+                    limit
+                }
+            });
+        } else {
+            res.json(result);
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// GET /api/customers/:id/history
+exports.getHistory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const customerId = parseInt(id);
+
+        const result = await db.select({
+            id: sales.id,
+            total: sales.total,
+            paid_amount: sales.paidAmount,
+            change_amount: sales.changeAmount,
+            created_at: sales.createdAt,
+            item_qty: saleItems.qty,
+            item_price: saleItems.price,
+            item_line_total: saleItems.lineTotal,
+            product_name: products.name,
+            product_image: products.image,
+        })
+            .from(sales)
+            .innerJoin(saleItems, eq(sales.id, saleItems.saleId))
+            .innerJoin(products, eq(saleItems.productId, products.id))
+            .where(eq(sales.customerId, customerId))
+            .orderBy(desc(sales.createdAt));
+
+        // Group by sale ID
+        const history = result.reduce((acc, curr) => {
+            const sale = acc.find(s => s.id === curr.id);
+            const item = {
+                name: curr.product_name,
+                image: curr.product_image,
+                qty: curr.item_qty,
+                price: curr.item_price,
+                line_total: curr.item_line_total
+            };
+
+            if (sale) {
+                sale.items.push(item);
+            } else {
+                acc.push({
+                    id: curr.id,
+                    total: curr.total,
+                    paid_amount: curr.paid_amount,
+                    change_amount: curr.change_amount,
+                    created_at: curr.created_at,
+                    items: [item]
+                });
+            }
+            return acc;
+        }, []);
+
+        res.json(history);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -16,13 +119,16 @@ exports.create = async (req, res) => {
         const { name, phone, email, address } = req.body;
         if (!name) return res.status(400).json({ error: "Name is required" });
 
-        const result = await pool.query(
-            `INSERT INTO customers (name, phone, email, address)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-            [name, phone || null, email || null, address || null]
-        );
-        res.status(201).json(result.rows[0]);
+        const [newCustomer] = await db.insert(customers)
+            .values({
+                name,
+                phone: phone || null,
+                email: email || null,
+                address: address || null,
+            })
+            .returning();
+
+        res.status(201).json(newCustomer);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -34,18 +140,20 @@ exports.update = async (req, res) => {
         const { id } = req.params;
         const { name, phone, email, address } = req.body;
 
-        const result = await pool.query(
-            `UPDATE customers
-       SET name=$1, phone=$2, email=$3, address=$4
-       WHERE id=$5
-       RETURNING *`,
-            [name, phone || null, email || null, address || null, id]
-        );
+        const [updatedCustomer] = await db.update(customers)
+            .set({
+                name,
+                phone: phone || null,
+                email: email || null,
+                address: address || null,
+            })
+            .where(eq(customers.id, parseInt(id)))
+            .returning();
 
-        if (result.rowCount === 0) {
+        if (!updatedCustomer) {
             return res.status(404).json({ error: "Customer not found" });
         }
-        res.json(result.rows[0]);
+        res.json(updatedCustomer);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -58,15 +166,23 @@ exports.remove = async (req, res) => {
             return res.status(403).json({ error: "Access denied" });
         }
         const { id } = req.params;
+        const customerId = parseInt(id);
 
-        // Optional: Check if customer has sales
-        const saleCheck = await pool.query("SELECT id FROM sales WHERE customer_id = $1 LIMIT 1", [id]);
-        if (saleCheck.rowCount > 0) {
+        // Check if customer has sales
+        const existingSales = await db.select({ id: sales.id })
+            .from(sales)
+            .where(eq(sales.customerId, customerId))
+            .limit(1);
+
+        if (existingSales.length > 0) {
             return res.status(400).json({ error: "Cannot delete customer with purchase history" });
         }
 
-        const result = await pool.query("DELETE FROM customers WHERE id = $1", [id]);
-        if (result.rowCount === 0) {
+        const [deletedCustomer] = await db.delete(customers)
+            .where(eq(customers.id, customerId))
+            .returning();
+
+        if (!deletedCustomer) {
             return res.status(404).json({ error: "Customer not found" });
         }
         res.json({ message: "Customer deleted" });
