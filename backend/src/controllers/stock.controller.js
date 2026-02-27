@@ -106,17 +106,16 @@ exports.getMovementHistory = async (req, res) => {
             .limit(limit)
             .offset(offset);
 
-        // Get total count
-        const [countResult] = await db.select({ count: sql`count(*)::int` }).from(stockMovements);
-        const total = countResult.count;
+        // Get total count for pagination
+        const [totalCount] = await db.select({ count: sql`count(*)::int` }).from(stockMovements);
 
         res.json({
             data: result,
             pagination: {
-                total,
-                totalPages: Math.ceil(total / limit),
-                currentPage: page,
-                limit
+                total: totalCount.count,
+                page,
+                limit,
+                pages: Math.ceil(totalCount.count / limit)
             }
         });
     } catch (err) {
