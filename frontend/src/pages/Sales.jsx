@@ -6,6 +6,8 @@ import { Modal, Button, Table, Badge } from "react-bootstrap";
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const [showModal, setShowModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const { token, hasPermission } = useAuth();
@@ -13,17 +15,21 @@ export default function Sales() {
   const API_PATH = "/api/sales";
 
   useEffect(() => {
-    fetchSales();
-  }, []);
+    fetchSales(pagination.page);
+  }, [pagination.page]);
 
-  const fetchSales = async () => {
+  const fetchSales = async (page = 1) => {
+    setLoading(true);
     try {
-      const res = await api.get(API_PATH, {
+      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setSales(res.data);
+      setSales(res.data.data);
+      setPagination(prev => ({ ...prev, ...res.data.pagination }));
     } catch (err) {
       toast.error("Failed to load sales history");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,7 +56,7 @@ export default function Sales() {
         <table className="table table-borderless table-hover mb-0">
           <thead>
             <tr>
-              <th className="px-4 py-3">ID</th>
+              <th className="px-4 py-3">#</th>
               <th className="px-4 py-3">DATE</th>
               <th className="px-4 py-3">CUSTOMER</th>
               <th className="px-4 py-3">TOTAL</th>
@@ -60,41 +66,79 @@ export default function Sales() {
             </tr>
           </thead>
           <tbody>
-            {sales.map(s => (
-              <tr key={s.id}>
-                <td className="px-4 py-3 align-middle">#{s.id}</td>
-                <td className="px-4 py-3 align-middle small text-muted">
-                  {new Date(s.created_at).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  {s.customer_name || <span className="text-muted italic">Walk-in</span>}
-                </td>
-                <td className="px-4 py-3 align-middle fw-bold">
-                  ${parseFloat(s.total).toFixed(2)}
-                </td>
-                <td className="px-4 py-3 align-middle text-center">
-                  <span className={`badge-soft ${s.payment_method === 'cash' ? 'text-success' : 'text-info'}`}>
-                    {s.payment_method.toUpperCase()}
-                  </span>
-                </td>
-                {!isCashierLike && <td className="px-4 py-3 align-middle small">{s.user_name}</td>}
-                <td className="px-4 py-3 text-end align-middle">
-                  <button
-                    className="btn btn-sm btn-outline-light rounded-3 border-0"
-                    onClick={() => handleViewDetail(s.id)}
-                  >
-                    <i className="bi bi-eye text-primary"></i>
-                  </button>
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
                 </td>
               </tr>
-            ))}
-            {sales.length === 0 && (
+            ) : sales.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center py-4 text-muted">No sales found</td>
               </tr>
+            ) : (
+              sales.map((s, index) => (
+                <tr key={s.id}>
+                  <td className="px-4 py-3 align-middle">
+                    {pagination.total - ((pagination.page - 1) * pagination.limit) - index}
+                  </td>
+                  <td className="px-4 py-3 align-middle small text-muted">
+                    {new Date(s.created_at).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    {s.customer_name || <span className="text-muted italic">Walk-in</span>}
+                  </td>
+                  <td className="px-4 py-3 align-middle fw-bold">
+                    ${parseFloat(s.total).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 align-middle text-center">
+                    <span className={`badge-soft ${s.payment_method === 'cash' ? 'text-success' : 'text-info'}`}>
+                      {s.payment_method.toUpperCase()}
+                    </span>
+                  </td>
+                  {!isCashierLike && <td className="px-4 py-3 align-middle small">{s.user_name}</td>}
+                  <td className="px-4 py-3 text-end align-middle">
+                    <button
+                      className="btn btn-sm btn-outline-light rounded-3 border-0"
+                      onClick={() => handleViewDetail(s.id)}
+                    >
+                      <i className="bi bi-eye text-primary"></i>
+                    </button>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center mt-4">
+        <div className="text-muted small">
+          Showing {sales.length} of {pagination.total} sales
+        </div>
+        <div className="d-flex gap-2">
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page <= 1}
+            onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
+          >
+            <i className="bi bi-chevron-left"></i> Previous
+          </Button>
+          <div className="badge-soft px-3 py-1 d-flex align-items-center">
+            Page {pagination.page} of {pagination.pages}
+          </div>
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page >= pagination.pages}
+            onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
+          >
+            Next <i className="bi bi-chevron-right"></i>
+          </Button>
+        </div>
       </div>
 
       <Modal
