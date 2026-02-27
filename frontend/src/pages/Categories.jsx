@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Modal, Button, Form, Pagination } from "react-bootstrap";
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
@@ -10,19 +10,21 @@ export default function Categories() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const { token } = useAuth();
   const API_PATH = "/api/categories";
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    fetchCategories(pagination.page);
+  }, [pagination.page]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (page = 1) => {
     try {
-      const res = await api.get(API_PATH, {
+      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCategories(res.data);
+      setCategories(res.data.data);
+      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages }));
     } catch (err) {
       toast.error("Failed to load categories");
     }
@@ -49,7 +51,7 @@ export default function Categories() {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Category deleted successfully");
-      fetchCategories();
+      fetchCategories(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting category");
     }
@@ -74,7 +76,7 @@ export default function Categories() {
 
       setName("");
       setShowModal(false);
-      fetchCategories();
+      fetchCategories(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving category");
     }
@@ -136,6 +138,33 @@ export default function Categories() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center mt-4">
+        <div className="text-muted small">
+          Showing {categories.length} of {pagination.total} categories
+        </div>
+        <div className="d-flex gap-2">
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page <= 1}
+            onClick={() => setPagination(p => ({ ...p, page: Math.max(p.page - 1, 1) }))}
+          >
+            <i className="bi bi-chevron-left"></i> Previous
+          </Button>
+          <div className="badge-soft px-3 py-1 d-flex align-items-center">
+            Page {pagination.page} of {pagination.pages}
+          </div>
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page >= pagination.pages}
+            onClick={() => setPagination(p => ({ ...p, page: Math.min(p.page + 1, pagination.pages) }))}
+          >
+            Next <i className="bi bi-chevron-right"></i>
+          </Button>
+        </div>
       </div>
 
       <Modal

@@ -6,21 +6,27 @@ import { Table, Badge } from "react-bootstrap";
 
 export default function StockHistory() {
     const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
     const { token } = useAuth();
     const API_PATH = "/api/stock/history";
 
     useEffect(() => {
-        fetchHistory();
-    }, []);
+        fetchHistory(pagination.page);
+    }, [pagination.page]);
 
-    const fetchHistory = async () => {
+    const fetchHistory = async (page = 1) => {
+        setLoading(true);
         try {
-            const res = await api.get(API_PATH, {
+            const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setHistory(res.data);
+            setHistory(res.data.data);
+            setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages }));
         } catch (err) {
             toast.error("Failed to load history data");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -82,6 +88,33 @@ export default function StockHistory() {
                         )}
                     </tbody>
                 </Table>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mt-4">
+                <div className="text-muted small">
+                    Showing {history.length} of {pagination.total} records
+                </div>
+                <div className="d-flex gap-2">
+                    <Button
+                        variant="soft"
+                        size="sm"
+                        disabled={pagination.page <= 1}
+                        onClick={() => setPagination(p => ({ ...p, page: p.page - 1 }))}
+                    >
+                        <i className="bi bi-chevron-left"></i> Previous
+                    </Button>
+                    <div className="badge-soft px-3 py-1 d-flex align-items-center">
+                        Page {pagination.page} of {pagination.pages}
+                    </div>
+                    <Button
+                        variant="soft"
+                        size="sm"
+                        disabled={pagination.page >= pagination.pages}
+                        onClick={() => setPagination(p => ({ ...p, page: p.page + 1 }))}
+                    >
+                        Next <i className="bi bi-chevron-right"></i>
+                    </Button>
+                </div>
             </div>
         </div>
     );

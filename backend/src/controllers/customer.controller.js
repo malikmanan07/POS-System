@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { eq, asc } = require("drizzle-orm");
+const { eq, asc, sql, or, ilike } = require("drizzle-orm");
 const { customers, sales } = require("../db/schema");
 
 const db = pool.db;
@@ -7,10 +7,43 @@ const db = pool.db;
 // GET /api/customers
 exports.getAll = async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
+        const offset = (page - 1) * limit;
+
+        let whereClause = undefined;
+        if (search) {
+            whereClause = or(
+                ilike(customers.name, `%${search}%`),
+                ilike(customers.phone, `%${search}%`)
+            );
+        }
+
         const result = await db.select()
             .from(customers)
-            .orderBy(asc(customers.name));
-        res.json(result);
+            .where(whereClause)
+            .orderBy(asc(customers.name))
+            .limit(limit)
+            .offset(offset);
+
+        // Get total count for pagination with search filter
+        let countQuery = db.select({ count: sql`count(*)::int` }).from(customers);
+        if (whereClause) {
+            countQuery = countQuery.where(whereClause);
+        }
+        const [countResult] = await countQuery;
+        const total = countResult.count;
+
+        res.json({
+            data: result,
+            pagination: {
+                total,
+                totalPages: Math.ceil(total / limit),
+                currentPage: page,
+                limit
+            }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

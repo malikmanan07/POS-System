@@ -2,13 +2,16 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Form } from "react-bootstrap";
+import { Modal, Button, Form, Pagination } from "react-bootstrap";
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const { token, hasPermission, user } = useAuth();
   const API_PATH = "/api/customers";
   const isCashierLike =
@@ -24,17 +27,30 @@ export default function Customers() {
   });
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    const delayDebounceFn = setTimeout(() => {
+      fetchCustomers(pagination.page, searchTerm);
+    }, 500);
 
-  const fetchCustomers = async () => {
+    return () => clearTimeout(delayDebounceFn);
+  }, [pagination.page, searchTerm]);
+
+  // Reset to page 1 when search term changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [searchTerm]);
+
+  const fetchCustomers = async (page = 1, search = "") => {
+    setLoading(true);
     try {
-      const res = await api.get(API_PATH, {
+      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}&search=${search}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCustomers(res.data);
+      setCustomers(res.data.data);
+      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages }));
     } catch (err) {
       toast.error("Failed to load customers");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -64,7 +80,7 @@ export default function Customers() {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Customer deleted successfully");
-      fetchCustomers();
+      fetchCustomers(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting customer");
     }
@@ -88,7 +104,7 @@ export default function Customers() {
       }
 
       setShowModal(false);
-      fetchCustomers();
+      fetchCustomers(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving customer");
     }
@@ -109,6 +125,17 @@ export default function Customers() {
         </button>
       </div>
 
+      <div className="glass p-3 mb-4 d-flex gap-3 align-items-center">
+        <i className="bi bi-search text-muted h5 mb-0"></i>
+        <Form.Control
+          type="text"
+          placeholder="Search by name or phone number..."
+          className="bg-transparent border-0 text-white shadow-none fs-5"
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       <div className="table-darkx">
         <table className="table table-borderless table-hover mb-0">
           <thead>
@@ -121,37 +148,76 @@ export default function Customers() {
             </tr>
           </thead>
           <tbody>
-            {customers.map(c => (
-              <tr key={c.id}>
-                <td className="px-4 py-3 align-middle fw-bold">{c.name}</td>
-                <td className="px-4 py-3 align-middle">{c.phone || "N/A"}</td>
-                <td className="px-4 py-3 align-middle">{c.email || "N/A"}</td>
-                <td className="px-4 py-3 align-middle text-muted small">{c.address || "N/A"}</td>
-                <td className="px-4 py-3 text-end align-middle">
-                  <button
-                    className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                    onClick={() => handleOpenEdit(c)}
-                  >
-                    <i className="bi bi-pencil-square text-primary"></i>
-                  </button>
-                  {!isCashierLike && (
-                    <button
-                      className="btn btn-sm btn-outline-light rounded-3 border-0"
-                      onClick={() => handleDelete(c.id)}
-                    >
-                      <i className="bi bi-trash text-danger"></i>
-                    </button>
-                  )}
+            {loading ? (
+              <tr>
+                <td colSpan="5" className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
                 </td>
               </tr>
-            ))}
-            {customers.length === 0 && (
-              <tr>
-                <td colSpan="5" className="text-center py-4 text-muted">No customers found</td>
-              </tr>
+            ) : (
+              <>
+                {customers.map(c => (
+                  <tr key={c.id}>
+                    <td className="px-4 py-3 align-middle fw-bold">{c.name}</td>
+                    <td className="px-4 py-3 align-middle">{c.phone || "N/A"}</td>
+                    <td className="px-4 py-3 align-middle">{c.email || "N/A"}</td>
+                    <td className="px-4 py-3 align-middle text-muted small">{c.address || "N/A"}</td>
+                    <td className="px-4 py-3 text-end align-middle">
+                      <button
+                        className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
+                        onClick={() => handleOpenEdit(c)}
+                      >
+                        <i className="bi bi-pencil-square text-primary"></i>
+                      </button>
+                      {!isCashierLike && (
+                        <button
+                          className="btn btn-sm btn-outline-light rounded-3 border-0"
+                          onClick={() => handleDelete(c.id)}
+                        >
+                          <i className="bi bi-trash text-danger"></i>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {customers.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="text-center py-4 text-muted">No customers found</td>
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="d-flex justify-content-between align-items-center mt-4">
+        <div className="text-muted small">
+          Showing {customers.length} of {pagination.total} customers
+        </div>
+        <div className="d-flex gap-2">
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page <= 1}
+            onClick={() => setPagination(p => ({ ...p, page: Math.max(p.page - 1, 1) }))}
+          >
+            <i className="bi bi-chevron-left"></i> Previous
+          </Button>
+          <div className="badge-soft px-3 py-1 d-flex align-items-center">
+            Page {pagination.page} of {pagination.pages}
+          </div>
+          <Button
+            variant="soft"
+            size="sm"
+            disabled={pagination.page >= pagination.pages}
+            onClick={() => setPagination(p => ({ ...p, page: Math.min(p.page + 1, pagination.pages) }))}
+          >
+            Next <i className="bi bi-chevron-right"></i>
+          </Button>
+        </div>
       </div>
 
       <Modal
