@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
 import ConfirmDialog from "../components/ConfirmDialog";
+import PaginationControl from "../components/PaginationControl";
 
 export default function Users() {
     const [users, setUsers] = useState([]);
@@ -14,6 +15,7 @@ export default function Users() {
     const { token } = useAuth();
     const API_PATH = "/api/users";
     const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
+    const [pagination, setPagination] = useState({ page: 1, limit: 10 });
 
     const [formData, setFormData] = useState({
         name: "",
@@ -33,10 +35,18 @@ export default function Users() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setUsers(res.data);
+            setPagination(prev => ({ ...prev, page: 1 }));
         } catch (err) {
             toast.error("Failed to load users");
         }
     };
+
+    const paginatedUsers = useMemo(() => {
+        const start = (pagination.page - 1) * pagination.limit;
+        return users.slice(start, start + pagination.limit);
+    }, [users, pagination.page, pagination.limit]);
+
+    const totalPages = Math.ceil(users.length / pagination.limit);
 
     const fetchRoles = async () => {
         try {
@@ -150,7 +160,7 @@ export default function Users() {
                         </tr>
                     </thead>
                     <tbody>
-                        {users.map(u => (
+                        {paginatedUsers.map(u => (
                             <tr key={u.id}>
                                 <td className="px-4 py-3 align-middle fw-bold text-white">{u.name}</td>
                                 <td className="px-4 py-3 align-middle text-white">{u.email}</td>
@@ -180,6 +190,15 @@ export default function Users() {
                     </tbody>
                 </table>
             </div>
+
+            <PaginationControl
+                pagination={{
+                    ...pagination,
+                    total: users.length,
+                    pages: totalPages
+                }}
+                setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+            />
 
             <Modal show={showModal} onHide={() => setShowModal(false)} centered contentClassName="glass border-0">
                 <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">

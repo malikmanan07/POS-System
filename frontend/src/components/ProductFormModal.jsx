@@ -58,16 +58,71 @@ export default function ProductFormModal({
                         <Col md={6}>
                             <Form.Group className="mb-3">
                                 <Form.Label className="text-muted small fw-bold">CATEGORY</Form.Label>
-                                <Form.Select
-                                    value={formData.category_id}
-                                    onChange={e => setFormData({ ...formData, category_id: e.target.value })}
-                                    className="bg-dark text-light border-secondary shadow-none"
-                                >
-                                    <option value="">Uncategorized</option>
-                                    {categories.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </Form.Select>
+                                {(() => {
+                                    const path = [];
+                                    let currentId = formData.category_id;
+
+                                    const findPath = (id) => {
+                                        const cat = categories.find(c => c.id === parseInt(id));
+                                        if (cat) {
+                                            path.unshift(cat);
+                                            if (cat.parentId) findPath(cat.parentId);
+                                        }
+                                    };
+                                    if (currentId) findPath(currentId);
+
+                                    const renders = [];
+
+                                    const roots = categories.filter(c => !c.parentId);
+                                    renders.push(
+                                        <Form.Select
+                                            key="root"
+                                            value={path[0]?.id || ""}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setFormData({ ...formData, category_id: val || null });
+                                            }}
+                                            className="bg-dark text-light border-secondary shadow-none mb-2"
+                                        >
+                                            <option value="">Select Main Category</option>
+                                            {roots.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </Form.Select>
+                                    );
+
+                                    let lastSelected = path[0];
+                                    let depth = 1;
+
+                                    while (lastSelected) {
+                                        const children = categories.filter(c => c.parentId === lastSelected.id);
+                                        if (children.length === 0) break;
+
+                                        const currentSelectionAtThisLevel = path[depth];
+                                        const parentOfThisLevel = lastSelected;
+
+                                        renders.push(
+                                            <div key={`level-wrap-${depth}`} className="d-flex align-items-center gap-2 mb-2">
+                                                <i className="bi bi-arrow-return-right text-muted ms-2"></i>
+                                                <Form.Select
+                                                    value={currentSelectionAtThisLevel?.id || ""}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        setFormData({ ...formData, category_id: val || parentOfThisLevel.id });
+                                                    }}
+                                                    className="bg-dark text-light border-secondary shadow-none flex-grow-1"
+                                                >
+                                                    <option value="">Select Sub-category</option>
+                                                    {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                </Form.Select>
+                                            </div>
+                                        );
+
+                                        if (!currentSelectionAtThisLevel) break;
+                                        lastSelected = currentSelectionAtThisLevel;
+                                        depth++;
+                                    }
+
+                                    return renders;
+                                })()}
                             </Form.Group>
                         </Col>
                         <Col md={6}>

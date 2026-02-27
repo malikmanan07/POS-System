@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const { eq, asc, sql } = require("drizzle-orm");
+const { alias } = require("drizzle-orm/pg-core");
 const { categories, products } = require("../db/schema");
 
 const db = pool.db;
@@ -11,7 +12,19 @@ exports.getAll = async (req, res) => {
     const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
     const offset = limit ? (page - 1) * limit : null;
 
-    let query = db.select().from(categories).orderBy(asc(categories.name));
+    const parentAlias = alias(categories, "parent");
+
+    let query = db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        parentId: categories.parentId,
+        parentName: parentAlias.name,
+        createdAt: categories.createdAt,
+      })
+      .from(categories)
+      .leftJoin(parentAlias, eq(categories.parentId, parentAlias.id))
+      .orderBy(asc(categories.name));
 
     if (limit) {
       query = query.limit(limit).offset(offset);
@@ -44,10 +57,13 @@ exports.getAll = async (req, res) => {
 // POST /api/categories
 exports.create = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, parentId } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
 
-    const [result] = await db.insert(categories).values({ name }).returning();
+    const [result] = await db.insert(categories).values({
+      name,
+      parentId: parentId ? parseInt(parentId) : null
+    }).returning();
     res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -58,11 +74,20 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, parentId } = req.body;
+
+    // Prevent direct self-parenting
+    if (parentId && parseInt(parentId) === parseInt(id)) {
+      return res.status(400).json({ error: "A category cannot be its own parent" });
+    }
 
     const [result] = await db
       .update(categories)
-      .set({ name, updatedAt: new Date() })
+      .set({
+        name,
+        parentId: parentId ? parseInt(parentId) : null,
+        updatedAt: new Date()
+      })
       .where(eq(categories.id, id))
       .returning();
 
@@ -88,6 +113,16 @@ exports.remove = async (req, res) => {
 
     if (productCount.count > 0) {
       return res.status(400).json({ error: "Cannot delete category with associated products" });
+    }
+
+    // Check if sub-categories exist
+    const [subCatCount] = await db
+      .select({ count: sql`count(*)::int` })
+      .from(categories)
+      .where(eq(categories.parentId, id));
+
+    if (subCatCount.count > 0) {
+      return res.status(400).json({ error: "Cannot delete category that has sub-categories" });
     }
 
     const [result] = await db.delete(categories).where(eq(categories.id, id)).returning();
