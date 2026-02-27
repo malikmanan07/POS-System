@@ -21,8 +21,11 @@ export default function Products() {
     price: 0,
     stock: 0,
     is_active: true,
-    alert_quantity: 5
+    alert_quantity: 5,
+    image: null
   });
+  const [imagePreview, setImagePreview] = useState(null);
+  const [removeImageFlag, setRemoveImageFlag] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -62,8 +65,11 @@ export default function Products() {
       price: 0,
       stock: 0,
       is_active: true,
-      alert_quantity: 5
+      alert_quantity: 5,
+      image: null
     });
+    setImagePreview(null);
+    setRemoveImageFlag(false);
     setShowModal(true);
   };
 
@@ -78,8 +84,11 @@ export default function Products() {
       price: p.price,
       stock: p.stock,
       is_active: p.is_active,
-      alert_quantity: p.alert_quantity || 5
+      alert_quantity: p.alert_quantity || 5,
+      image: null
     });
+    setImagePreview(p.image ? `${api.defaults.baseURL}${p.image}` : null);
+    setRemoveImageFlag(false);
     setShowModal(true);
   };
 
@@ -96,25 +105,51 @@ export default function Products() {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData({ ...formData, image: file });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return toast.error("Product name is required");
 
     try {
-      const data = {
-        ...formData,
-        category_id: formData.category_id === "" ? null : formData.category_id
+      const data = new FormData();
+      data.append("name", formData.name);
+      data.append("sku", formData.sku);
+      data.append("category_id", formData.category_id === "" ? "" : formData.category_id);
+      data.append("cost_price", formData.cost_price);
+      data.append("price", formData.price);
+      data.append("stock", formData.stock);
+      data.append("is_active", formData.is_active);
+      data.append("alert_quantity", formData.alert_quantity);
+
+      if (formData.image) {
+        data.append("image", formData.image);
+      } else if (removeImageFlag) {
+        data.append("remove_image", "true");
+      }
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data"
+        }
       };
 
       if (editMode) {
-        await api.put(`${API_PATH}/${editId}`, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.put(`${API_PATH}/${editId}`, data, config);
         toast.success("Product updated successfully");
       } else {
-        await api.post(API_PATH, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.post(API_PATH, data, config);
         toast.success("Product created successfully");
       }
 
@@ -157,7 +192,25 @@ export default function Products() {
             {products.map(p => (
               <tr key={p.id}>
                 <td className="px-4 py-3 align-middle">
-                  <div className="fw-bold">{p.name}</div>
+                  <div className="d-flex align-items-center gap-3">
+                    <div
+                      className="rounded-3 bg-dark border border-secondary"
+                      style={{ width: '45px', height: '45px', overflow: 'hidden', flexShrink: 0 }}
+                    >
+                      {p.image ? (
+                        <img
+                          src={`${api.defaults.baseURL}${p.image}`}
+                          alt={p.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div className="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                          <i className="bi bi-image" style={{ fontSize: '1.2rem' }}></i>
+                        </div>
+                      )}
+                    </div>
+                    <div className="fw-bold">{p.name}</div>
+                  </div>
                 </td>
                 <td className="px-4 py-3 align-middle text-muted">{p.sku || "N/A"}</td>
                 <td className="px-4 py-3 align-middle">
@@ -313,6 +366,51 @@ export default function Products() {
             </Row>
 
             <Row>
+              <Col md={8}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-muted small fw-bold">PRODUCT IMAGE</Form.Label>
+                  <div className="d-flex gap-3 align-items-start">
+                    <div
+                      className="rounded-3 bg-dark border border-secondary d-flex align-items-center justify-content-center"
+                      style={{ width: '100px', height: '100px', overflow: 'hidden', flexShrink: 0 }}
+                    >
+                      {imagePreview ? (
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <i className="bi bi-image text-muted" style={{ fontSize: '2rem' }}></i>
+                      )}
+                    </div>
+                    <div className="flex-grow-1">
+                      <Form.Control
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="bg-dark text-light border-secondary shadow-none mb-2"
+                      />
+                      <Form.Text className="text-muted small d-block">
+                        Supported forms: JPG, PNG, WEBP. Max size: 5MB.
+                      </Form.Text>
+                      {imagePreview && (
+                        <Button
+                          variant="link"
+                          className="text-danger p-0 mt-1 small text-decoration-none"
+                          onClick={() => {
+                            setImagePreview(null);
+                            setFormData({ ...formData, image: null });
+                            setRemoveImageFlag(true);
+                          }}
+                        >
+                          Remove image
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Form.Group>
+              </Col>
               <Col md={4}>
                 <Form.Group className="mb-3">
                   <Form.Label className="text-muted small fw-bold text-warning">ALERT QUANTITY</Form.Label>

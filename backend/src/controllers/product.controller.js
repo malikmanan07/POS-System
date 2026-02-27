@@ -19,6 +19,7 @@ exports.getAll = async (req, res) => {
         stock: products.stock,
         alert_quantity: products.alertQuantity,
         is_active: products.isActive,
+        image: products.image,
         createdAt: products.createdAt,
       })
       .from(products)
@@ -35,8 +36,8 @@ exports.getAll = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
-
     if (!name) return res.status(400).json({ error: "Name is required" });
+    const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
     const [product] = await db.insert(products)
       .values({
@@ -48,6 +49,7 @@ exports.create = async (req, res) => {
         stock: stock ?? 0,
         isActive: is_active ?? true,
         alertQuantity: alert_quantity ?? 5,
+        image: imagePath,
       })
       .returning();
 
@@ -74,18 +76,25 @@ exports.update = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
+    const updateData = {
+      name,
+      sku: sku || null,
+      categoryId: category_id || null,
+      costPrice: String(cost_price ?? 0),
+      price: String(price ?? 0),
+      stock: stock ?? 0,
+      isActive: is_active ?? true,
+      alertQuantity: alert_quantity ?? 5,
+    };
+
+    if (req.file) {
+      updateData.image = `/uploads/${req.file.filename}`;
+    } else if (req.body.remove_image === "true") {
+      updateData.image = null;
+    }
 
     const [updatedProduct] = await db.update(products)
-      .set({
-        name,
-        sku: sku || null,
-        categoryId: category_id || null,
-        costPrice: String(cost_price ?? 0),
-        price: String(price ?? 0),
-        stock: stock ?? 0,
-        isActive: is_active ?? true,
-        alertQuantity: alert_quantity ?? 5,
-      })
+      .set(updateData)
       .where(eq(products.id, parseInt(id)))
       .returning();
 

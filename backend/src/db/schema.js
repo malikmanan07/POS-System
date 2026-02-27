@@ -95,6 +95,7 @@ const products = pgTable("products", {
     stock: integer("stock").notNull().default(0),
     alertQuantity: integer("alert_quantity").notNull().default(5),
     isActive: boolean("is_active").notNull().default(true),
+    image: text("image"),
     createdAt: timestamp("created_at").defaultNow(),
 });
 
