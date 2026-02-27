@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function Roles() {
     const [roles, setRoles] = useState([]);
@@ -12,6 +13,7 @@ export default function Roles() {
     const [editId, setEditId] = useState(null);
     const { token } = useAuth();
     const API_PATH = "/api/roles";
+    const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
 
     useEffect(() => {
         fetchRoles();
@@ -42,10 +44,15 @@ export default function Roles() {
         setShowModal(true);
     };
 
-    const handleDelete = async (roleId) => {
-        if (!window.confirm("Are you sure you want to delete this role?")) return;
+    const askDelete = (r) => {
+        setConfirmDialog({ show: true, id: r.id, name: r.name });
+    };
+
+    const handleDeleteConfirmed = async () => {
+        const id = confirmDialog.id;
+        setConfirmDialog({ show: false, id: null, name: "" });
         try {
-            await api.delete(`${API_PATH}/${roleId}`, {
+            await api.delete(`${API_PATH}/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success("Role deleted successfully");
@@ -122,7 +129,7 @@ export default function Roles() {
                                     </button>
                                     <button
                                         className="btn btn-sm btn-outline-light rounded-3 border-0"
-                                        onClick={() => handleDelete(r.id)}
+                                        onClick={() => askDelete(r)}
                                     >
                                         <i className="bi bi-trash text-danger"></i>
                                     </button>
@@ -171,6 +178,15 @@ export default function Roles() {
                     </Modal.Footer>
                 </Form>
             </Modal>
+            <ConfirmDialog
+                show={confirmDialog.show}
+                title="Delete Role"
+                message={`Are you sure you want to delete the "${confirmDialog.name}" role? This cannot be undone.`}
+                confirmText="Delete"
+                confirmVariant="danger"
+                onConfirm={handleDeleteConfirmed}
+                onCancel={() => setConfirmDialog({ show: false, id: null, name: "" })}
+            />
         </div>
     );
 }

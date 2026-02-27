@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Form, Row, Col, Pagination } from "react-bootstrap";
+// No react-bootstrap imports needed here
+
+import ProductFormModal from "../components/ProductFormModal";
+import PaginationControl from "../components/PaginationControl";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -11,6 +15,7 @@ export default function Products() {
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
   const { token } = useAuth();
   const API_PATH = "/api/products";
 
@@ -22,8 +27,11 @@ export default function Products() {
     price: 0,
     stock: 0,
     is_active: true,
-    alert_quantity: 5
+    alert_quantity: 5,
+    image: null
   });
+  const [imagePreview, setImagePreview] = useState(null);
+  const [removeImageFlag, setRemoveImageFlag] = useState(false);
 
   useEffect(() => {
     fetchProducts(pagination.page);
@@ -36,7 +44,7 @@ export default function Products() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(res.data.data);
-      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages }));
+      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages || res.data.pagination.pages || 1 }));
     } catch (err) {
       toast.error("Failed to load products");
     }
@@ -64,8 +72,11 @@ export default function Products() {
       price: 0,
       stock: 0,
       is_active: true,
-      alert_quantity: 5
+      alert_quantity: 5,
+      image: null
     });
+    setImagePreview(null);
+    setRemoveImageFlag(false);
     setShowModal(true);
   };
 
@@ -80,13 +91,21 @@ export default function Products() {
       price: p.price,
       stock: p.stock,
       is_active: p.is_active,
-      alert_quantity: p.alert_quantity || 5
+      alert_quantity: p.alert_quantity || 5,
+      image: null
     });
+    setImagePreview(p.image ? `${api.defaults.baseURL}${p.image}` : null);
+    setRemoveImageFlag(false);
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
+  const askDelete = (p) => {
+    setConfirmDialog({ show: true, id: p.id, name: p.name });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    const id = confirmDialog.id;
+    setConfirmDialog({ show: false, id: null, name: "" });
     try {
       await api.delete(`${API_PATH}/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -98,25 +117,51 @@ export default function Products() {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData({ ...formData, image: file });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return toast.error("Product name is required");
 
     try {
-      const data = {
-        ...formData,
-        category_id: formData.category_id === "" ? null : formData.category_id
+      const data = new FormData();
+      data.append("name", formData.name);
+      data.append("sku", formData.sku);
+      data.append("category_id", formData.category_id === "" ? "" : formData.category_id);
+      data.append("cost_price", formData.cost_price);
+      data.append("price", formData.price);
+      data.append("stock", formData.stock);
+      data.append("is_active", formData.is_active);
+      data.append("alert_quantity", formData.alert_quantity);
+
+      if (formData.image) {
+        data.append("image", formData.image);
+      } else if (removeImageFlag) {
+        data.append("remove_image", "true");
+      }
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data"
+        }
       };
 
       if (editMode) {
-        await api.put(`${API_PATH}/${editId}`, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.put(`${API_PATH}/${editId}`, data, config);
         toast.success("Product updated successfully");
       } else {
-        await api.post(API_PATH, data, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.post(API_PATH, data, config);
         toast.success("Product created successfully");
       }
 
@@ -159,7 +204,25 @@ export default function Products() {
             {products.map(p => (
               <tr key={p.id}>
                 <td className="px-4 py-3 align-middle">
-                  <div className="fw-bold">{p.name}</div>
+                  <div className="d-flex align-items-center gap-3">
+                    <div
+                      className="rounded-3 bg-dark border border-secondary"
+                      style={{ width: '45px', height: '45px', overflow: 'hidden', flexShrink: 0 }}
+                    >
+                      {p.image ? (
+                        <img
+                          src={`${api.defaults.baseURL}${p.image}`}
+                          alt={p.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div className="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                          <i className="bi bi-image" style={{ fontSize: '1.2rem' }}></i>
+                        </div>
+                      )}
+                    </div>
+                    <div className="fw-bold">{p.name}</div>
+                  </div>
                 </td>
                 <td className="px-4 py-3 align-middle text-muted">{p.sku || "N/A"}</td>
                 <td className="px-4 py-3 align-middle">
@@ -187,7 +250,7 @@ export default function Products() {
                   </button>
                   <button
                     className="btn btn-sm btn-outline-light rounded-3 border-0"
-                    onClick={() => handleDelete(p.id)}
+                    onClick={() => askDelete(p)}
                   >
                     <i className="bi bi-trash text-danger"></i>
                   </button>
@@ -203,170 +266,33 @@ export default function Products() {
         </table>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center mt-4">
-        <div className="text-muted small">
-          Showing {products.length} of {pagination.total} products
-        </div>
-        <div className="d-flex gap-2">
-          <Button
-            variant="soft"
-            size="sm"
-            disabled={pagination.page <= 1}
-            onClick={() => setPagination(p => ({ ...p, page: Math.max(p.page - 1, 1) }))}
-          >
-            <i className="bi bi-chevron-left"></i> Previous
-          </Button>
-          <div className="badge-soft px-3 py-1 d-flex align-items-center">
-            Page {pagination.page} of {pagination.pages}
-          </div>
-          <Button
-            variant="soft"
-            size="sm"
-            disabled={pagination.page >= pagination.pages}
-            onClick={() => setPagination(p => ({ ...p, page: Math.min(p.page + 1, pagination.pages) }))}
-          >
-            Next <i className="bi bi-chevron-right"></i>
-          </Button>
-        </div>
-      </div>
+      <PaginationControl
+        pagination={pagination}
+        setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+      />
 
-      <Modal
+      <ProductFormModal
         show={showModal}
         onHide={() => setShowModal(false)}
-        centered
-        size="lg"
-        contentClassName="glass border-0"
-      >
-        <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">
-          <Modal.Title className="fw-bold">{editMode ? "Edit Product" : "Create New Product"}</Modal.Title>
-        </Modal.Header>
-        <Form onSubmit={handleSubmit}>
-          <Modal.Body className="p-4">
-            <Row>
-              <Col md={8}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold">PRODUCT NAME</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="Enter product name"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="bg-dark text-light border-secondary shadow-none"
-                    required
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold">SKU / BARCODE</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="e.g., PROD-001"
-                    value={formData.sku}
-                    onChange={e => setFormData({ ...formData, sku: e.target.value })}
-                    className="bg-dark text-light border-secondary shadow-none"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold">CATEGORY</Form.Label>
-                  <Form.Select
-                    value={formData.category_id}
-                    onChange={e => setFormData({ ...formData, category_id: e.target.value })}
-                    className="bg-dark text-light border-secondary shadow-none"
-                  >
-                    <option value="">Uncategorized</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold">STATUS</Form.Label>
-                  <div className="mt-2">
-                    <Form.Check
-                      type="switch"
-                      id="product-active-switch"
-                      label={formData.is_active ? "Product is Active" : "Product is Inactive"}
-                      checked={formData.is_active}
-                      onChange={e => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="text-light"
-                    />
-                  </div>
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold">COST PRICE</Form.Label>
-                  <Form.Control
-                    type="number"
-                    step="0.01"
-                    value={formData.cost_price}
-                    onChange={e => setFormData({ ...formData, cost_price: e.target.value })}
-                    className="bg-dark text-light border-secondary shadow-none"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold">SELLING PRICE</Form.Label>
-                  <Form.Control
-                    type="number"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={e => setFormData({ ...formData, price: e.target.value })}
-                    className="bg-dark text-light border-secondary shadow-none"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold">STOCK LEVEL</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={formData.stock}
-                    onChange={e => setFormData({ ...formData, stock: e.target.value })}
-                    className="bg-dark text-light border-secondary shadow-none"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={4}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-muted small fw-bold text-warning">ALERT QUANTITY</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={formData.alert_quantity}
-                    onChange={e => setFormData({ ...formData, alert_quantity: e.target.value })}
-                    className="bg-dark text-warning border-warning shadow-none"
-                    placeholder="Alert at e.g., 5"
-                  />
-                  <Form.Text className="text-muted small">Show alert when stock hits this level.</Form.Text>
-                </Form.Group>
-              </Col>
-            </Row>
-          </Modal.Body>
-          <Modal.Footer className="border-top border-secondary">
-            <Button variant="outline-secondary" onClick={() => setShowModal(false)} className="border-0">
-              Cancel
-            </Button>
-            <Button type="submit" className="btn-gradient border-0 px-4">
-              {editMode ? "Save Changes" : "Add Product"}
-            </Button>
-          </Modal.Footer>
-        </Form>
-      </Modal>
+        handleSubmit={handleSubmit}
+        formData={formData}
+        setFormData={setFormData}
+        editMode={editMode}
+        categories={categories}
+        imagePreview={imagePreview}
+        handleImageChange={handleImageChange}
+        setImagePreview={setImagePreview}
+        setRemoveImageFlag={setRemoveImageFlag}
+      />
+      <ConfirmDialog
+        show={confirmDialog.show}
+        title="Delete Product"
+        message={`Are you sure you want to delete "${confirmDialog.name}"? This cannot be undone.`}
+        confirmText="Delete"
+        confirmVariant="danger"
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setConfirmDialog({ show: false, id: null, name: "" })}
+      />
     </div>
   );
 }

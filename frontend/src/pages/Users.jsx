@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 export default function Users() {
     const [users, setUsers] = useState([]);
@@ -12,6 +13,7 @@ export default function Users() {
     const [editId, setEditId] = useState(null);
     const { token } = useAuth();
     const API_PATH = "/api/users";
+    const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
 
     const [formData, setFormData] = useState({
         name: "",
@@ -66,8 +68,13 @@ export default function Users() {
         setShowModal(true);
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this user?")) return;
+    const askDelete = (u) => {
+        setConfirmDialog({ show: true, id: u.id, name: u.name });
+    };
+
+    const handleDeleteConfirmed = async () => {
+        const id = confirmDialog.id;
+        setConfirmDialog({ show: false, id: null, name: "" });
         try {
             await api.delete(`${API_PATH}/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -163,7 +170,7 @@ export default function Users() {
                                     </button>
                                     <button
                                         className="btn btn-sm btn-outline-light rounded-3 border-0"
-                                        onClick={() => handleDelete(u.id)}
+                                        onClick={() => askDelete(u)}
                                     >
                                         <i className="bi bi-trash text-danger"></i>
                                     </button>
@@ -239,6 +246,15 @@ export default function Users() {
                     </Modal.Footer>
                 </Form>
             </Modal>
+            <ConfirmDialog
+                show={confirmDialog.show}
+                title="Delete User"
+                message={`Are you sure you want to delete "${confirmDialog.name}"? This cannot be undone.`}
+                confirmText="Delete"
+                confirmVariant="danger"
+                onConfirm={handleDeleteConfirmed}
+                onCancel={() => setConfirmDialog({ show: false, id: null, name: "" })}
+            />
         </div>
     );
 }

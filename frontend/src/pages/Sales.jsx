@@ -2,7 +2,10 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Table, Badge, Pagination } from "react-bootstrap";
+// No react-bootstrap imports needed here
+
+import SaleDetailsModal from "../components/SaleDetailsModal";
+import PaginationControl from "../components/PaginationControl";
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
@@ -25,7 +28,7 @@ export default function Sales() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSales(res.data.data);
-      setPagination(prev => ({ ...prev, ...res.data.pagination }));
+      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.pages || res.data.pagination.totalPages || 1 }));
     } catch (err) {
       toast.error("Failed to load sales history");
     } finally {
@@ -114,108 +117,16 @@ export default function Sales() {
         </table>
       </div>
 
-      <div className="d-flex justify-content-between align-items-center mt-4">
-        <div className="text-muted small">
-          Showing {sales.length} of {pagination.total} sales
-        </div>
+      <PaginationControl
+        pagination={pagination}
+        setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+      />
 
-        <div className="d-flex gap-2">
-          <Button
-            variant="soft"
-            size="sm"
-            disabled={pagination.page <= 1}
-            onClick={() => setPagination(p => ({ ...p, page: Math.max(p.page - 1, 1) }))}
-          >
-            <i className="bi bi-chevron-left"></i> Previous
-          </Button>
-          <div className="badge-soft px-3 py-1 d-flex align-items-center">
-            Page {pagination.page} of {pagination.pages}
-          </div>
-          <Button
-            variant="soft"
-            size="sm"
-            disabled={pagination.page >= pagination.pages}
-            onClick={() => setPagination(p => ({ ...p, page: Math.min(p.page + 1, pagination.pages) }))}
-          >
-            Next <i className="bi bi-chevron-right"></i>
-          </Button>
-        </div>
-      </div>
-
-      <Modal
+      <SaleDetailsModal
         show={showModal}
         onHide={() => setShowModal(false)}
-        centered
-        size="md"
-        contentClassName="glass border-0"
-      >
-        <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">
-          <Modal.Title className="fw-bold">Sale Details #{selectedSale?.id}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="p-4">
-          {selectedSale && (
-            <>
-              <div className="d-flex justify-content-between mb-4">
-                <div>
-                  <div className="text-muted small fw-bold">DATE</div>
-                  <div>{new Date(selectedSale.created_at).toLocaleString()}</div>
-                </div>
-                <div className="text-end">
-                  <div className="text-muted small fw-bold">METHOD</div>
-                  <div className="text-capitalize">{selectedSale.payment_method}</div>
-                </div>
-              </div>
-
-              <Table borderless className="table-darkx bg-transparent mb-4">
-                <thead>
-                  <tr className="border-bottom border-secondary">
-                    <th className="bg-transparent text-muted small px-0">ITEM</th>
-                    <th className="bg-transparent text-muted small text-center px-0">QTY</th>
-                    <th className="bg-transparent text-muted small text-end px-0">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedSale.items.map((item, i) => (
-                    <tr key={i}>
-                      <td className="bg-transparent px-0 py-2">
-                        <div className="fw-bold">{item.product_name}</div>
-                        <div className="small text-muted">${parseFloat(item.price).toFixed(2)} / unit</div>
-                      </td>
-                      <td className="bg-transparent text-center px-0 py-2">{item.qty}</td>
-                      <td className="bg-transparent text-end px-0 py-2 fw-bold">
-                        ${parseFloat(item.line_total).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-
-              <div className="border-top border-secondary pt-3">
-                <div className="d-flex justify-content-between mb-1 small text-muted">
-                  <span>Subtotal</span>
-                  <span>${parseFloat(selectedSale.subtotal).toFixed(2)}</span>
-                </div>
-                <div className="d-flex justify-content-between mb-1 small text-muted">
-                  <span>Tax</span>
-                  <span>${parseFloat(selectedSale.tax).toFixed(2)}</span>
-                </div>
-                <div className="d-flex justify-content-between h4 fw-bold text-white mt-3">
-                  <span>Grand Total</span>
-                  <span>${parseFloat(selectedSale.total).toFixed(2)}</span>
-                </div>
-              </div>
-            </>
-          )}
-        </Modal.Body>
-        <Modal.Footer className="border-top border-secondary">
-          <Button variant="outline-secondary" onClick={() => setShowModal(false)} className="border-0">
-            Close
-          </Button>
-          <Button className="btn-gradient border-0 px-4" onClick={() => window.print()}>
-            Print Receipt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        sale={selectedSale}
+      />
     </div>
   );
 }
