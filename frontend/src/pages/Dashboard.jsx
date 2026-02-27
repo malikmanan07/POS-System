@@ -5,7 +5,7 @@ import { api } from "../api/client";
 import { toast } from "react-toastify";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell
+  BarChart, Bar, Cell, PieChart, Pie, Legend
 } from 'recharts';
 
 const KPI = ({ title, value, icon, hint }) => (
@@ -27,13 +27,33 @@ const KPI = ({ title, value, icon, hint }) => (
   </div>
 );
 
+const COLORS = ['#6d5efc', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4'];
+
+const CustomBarTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="glass p-2 px-3 border-0 shadow-lg" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)" }}>
+        <p className="fw-bold text-white mb-0 small">{data.name}</p>
+        <div className="d-flex align-items-center gap-2">
+          <div className="rounded-circle" style={{ width: 8, height: 8, backgroundColor: payload[0].payload.fill || payload[0].color }}></div>
+          <span style={{ color: "var(--primary2)", fontWeight: "bold", fontSize: "13px" }}>
+            {data.sales} units sold
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="glass p-3 rounded" style={{ backgroundColor: "rgba(15, 23, 42, 0.9)" }}>
+      <div className="glass p-3 rounded border-0 shadow-lg" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)" }}>
         <p className="fw-bold text-white mb-1">{label}</p>
-        <p className="mb-0" style={{ color: "#22c55e" }}>
-          ${parseFloat(payload[0].value).toFixed(2)}
+        <p className="mb-0 fw-bold fs-5" style={{ color: "#22c55e" }}>
+          ${parseFloat(payload[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
     );
@@ -104,97 +124,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* {hasPermission("view_sales") && (
-        <>
-          <Row className="g-3 mb-4">
-            <Col md={6} xl={3}>
-              <KPI title="Products" value={data.kpis.totalProducts} icon="bi-box-seam" hint="Total registered items" />
-            </Col>
-            <Col md={6} xl={3}>
-              <KPI title="Sales Today" value={`$${parseFloat(data.kpis.todayRevenue).toFixed(2)}`} icon="bi-graph-up-arrow" hint="Real-time revenue" />
-            </Col>
-            <Col md={6} xl={3}>
-              <KPI title="Low Stock" value={data.kpis.lowStock} icon="bi-exclamation-triangle" hint="SKUs needing refill" />
-            </Col>
-            <Col md={6} xl={3}>
-              <KPI title="Customers" value={data.kpis.totalCustomers} icon="bi-people" hint="Total registered" />
-            </Col>
-          </Row>
-
-          <Row className="g-3">
-            {/* Revenue Chart }
-            <Col lg={8}>
-              <Card className="glass shadow-soft border-0 h-100">
-                <Card.Body>
-                  <div className="d-flex align-items-center justify-content-between mb-4">
-                    <div>
-                      <h6 className="fw-bold text-white mb-0">Revenue Overview</h6>
-                      <small className="text-muted">Sales performance last 7 days</small>
-                    </div>
-                    <Badge className="badge-soft"><i className="bi bi-circle-fill text-success me-2" style={{ fontSize: '8px' }}></i>Live Data</Badge>
-                  </div>
-
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
-                      <AreaChart data={data.revenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.5)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} tickLine={false} axisLine={false} />
-                        <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }} />
-                        <Area type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-
-            {/* Top Selling Chart }
-            <Col lg={4}>
-              <Card className="glass shadow-soft border-0 h-100">
-                <Card.Body>
-                  <div className="mb-4">
-                    <h6 className="fw-bold text-white mb-0">Top Products</h6>
-                    <small className="text-muted">By total volume sold</small>
-                  </div>
-
-                  <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
-                      <BarChart data={data.topProducts} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                        <XAxis dataKey="name" stroke="rgba(255,255,255,0.5)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }} tickLine={false} axisLine={false} interval={0} angle={-30} textAnchor="end" height={60} />
-                        <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 12 }} tickLine={false} axisLine={false} />
-                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: 'none', borderRadius: '8px', color: '#fff' }} />
-                        <Bar dataKey="sales" radius={[4, 4, 0, 0]}>
-                          {data.topProducts.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === 0 ? "#22c55e" : "#6d5efc"} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        </>
-      )} */}
-
-      {/* {!hasPermission("view_sales") && (
-        <div className="text-center py-5 mt-5">
-          <div className="brand-badge mx-auto mb-3" style={{ width: 60, height: 60, fontSize: "24px" }}>
-            <i className="bi bi-shop"></i>
-          </div>
-          <h4 className="text-white">Ready for another great shift!</h4>
-          <p className="text-muted mb-4">You're logged in as an active team member. Select an action from the menu to get started.</p>
-        </div>
-      )} */}
 
       {hasPermission("view_sales") && (
         <>
@@ -327,17 +256,34 @@ export default function Dashboard() {
               <Col lg={4}>
                 <Card className="glass shadow-soft border-0 h-100">
                   <Card.Body>
-                    <div className="mb-4">
-                      <h6 className="fw-bold text-white mb-0">Top Products</h6>
-                      <small className="text-muted">By total volume sold</small>
+                    <div className="d-flex align-items-center justify-content-between mb-4">
+                      <div>
+                        <h6 className="fw-bold text-white mb-0">Top Products</h6>
+                        <small className="text-muted">By total volume sold</small>
+                      </div>
+                      <Badge className="badge-soft">
+                        <i className="bi bi-fire text-warning me-2"></i>
+                        Hot Items
+                      </Badge>
                     </div>
 
-                    <div style={{ width: "100%", height: 300 }}>
+                    <div style={{ width: "100%", height: 320 }}>
                       <ResponsiveContainer>
                         <BarChart
                           data={data.topProducts}
-                          margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
+                          margin={{ top: 10, right: 0, left: -30, bottom: 20 }}
+                          barSize={35}
                         >
+                          <defs>
+                            <linearGradient id="barGradientTop" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#15803d" stopOpacity={0.8} />
+                            </linearGradient>
+                            <linearGradient id="barGradientOthers" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#6d5efc" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#4338ca" stopOpacity={0.8} />
+                            </linearGradient>
+                          </defs>
                           <CartesianGrid
                             strokeDasharray="3 3"
                             vertical={false}
@@ -345,35 +291,28 @@ export default function Dashboard() {
                           />
                           <XAxis
                             dataKey="name"
-                            stroke="rgba(255,255,255,0.5)"
-                            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }}
+                            stroke="rgba(255,255,255,0.4)"
+                            tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 11 }}
                             tickLine={false}
                             axisLine={false}
                             interval={0}
-                            angle={-30}
-                            textAnchor="end"
-                            height={60}
+                            tickFormatter={(value) => value.length > 8 ? value.substring(0, 8) + '..' : value}
                           />
                           <YAxis
-                            stroke="rgba(255,255,255,0.5)"
-                            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
+                            stroke="rgba(255,255,255,0.4)"
+                            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 11 }}
                             tickLine={false}
                             axisLine={false}
                           />
                           <Tooltip
                             cursor={{ fill: "rgba(255,255,255,0.05)" }}
-                            contentStyle={{
-                              backgroundColor: "rgba(15, 23, 42, 0.9)",
-                              border: "none",
-                              borderRadius: "8px",
-                              color: "#fff",
-                            }}
+                            content={<CustomBarTooltip />}
                           />
-                          <Bar dataKey="sales" radius={[4, 4, 0, 0]}>
+                          <Bar dataKey="sales" radius={[6, 6, 0, 0]}>
                             {data.topProducts.map((entry, index) => (
                               <Cell
                                 key={`cell-${index}`}
-                                fill={index === 0 ? "#22c55e" : "#6d5efc"}
+                                fill={index === 0 ? "url(#barGradientTop)" : "url(#barGradientOthers)"}
                               />
                             ))}
                           </Bar>

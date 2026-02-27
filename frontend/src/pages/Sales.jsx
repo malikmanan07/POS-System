@@ -2,10 +2,15 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Modal, Button, Table, Badge } from "react-bootstrap";
+// No react-bootstrap imports needed here
+
+import SaleDetailsModal from "../components/SaleDetailsModal";
+import PaginationControl from "../components/PaginationControl";
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const [showModal, setShowModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const { token, hasPermission } = useAuth();
@@ -13,17 +18,21 @@ export default function Sales() {
   const API_PATH = "/api/sales";
 
   useEffect(() => {
-    fetchSales();
-  }, []);
+    fetchSales(pagination.page);
+  }, [pagination.page]);
 
-  const fetchSales = async () => {
+  const fetchSales = async (page = 1) => {
+    setLoading(true);
     try {
-      const res = await api.get(API_PATH, {
+      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setSales(res.data);
+      setSales(res.data.data);
+      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.pages || res.data.pagination.totalPages || 1 }));
     } catch (err) {
       toast.error("Failed to load sales history");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -50,7 +59,7 @@ export default function Sales() {
         <table className="table table-borderless table-hover mb-0">
           <thead>
             <tr>
-              <th className="px-4 py-3">ID</th>
+              <th className="px-4 py-3">#</th>
               <th className="px-4 py-3">DATE</th>
               <th className="px-4 py-3">CUSTOMER</th>
               <th className="px-4 py-3">TOTAL</th>
@@ -60,117 +69,64 @@ export default function Sales() {
             </tr>
           </thead>
           <tbody>
-            {sales.map(s => (
-              <tr key={s.id}>
-                <td className="px-4 py-3 align-middle">#{s.id}</td>
-                <td className="px-4 py-3 align-middle small text-muted">
-                  {new Date(s.created_at).toLocaleString()}
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  {s.customer_name || <span className="text-muted italic">Walk-in</span>}
-                </td>
-                <td className="px-4 py-3 align-middle fw-bold">
-                  ${parseFloat(s.total).toFixed(2)}
-                </td>
-                <td className="px-4 py-3 align-middle text-center">
-                  <span className={`badge-soft ${s.payment_method === 'cash' ? 'text-success' : 'text-info'}`}>
-                    {s.payment_method.toUpperCase()}
-                  </span>
-                </td>
-                {!isCashierLike && <td className="px-4 py-3 align-middle small">{s.user_name}</td>}
-                <td className="px-4 py-3 text-end align-middle">
-                  <button
-                    className="btn btn-sm btn-outline-light rounded-3 border-0"
-                    onClick={() => handleViewDetail(s.id)}
-                  >
-                    <i className="bi bi-eye text-primary"></i>
-                  </button>
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
                 </td>
               </tr>
-            ))}
-            {sales.length === 0 && (
+            ) : sales.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center py-4 text-muted">No sales found</td>
               </tr>
+            ) : (
+              sales.map((s, index) => (
+                <tr key={s.id}>
+                  <td className="px-4 py-3 align-middle">
+                    {pagination.total - ((pagination.page - 1) * pagination.limit) - index}
+                  </td>
+                  <td className="px-4 py-3 align-middle small text-muted">
+                    {new Date(s.created_at).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    {s.customer_name || <span className="text-muted italic">Walk-in</span>}
+                  </td>
+                  <td className="px-4 py-3 align-middle fw-bold">
+                    ${parseFloat(s.total).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 align-middle text-center">
+                    <span className={`badge-soft ${s.payment_method === 'cash' ? 'text-success' : 'text-info'}`}>
+                      {s.payment_method.toUpperCase()}
+                    </span>
+                  </td>
+                  {!isCashierLike && <td className="px-4 py-3 align-middle small">{s.user_name}</td>}
+                  <td className="px-4 py-3 text-end align-middle">
+                    <button
+                      className="btn btn-sm btn-outline-light rounded-3 border-0"
+                      onClick={() => handleViewDetail(s.id)}
+                    >
+                      <i className="bi bi-eye text-primary"></i>
+                    </button>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      <Modal
+      <PaginationControl
+        pagination={pagination}
+        setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+      />
+
+      <SaleDetailsModal
         show={showModal}
         onHide={() => setShowModal(false)}
-        centered
-        size="md"
-        contentClassName="glass border-0"
-      >
-        <Modal.Header closeButton closeVariant="white" className="border-bottom border-secondary">
-          <Modal.Title className="fw-bold">Sale Details #{selectedSale?.id}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="p-4">
-          {selectedSale && (
-            <>
-              <div className="d-flex justify-content-between mb-4">
-                <div>
-                  <div className="text-muted small fw-bold">DATE</div>
-                  <div>{new Date(selectedSale.created_at).toLocaleString()}</div>
-                </div>
-                <div className="text-end">
-                  <div className="text-muted small fw-bold">METHOD</div>
-                  <div className="text-capitalize">{selectedSale.payment_method}</div>
-                </div>
-              </div>
-
-              <Table borderless className="table-darkx bg-transparent mb-4">
-                <thead>
-                  <tr className="border-bottom border-secondary">
-                    <th className="bg-transparent text-muted small px-0">ITEM</th>
-                    <th className="bg-transparent text-muted small text-center px-0">QTY</th>
-                    <th className="bg-transparent text-muted small text-end px-0">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedSale.items.map((item, i) => (
-                    <tr key={i}>
-                      <td className="bg-transparent px-0 py-2">
-                        <div className="fw-bold">{item.product_name}</div>
-                        <div className="small text-muted">${parseFloat(item.price).toFixed(2)} / unit</div>
-                      </td>
-                      <td className="bg-transparent text-center px-0 py-2">{item.qty}</td>
-                      <td className="bg-transparent text-end px-0 py-2 fw-bold">
-                        ${parseFloat(item.line_total).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-
-              <div className="border-top border-secondary pt-3">
-                <div className="d-flex justify-content-between mb-1 small text-muted">
-                  <span>Subtotal</span>
-                  <span>${parseFloat(selectedSale.subtotal).toFixed(2)}</span>
-                </div>
-                <div className="d-flex justify-content-between mb-1 small text-muted">
-                  <span>Tax</span>
-                  <span>${parseFloat(selectedSale.tax).toFixed(2)}</span>
-                </div>
-                <div className="d-flex justify-content-between h4 fw-bold text-white mt-3">
-                  <span>Grand Total</span>
-                  <span>${parseFloat(selectedSale.total).toFixed(2)}</span>
-                </div>
-              </div>
-            </>
-          )}
-        </Modal.Body>
-        <Modal.Footer className="border-top border-secondary">
-          <Button variant="outline-secondary" onClick={() => setShowModal(false)} className="border-0">
-            Close
-          </Button>
-          <Button className="btn-gradient border-0 px-4" onClick={() => window.print()}>
-            Print Receipt
-          </Button>
-        </Modal.Footer>
-      </Modal>
+        sale={selectedSale}
+      />
     </div>
   );
 }

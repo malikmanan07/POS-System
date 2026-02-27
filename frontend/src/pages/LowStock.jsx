@@ -3,12 +3,13 @@ import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Table, Badge, Button } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import StockAdjustmentModal from "../components/StockAdjustmentModal";
 
 export default function LowStock() {
     const [products, setProducts] = useState([]);
+    const [showModal, setShowModal] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
     const { token } = useAuth();
-    const navigate = useNavigate();
     const API_PATH = "/api/stock";
 
     useEffect(() => {
@@ -27,11 +28,16 @@ export default function LowStock() {
         }
     };
 
+    const handleOpenAdjust = (product) => {
+        setSelectedProduct(product);
+        setShowModal(true);
+    };
+
     return (
         <div className="p-4 h-100">
             <div className="mb-4">
                 <h2 className="page-title mb-1 text-danger">Low Stock Alerts</h2>
-                <p className="text-white mb-0">Products that are running out of stock (Threshold: 5)</p>
+                <p className="text-white mb-0">Products that have reached or dropped below their minimum stock levels.</p>
             </div>
 
             <div className="table-darkx">
@@ -60,12 +66,12 @@ export default function LowStock() {
                                 </td>
                                 <td className="px-4 py-3 text-end align-middle">
                                     <Button
-                                        variant="outline-primary"
+                                        variant="outline-info"
                                         size="sm"
                                         className="rounded-3 border-0"
-                                        onClick={() => navigate("/app/inventory")}
+                                        onClick={() => handleOpenAdjust(p)}
                                     >
-                                        Manage Stock
+                                        <i className="bi bi-box-arrow-in-down me-1"></i> Adjust Stock
                                     </Button>
                                 </td>
                             </tr>
@@ -81,6 +87,12 @@ export default function LowStock() {
                     </tbody>
                 </Table>
             </div>
+            <StockAdjustmentModal
+                show={showModal}
+                onHide={() => setShowModal(false)}
+                product={selectedProduct}
+                onSuccess={fetchStock}
+            />
         </div>
     );
 }

@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Form, Button, Card, Row, Col, Spinner } from "react-bootstrap";
 
 export default function Access() {
-  const { token } = useAuth();
+  const { token, user, permissions: userPermissions } = useAuth();
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
 
@@ -23,7 +23,6 @@ export default function Access() {
   const fetchRolesAndPermissions = async () => {
     try {
       setLoading(true);
-
       const [rolesRes, permsRes] = await Promise.all([
         api.get(API_PATH, { headers: { Authorization: `Bearer ${token}` } }),
         api.get(`${API_PATH}/permissions`, {
@@ -59,11 +58,20 @@ export default function Access() {
     }
   };
 
-  const handlePermissionToggle = (permId) => {
-    if (rolePermissions.includes(permId)) {
-      setRolePermissions(rolePermissions.filter((id) => id !== permId));
+  const isSuperAdmin = user?.roles?.some(r => r.toLowerCase() === "super admin");
+
+  const isPermissionDisabled = (permName) => {
+    if (isSuperAdmin) return false;
+    return !userPermissions.includes(permName);
+  };
+
+  const handlePermissionToggle = (perm) => {
+    if (isPermissionDisabled(perm.name)) return;
+
+    if (rolePermissions.includes(perm.id)) {
+      setRolePermissions(rolePermissions.filter((id) => id !== perm.id));
     } else {
-      setRolePermissions([...rolePermissions, permId]);
+      setRolePermissions([...rolePermissions, perm.id]);
     }
   };
 
@@ -113,15 +121,17 @@ export default function Access() {
                     className="bg-dark text-light border-secondary shadow-none"
                   >
                     <option value="">-- Choose Role --</option>
-                    {roles.map((r) => (
-                      <option
-                        key={r.id}
-                        value={r.id}
-                        style={{ textTransform: "capitalize" }}
-                      >
-                        {r.name}
-                      </option>
-                    ))}
+                    {roles
+                      .filter(r => isSuperAdmin || r.name.toLowerCase() !== "super admin")
+                      .map((r) => (
+                        <option
+                          key={r.id}
+                          value={r.id}
+                          style={{ textTransform: "capitalize" }}
+                        >
+                          {r.name}
+                        </option>
+                      ))}
                   </Form.Select>
                 </Form.Group>
 
@@ -167,22 +177,22 @@ export default function Access() {
                     {permissions.map((p) => (
                       <Col sm={6} md={6} lg={4} key={p.id}>
                         <div
-                          className="p-3 border rounded-3 d-flex align-items-center"
+                          className={`p-3 border rounded-3 d-flex align-items-center ${isPermissionDisabled(p.name) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                           style={{
                             borderColor: "rgba(255,255,255,0.1)",
                             background: rolePermissions.includes(p.id)
                               ? "rgba(34, 197, 94, 0.1)"
                               : "rgba(255,255,255,0.02)",
-                            cursor: "pointer",
                             transition: "all 0.2s",
                           }}
-                          onClick={() => handlePermissionToggle(p.id)}
+                          onClick={() => handlePermissionToggle(p)}
                         >
                           <Form.Check
                             type="checkbox"
                             id={`perm-${p.id}`}
                             checked={rolePermissions.includes(p.id)}
-                            onChange={() => {}} // Controlled by parent div click
+                            disabled={isPermissionDisabled(p.name)}
+                            onChange={() => { }} // Controlled by parent div click
                             className="mb-0 me-3"
                             style={{ pointerEvents: "none" }}
                           />
@@ -209,7 +219,8 @@ export default function Access() {
             </Card>
           </Col>
         </Row>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 }

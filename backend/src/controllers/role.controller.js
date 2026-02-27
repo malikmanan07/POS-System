@@ -1,10 +1,14 @@
 const pool = require("../config/db");
+const { eq, asc, sql, and, ne } = require("drizzle-orm");
+const { roles, userRoles, permissions, rolePermissions } = require("../db/schema");
+
+const db = pool.db;
 
 // Get all roles
 exports.getAllRoles = async (req, res) => {
     try {
-        const roles = await pool.query("SELECT * FROM roles ORDER BY id ASC");
-        res.json(roles.rows);
+        const result = await db.select().from(roles).orderBy(asc(roles.id));
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -17,17 +21,13 @@ exports.createRole = async (req, res) => {
         if (!name) return res.status(400).json({ error: "Role name is required" });
 
         // Ensure role doesn't exist
-        const exists = await pool.query("SELECT id FROM roles WHERE name=$1", [name]);
-        if (exists.rowCount > 0) {
+        const [exists] = await db.select({ id: roles.id }).from(roles).where(eq(roles.name, name)).limit(1);
+        if (exists) {
             return res.status(400).json({ error: "Role already exists" });
         }
 
-        const created = await pool.query(
-            "INSERT INTO roles (name) VALUES ($1) RETURNING *",
-            [name]
-        );
-
-        res.status(201).json(created.rows[0]);
+        const [created] = await db.insert(roles).values({ name }).returning();
+        res.status(201).json(created);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -42,21 +42,25 @@ exports.updateRole = async (req, res) => {
         if (!name) return res.status(400).json({ error: "Role name is required" });
 
         // Ensure it's not conflicting with another role's name
-        const exists = await pool.query("SELECT id FROM roles WHERE name=$1 AND id != $2", [name, id]);
-        if (exists.rowCount > 0) {
+        const [exists] = await db.select({ id: roles.id })
+            .from(roles)
+            .where(and(eq(roles.name, name), ne(roles.id, id)))
+            .limit(1);
+
+        if (exists) {
             return res.status(400).json({ error: "Another role with this name already exists" });
         }
 
-        const updated = await pool.query(
-            "UPDATE roles SET name=$1 WHERE id=$2 RETURNING *",
-            [name, id]
-        );
+        const [updated] = await db.update(roles)
+            .set({ name, updatedAt: new Date() })
+            .where(eq(roles.id, id))
+            .returning();
 
-        if (updated.rowCount === 0) {
+        if (!updated) {
             return res.status(404).json({ error: "Role not found" });
         }
 
-        res.json(updated.rows[0]);
+        res.json(updated);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -68,14 +72,13 @@ exports.deleteRole = async (req, res) => {
         const { id } = req.params;
 
         // Check if role is assigned to any users before deleting
-        const inUse = await pool.query("SELECT * FROM user_roles WHERE role_id=$1", [id]);
-        if (inUse.rowCount > 0) {
+        const [inUse] = await db.select({ id: userRoles.userId }).from(userRoles).where(eq(userRoles.roleId, id)).limit(1);
+        if (inUse) {
             return res.status(400).json({ error: "Role cannot be deleted while assigned to users" });
         }
 
-        const deleted = await pool.query("DELETE FROM roles WHERE id=$1 RETURNING *", [id]);
-
-        if (deleted.rowCount === 0) {
+        const [deleted] = await db.delete(roles).where(eq(roles.id, id)).returning();
+        if (!deleted) {
             return res.status(404).json({ error: "Role not found" });
         }
 
@@ -88,8 +91,8 @@ exports.deleteRole = async (req, res) => {
 // Get all available system permissions
 exports.getAllPermissions = async (req, res) => {
     try {
-        const perms = await pool.query("SELECT * FROM permissions ORDER BY id ASC");
-        res.json(perms.rows);
+        const result = await db.select().from(permissions).orderBy(asc(permissions.id));
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -99,8 +102,11 @@ exports.getAllPermissions = async (req, res) => {
 exports.getRolePermissions = async (req, res) => {
     try {
         const { id } = req.params;
-        const perms = await pool.query("SELECT permission_id FROM role_permissions WHERE role_id=$1", [id]);
-        const permIds = perms.rows.map(r => r.permission_id);
+        const result = await db.select({ permissionId: rolePermissions.permissionId })
+            .from(rolePermissions)
+            .where(eq(rolePermissions.roleId, id));
+
+        const permIds = result.map(r => r.permissionId);
         res.json(permIds);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -109,32 +115,22 @@ exports.getRolePermissions = async (req, res) => {
 
 // Update permissions for a specific role
 exports.updateRolePermissions = async (req, res) => {
-    const client = await pool.connect();
     try {
         const { id } = req.params;
-        const { permissions } = req.body; // Array of permission IDs
+        const { permissions: permIds } = req.body; // Array of permission IDs
 
-        await client.query('BEGIN');
+        await db.transaction(async (tx) => {
+            await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, id));
 
-        // Remove old permissions map
-        await client.query("DELETE FROM role_permissions WHERE role_id=$1", [id]);
-
-        // Insert new permissions maps
-        if (permissions && Array.isArray(permissions) && permissions.length > 0) {
-            for (const permId of permissions) {
-                await client.query(
-                    "INSERT INTO role_permissions (role_id, permission_id) VALUES ($1, $2)",
-                    [id, permId]
+            if (permIds && Array.isArray(permIds) && permIds.length > 0) {
+                await tx.insert(rolePermissions).values(
+                    permIds.map(pid => ({ roleId: id, permissionId: pid }))
                 );
             }
-        }
+        });
 
-        await client.query('COMMIT');
         res.json({ message: "Permissions updated successfully" });
     } catch (err) {
-        await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
     }
 };
