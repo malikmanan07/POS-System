@@ -1,7 +1,13 @@
 import { Modal, Button, Table } from "react-bootstrap";
+import { printWindow, buildSaleDetailsPrintHTML } from "../utils/printUtils";
 
 export default function SaleDetailsModal({ show, onHide, sale }) {
     if (!sale) return null;
+
+    const handlePrint = () => {
+        const html = buildSaleDetailsPrintHTML(sale);
+        printWindow(html, `Sale Receipt - #${sale.id}`);
+    };
 
     return (
         <Modal
@@ -69,7 +75,7 @@ export default function SaleDetailsModal({ show, onHide, sale }) {
                 <Button variant="outline-secondary" onClick={onHide} className="border-0">
                     Close
                 </Button>
-                <Button className="btn-gradient border-0 px-4" onClick={() => window.print()}>
+                <Button className="btn-gradient border-0 px-4" onClick={handlePrint}>
                     Print Receipt
                 </Button>
             </Modal.Footer>
