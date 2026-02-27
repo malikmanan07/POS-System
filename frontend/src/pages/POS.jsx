@@ -2,7 +2,12 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Row, Col, Form, Button, Card, Modal } from "react-bootstrap";
+import { Row, Col, Form } from "react-bootstrap";
+
+import POSProductCard from "../components/POSProductCard";
+import POSCartItem from "../components/POSCartItem";
+import POSReceiptModal from "../components/POSReceiptModal";
+import QuickAddCustomer from "../components/QuickAddCustomer";
 
 export default function POS() {
   const { token, user } = useAuth();
@@ -19,6 +24,13 @@ export default function POS() {
     business: { currency: "USD" },
     tax: { taxRate: 0, enableTax: false, taxName: "Tax" }
   });
+  const [posPage, setPosPage] = useState(1);
+  const itemsPerPage = 12;
+
+  // Quick Customer Add
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "", email: "", address: "" });
+  const [isSavingCustomer, setIsSavingCustomer] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -39,7 +51,7 @@ export default function POS() {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get("/api/products", {
+      const res = await api.get("/api/products?limit=all", {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(res.data.filter(p => p.is_active));
@@ -53,7 +65,9 @@ export default function POS() {
       const res = await api.get("/api/customers", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCustomers(res.data);
+      // Handle both direct array or paginated response
+      const customerData = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setCustomers(customerData);
     } catch (err) {
       toast.error("Error loading customers");
     }
@@ -65,6 +79,18 @@ export default function POS() {
       (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [products, searchTerm]);
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setPosPage(1);
+  }, [searchTerm]);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (posPage - 1) * itemsPerPage;
+    return filteredProducts.slice(start, start + itemsPerPage);
+  }, [filteredProducts, posPage]);
+
+  const totalPosPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   const addToCart = (product) => {
     if (product.stock <= 0) return toast.error("Product out of stock");
@@ -152,170 +178,251 @@ export default function POS() {
     }
   };
 
+  const handleQuickAddCustomer = async (e) => {
+    e.preventDefault();
+    if (!newCustomer.name.trim()) return toast.error("Customer name is required");
+
+    setIsSavingCustomer(true);
+    try {
+      const res = await api.post("/api/customers", newCustomer, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success("Customer added successfully");
+      await fetchCustomers(); // Refresh list
+      setSelectedCustomer(res.data.id); // Select the newly created customer
+      setShowAddCustomer(false);
+      setNewCustomer({ name: "", phone: "", email: "", address: "" });
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Error adding customer");
+    } finally {
+      setIsSavingCustomer(false);
+    }
+  };
+
 
   return (
-    <div className="p-3 h-100">
-      <Row className="h-100">
-        {/* Product Selection */}
-        <Col md={8} className="d-flex flex-column">
-          <div className="glass p-3 mb-3 d-flex gap-3 align-items-center">
-            <i className="bi bi-search text-muted h4 mb-0"></i>
-            <Form.Control
-              type="text"
-              placeholder="Search product by name or SKU..."
-              className="bg-transparent border-0 text-white shadow-none fs-5"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              autoFocus
-            />
+    <div className="p-3 h-100 pos-container">
+      <Row className="h-100 g-3">
+        {/* Left Side: Product Discovery */}
+        <Col lg={8} xl={8} className="d-flex flex-column h-100">
+          {/* Top Bar: Search and Stats */}
+          <div className="glass p-4 mb-3 d-flex flex-column flex-md-row gap-3 align-items-center justify-content-between shadow-soft border-0">
+            <div className="d-flex align-items-center gap-3 w-100" style={{ maxWidth: '400px' }}>
+              <div className="search-icon-wrapper">
+                <i className="bi bi-search text-primary fs-5"></i>
+              </div>
+              <Form.Control
+                type="text"
+                placeholder="Search products..."
+                className="pos-search-input"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="d-none d-md-flex align-items-center gap-3">
+              <div className="text-end">
+                <div className="text-muted small fw-bold">TOTAL</div>
+                <div className="h5 mb-0 fw-bold">{filteredProducts.length}</div>
+              </div>
+              <div className="vr opacity-25" style={{ height: '30px' }}></div>
+              <div className="text-end">
+                <div className="text-muted small fw-bold">PAGE</div>
+                <div className="h5 mb-0 text-primary fw-bold">{posPage}/{totalPosPages || 1}</div>
+              </div>
+            </div>
           </div>
 
-          <div className="flex-grow-1 overflow-auto pe-2" style={{ maxHeight: 'calc(100vh - 160px)' }}>
-            <Row className="g-3">
-              {filteredProducts.map(p => (
-                <Col key={p.id} sm={6} lg={4} xl={3}>
-                  <Card
-                    className="glass border-0 h-100 cursor-pointer product-card"
-                    onClick={() => addToCart(p)}
-                  >
-                    <Card.Body className="d-flex flex-column text-center p-3">
-                      <div className="brand-badge mx-auto mb-2" style={{ scale: '1.2' }}>
-                        {p.name.charAt(0)}
-                      </div>
-                      <div className="fw-bold text-truncate">{p.name}</div>
-                      <div className="small text-muted mb-2">{p.category_name || "General"}</div>
-                      <div className="mt-auto d-flex justify-content-between align-items-center">
-                        <span className="fw-bold text-primary fs-5">{currency}{parseFloat(p.price).toFixed(2)}</span>
-                        <span className={`small ${p.stock < 10 ? 'text-danger' : 'text-muted'}`}>Stock: {p.stock}</span>
-                      </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
+          {/* Pagination Controls for Grid */}
+          <div className="d-flex justify-content-between align-items-center mb-3 px-2">
+            <span className="text-muted small">
+              Showing {paginatedProducts.length} of {filteredProducts.length} items
+            </span>
+            {totalPosPages > 1 && (
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-soft btn-sm px-3"
+                  disabled={posPage === 1}
+                  onClick={() => setPosPage(p => p - 1)}
+                >
+                  <i className="bi bi-chevron-left"></i>
+                </button>
+                <button
+                  className="btn btn-soft btn-sm px-3"
+                  disabled={posPage === totalPosPages}
+                  onClick={() => setPosPage(p => p + 1)}
+                >
+                  <i className="bi bi-chevron-right"></i>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Product Catalog Grid */}
+          <div className="flex-grow-1 overflow-auto pe-2 pos-catalog-grid">
+            {paginatedProducts.length > 0 ? (
+              <Row className="g-3">
+                {paginatedProducts.map(p => (
+                  <POSProductCard
+                    key={p.id}
+                    product={p}
+                    currency={currency}
+                    onClick={addToCart}
+                    apiBaseUrl={api.defaults.baseURL}
+                  />
+                ))}
+              </Row>
+            ) : (
+              <div className="d-flex flex-column align-items-center justify-content-center h-100 glass">
+                <i className="bi bi-box-seam text-muted mb-3" style={{ fontSize: '4rem' }}></i>
+                <h4 className="text-muted">No products found</h4>
+              </div>
+            )}
           </div>
         </Col>
 
-        {/* Cart & Checkout */}
-        <Col md={4}>
-          <div className="glass h-100 d-flex flex-column p-4 overflow-hidden">
-            <div className="mb-4">
-              <h4 className="fw-bold mb-3">Current Order</h4>
-              <Form.Select
-                value={selectedCustomer}
-                onChange={e => setSelectedCustomer(e.target.value)}
-                className="bg-dark text-light border-secondary shadow-none mb-3"
-              >
-                <option value="">Walk-in Customer</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Form.Select>
-            </div>
-
-            <div className="flex-grow-1 overflow-auto mb-4 cart-items">
-              {cart.map(item => (
-                <div key={item.id} className="d-flex align-items-center gap-2 mb-3 border-bottom border-secondary pb-3">
-                  <div className="flex-grow-1">
-                    <div className="fw-bold small">{item.name}</div>
-                    <div className="small text-muted">{currency}{item.price.toFixed(2)} x {item.qty}</div>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <button className="btn btn-sm btn-soft p-1" onClick={() => updateQty(item.id, -1)}>-</button>
-                    <span className="fw-bold px-1">{item.qty}</span>
-                    <button className="btn btn-sm btn-soft p-1" onClick={() => updateQty(item.id, 1)}>+</button>
-                  </div>
-                  <div className="fw-bold ms-2">{currency}{item.line_total.toFixed(2)}</div>
-                </div>
-              ))}
-              {cart.length === 0 && <div className="text-center py-5 text-muted">Order is empty</div>}
-            </div>
-
-            <div className="mt-auto border-top border-secondary pt-3">
-              <div className="d-flex justify-content-between mb-1 text-muted small">
-                <span>Subtotal</span>
-                <span>{currency}{cartSubtotal.toFixed(2)}</span>
-              </div>
-              <div className="d-flex justify-content-between mb-3 text-muted small">
-                <span>{taxName} ({taxRate}%)</span>
-                <span>{currency}{tax.toFixed(2)}</span>
-              </div>
-              <div className="d-flex justify-content-between mb-4 h4 fw-bold text-white">
-                <span>Total</span>
-                <span>{currency}{total.toFixed(2)}</span>
+        {/* Right Side: Order Summary & Checkout */}
+        <Col lg={4} xl={4} className="h-100">
+          <div className="glass h-100 d-flex flex-column p-0 overflow-hidden shadow-soft border-0">
+            {/* Cart Header */}
+            <div className="p-4 border-bottom border-secondary-subtle">
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h4 className="fw-bold mb-0">Current Order</h4>
+                <button className="btn btn-sm btn-outline-danger border-0" onClick={() => setCart([])}>
+                  <i className="bi bi-trash3 me-1"></i>
+                </button>
               </div>
 
-
-              <div className="mb-3">
-                <Form.Label className="small text-muted fw-bold">PAYMENT METHOD</Form.Label>
+              {!showAddCustomer ? (
                 <div className="d-flex gap-2">
-                  <Button
-                    variant={paymentMethod === 'cash' ? 'primary' : 'outline-secondary'}
-                    className="w-100 border-0"
-                    onClick={() => setPaymentMethod('cash')}
-                  >Cash</Button>
-                  <Button
-                    variant={paymentMethod === 'card' ? 'primary' : 'outline-secondary'}
-                    className="w-100 border-0"
-                    onClick={() => setPaymentMethod('card')}
-                  >Card</Button>
+                  <div className="customer-select-wrapper flex-grow-1">
+                    <i className="bi bi-person-circle text-muted"></i>
+                    <Form.Select
+                      value={selectedCustomer}
+                      onChange={e => setSelectedCustomer(e.target.value)}
+                      className="pos-customer-select"
+                    >
+                      <option value="">Walk-in Customer</option>
+                      {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </Form.Select>
+                  </div>
+                  <button
+                    className="btn btn-soft px-3"
+                    title="Add New Customer"
+                    onClick={() => setShowAddCustomer(true)}
+                  >
+                    <i className="bi bi-person-plus-fill"></i>
+                  </button>
+                </div>
+              ) : (
+                <QuickAddCustomer
+                  newCustomer={newCustomer}
+                  setNewCustomer={setNewCustomer}
+                  handleQuickAddCustomer={handleQuickAddCustomer}
+                  setShowAddCustomer={setShowAddCustomer}
+                  isSavingCustomer={isSavingCustomer}
+                />
+              )}
+            </div>
+
+            {/* Cart Items List */}
+            <div className="flex-grow-1 overflow-auto p-4 pos-cart-list">
+              {cart.length > 0 ? (
+                cart.map(item => (
+                  <POSCartItem
+                    key={item.id}
+                    item={item}
+                    pInfo={products.find(p => p.id === item.id)}
+                    currency={currency}
+                    updateQty={updateQty}
+                    apiBaseUrl={api.defaults.baseURL}
+                  />
+                ))
+              ) : (
+                <div className="h-100 d-flex flex-column align-items-center justify-content-center opacity-50">
+                  <i className="bi bi-cart-x mb-3" style={{ fontSize: '3rem' }}></i>
+                  <div className="fs-6">Cart is empty</div>
+                </div>
+              )}
+            </div>
+
+            {/* Billing Summary */}
+            <div className="p-4 bg-black-25 border-top border-secondary-subtle">
+              <div className="billing-rows mb-4">
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-muted small">Subtotal</span>
+                  <span className="text-white fw-bold small">{currency}{cartSubtotal.toFixed(2)}</span>
+                </div>
+                {settings.tax?.enableTax && (
+                  <div className="d-flex justify-content-between mb-2">
+                    <span className="text-muted small">{taxName} ({taxRate}%)</span>
+                    <span className="text-white fw-bold small">{currency}{tax.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="d-flex justify-content-between mt-3 pt-3 border-top border-secondary-subtle">
+                  <span className="h5 mb-0 fw-bold">TOTAL</span>
+                  <span className="h5 mb-0 fw-bold text-primary">{currency}{total.toFixed(2)}</span>
                 </div>
               </div>
 
-              <Form.Group className="mb-4">
-                <Form.Label className="small text-muted fw-bold">PAID AMOUNT</Form.Label>
-                <Form.Control
-                  type="number"
-                  placeholder={`${currency}${total.toFixed(2)}`}
-                  value={paidAmount}
-                  onChange={e => setPaidAmount(e.target.value)}
-                  className="bg-dark text-light border-secondary shadow-none fw-bold text-center fs-4 py-2"
-                />
-                {change > 0 && <div className="text-success text-center mt-2 fw-bold">Change: {currency}{change.toFixed(2)}</div>}
+              {/* Payment Methods */}
+              <div className="mb-4">
+                <div className="d-flex gap-2">
+                  <button
+                    className={`payment-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
+                    onClick={() => setPaymentMethod('cash')}
+                  >
+                    Cash
+                  </button>
+                  <button
+                    className={`payment-btn ${paymentMethod === 'card' ? 'active' : ''}`}
+                    onClick={() => setPaymentMethod('card')}
+                  >
+                    Card
+                  </button>
+                </div>
+              </div>
 
-              </Form.Group>
+              {/* Paid Amount Input */}
+              <div className="mb-4">
+                <div className="pos-amount-input-wrapper">
+                  <span className="currency-label">{currency}</span>
+                  <input
+                    type="number"
+                    placeholder={total.toFixed(2)}
+                    value={paidAmount}
+                    onChange={e => setPaidAmount(e.target.value)}
+                    className="pos-amount-input"
+                  />
+                </div>
+                {change > 0 && (
+                  <div className="d-flex justify-content-between mt-2 p-2 rounded bg-success-20 border border-success-subtle">
+                    <span className="small text-success fw-bold">CHANGE</span>
+                    <span className="small text-success fw-bold">{currency}{change.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
 
+              {/* Checkout Action */}
               <button
-                className="btn btn-gradient w-100 py-3 fw-bold fs-5"
+                className="btn btn-checkout w-100"
                 disabled={cart.length === 0}
                 onClick={handleCheckout}
               >
-                COMPLETE CHECKOUT
+                <span>CHECKOUT</span>
+                <i className="bi bi-arrow-right ms-2"></i>
               </button>
             </div>
           </div>
         </Col>
       </Row>
 
-      {/* Receipt Modal */}
-      <Modal show={showReceipt} onHide={() => setShowReceipt(false)} centered contentClassName="glass border-0">
-        <Modal.Header closeButton closeVariant="white" className="border-0 pb-0"></Modal.Header>
-        <Modal.Body className="p-5 text-center">
-          <div className="mb-4">
-            <div className="bg-success rounded-circle d-inline-flex p-3 mb-3">
-              <i className="bi bi-check-lg text-white h1 mb-0"></i>
-            </div>
-            <h2 className="fw-bold">Payment Success!</h2>
-            <p className="text-muted">Sale ID: #{lastSale?.id}</p>
-          </div>
-
-          <div className="border-top border-bottom border-secondary py-3 mb-4 text-start">
-            {lastSale?.items.map((item, i) => (
-              <div key={i} className="d-flex justify-content-between small mb-2">
-                <span>{item.qty}x {item.name}</span>
-                <span>{currency}{item.line_total.toFixed(2)}</span>
-              </div>
-            ))}
-            <div className="d-flex justify-content-between fw-bold mt-3 fs-5">
-              <span>TOTAL PAID</span>
-              <span>{currency}{parseFloat(lastSale?.total || 0).toFixed(2)}</span>
-            </div>
-
-          </div>
-
-          <Button variant="outline-light" className="w-100 py-2 border-0 btn-soft" onClick={() => setShowReceipt(false)}>
-            Close
-          </Button>
-        </Modal.Body>
-      </Modal>
+      <POSReceiptModal
+        show={showReceipt}
+        onHide={() => setShowReceipt(false)}
+        lastSale={lastSale}
+        currency={currency}
+      />
     </div>
   );
 }

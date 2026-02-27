@@ -90,6 +90,9 @@ exports.create = async (req, res) => {
 exports.getAll = async (req, res) => {
     try {
         const isCashier = req.user?.roles?.some(r => r.toLowerCase() === "cashier");
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
 
         let query = db.select({
             id: sales.id,
@@ -114,8 +117,24 @@ exports.getAll = async (req, res) => {
             query = query.where(eq(sales.userId, req.user.id));
         }
 
-        const result = await query.orderBy(desc(sales.createdAt));
-        res.json(result);
+        const result = await query.orderBy(desc(sales.createdAt)).limit(limit).offset(offset);
+
+        // Get total count for pagination
+        let countQuery = db.select({ count: sql`count(*)::int` }).from(sales);
+        if (isCashier) {
+            countQuery = countQuery.where(eq(sales.userId, req.user.id));
+        }
+        const [totalCount] = await countQuery;
+
+        res.json({
+            data: result,
+            pagination: {
+                total: totalCount.count,
+                page,
+                limit,
+                pages: Math.ceil(totalCount.count / limit)
+            }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
