@@ -24,6 +24,8 @@ export default function POS() {
     business: { currency: "USD" },
     tax: { taxRate: 0, enableTax: false, taxName: "Tax" }
   });
+  const [posPage, setPosPage] = useState(1);
+  const itemsPerPage = 12;
 
   // Quick Customer Add
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -77,6 +79,18 @@ export default function POS() {
       (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [products, searchTerm]);
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setPosPage(1);
+  }, [searchTerm]);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (posPage - 1) * itemsPerPage;
+    return filteredProducts.slice(start, start + itemsPerPage);
+  }, [filteredProducts, posPage]);
+
+  const totalPosPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   const addToCart = (product) => {
     if (product.stock <= 0) return toast.error("Product out of stock");
@@ -209,21 +223,46 @@ export default function POS() {
             <div className="d-none d-md-flex align-items-center gap-3">
               <div className="text-end">
                 <div className="text-muted small fw-bold">TOTAL</div>
-                <div className="h5 mb-0 fw-bold">{products.length}</div>
+                <div className="h5 mb-0 fw-bold">{filteredProducts.length}</div>
               </div>
               <div className="vr opacity-25" style={{ height: '30px' }}></div>
               <div className="text-end">
-                <div className="text-muted small fw-bold">CART</div>
-                <div className="h5 mb-0 text-primary fw-bold">{cart.length}</div>
+                <div className="text-muted small fw-bold">PAGE</div>
+                <div className="h5 mb-0 text-primary fw-bold">{posPage}/{totalPosPages || 1}</div>
               </div>
             </div>
           </div>
 
+          {/* Pagination Controls for Grid */}
+          <div className="d-flex justify-content-between align-items-center mb-3 px-2">
+            <span className="text-muted small">
+              Showing {paginatedProducts.length} of {filteredProducts.length} items
+            </span>
+            {totalPosPages > 1 && (
+              <div className="d-flex gap-2">
+                <button
+                  className="btn btn-soft btn-sm px-3"
+                  disabled={posPage === 1}
+                  onClick={() => setPosPage(p => p - 1)}
+                >
+                  <i className="bi bi-chevron-left"></i>
+                </button>
+                <button
+                  className="btn btn-soft btn-sm px-3"
+                  disabled={posPage === totalPosPages}
+                  onClick={() => setPosPage(p => p + 1)}
+                >
+                  <i className="bi bi-chevron-right"></i>
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Product Catalog Grid */}
           <div className="flex-grow-1 overflow-auto pe-2 pos-catalog-grid">
-            {filteredProducts.length > 0 ? (
+            {paginatedProducts.length > 0 ? (
               <Row className="g-3">
-                {filteredProducts.map(p => (
+                {paginatedProducts.map(p => (
                   <POSProductCard
                     key={p.id}
                     product={p}
