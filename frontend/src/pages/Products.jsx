@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -14,7 +14,9 @@ export default function Products() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({ page: 1, limit: 12 }); // 12 per page for grid/table consistency
   const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
   const { token } = useAuth();
   const API_PATH = "/api/products";
@@ -34,21 +36,46 @@ export default function Products() {
   const [removeImageFlag, setRemoveImageFlag] = useState(false);
 
   useEffect(() => {
-    fetchProducts(pagination.page);
+    fetchProducts();
     fetchCategories();
-  }, [pagination.page]);
+  }, []);
 
-  const fetchProducts = async (page = 1) => {
+  const fetchProducts = async () => {
+    setLoading(true);
     try {
-      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}`, {
+      const res = await api.get(`${API_PATH}?limit=all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setProducts(res.data.data);
-      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages || res.data.pagination.pages || 1 }));
+      setProducts(res.data || []);
     } catch (err) {
       toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Instant Search & Pagination logic
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm) return products;
+    const s = searchTerm.toLowerCase();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(s) ||
+      (p.sku && p.sku.toLowerCase().includes(s))
+    );
+  }, [products, searchTerm]);
+
+  const totalPages = Math.ceil(filteredProducts.length / pagination.limit);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (pagination.page - 1) * pagination.limit;
+    return filteredProducts.slice(start, start + pagination.limit);
+  }, [filteredProducts, pagination.page]);
+
+  // Reset page on search
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [searchTerm]);
+
 
   const fetchCategories = async () => {
     try {
@@ -111,7 +138,7 @@ export default function Products() {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Product deleted successfully");
-      fetchProducts(pagination.page);
+      fetchProducts();
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting product");
     }
@@ -166,7 +193,7 @@ export default function Products() {
       }
 
       setShowModal(false);
-      fetchProducts(pagination.page);
+      fetchProducts();
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving product");
     }
@@ -187,6 +214,18 @@ export default function Products() {
         </button>
       </div>
 
+      <div className="glass p-3 mb-4 d-flex gap-3 align-items-center shadow-soft">
+        <i className="bi bi-search text-primary h5 mb-0"></i>
+        <input
+          type="text"
+          placeholder="Search items by name or SKU..."
+          className="bg-transparent border-0 text-white shadow-none fs-5 w-100 outline-none"
+          style={{ outline: 'none' }}
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       <div className="table-darkx">
         <table className="table table-borderless table-hover mb-0">
           <thead>
@@ -201,73 +240,89 @@ export default function Products() {
             </tr>
           </thead>
           <tbody>
-            {products.map(p => (
-              <tr key={p.id}>
-                <td className="px-4 py-3 align-middle">
-                  <div className="d-flex align-items-center gap-3">
-                    <div
-                      className="rounded-3 bg-dark border border-secondary"
-                      style={{ width: '45px', height: '45px', overflow: 'hidden', flexShrink: 0 }}
-                    >
-                      {p.image ? (
-                        <img
-                          src={`${api.defaults.baseURL}${p.image}`}
-                          alt={p.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <div className="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
-                          <i className="bi bi-image" style={{ fontSize: '1.2rem' }}></i>
-                        </div>
-                      )}
-                    </div>
-                    <div className="fw-bold">{p.name}</div>
+            {loading ? (
+              <tr>
+                <td colSpan="7" className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 align-middle text-muted">{p.sku || "N/A"}</td>
-                <td className="px-4 py-3 align-middle">
-                  <span className="badge-soft">{p.category_name || "Uncategorized"}</span>
-                </td>
-                <td className="px-4 py-3 align-middle">${parseFloat(p.price).toFixed(2)}</td>
-                <td className="px-4 py-3 align-middle">
-                  <span className={`fw-bold ${p.stock <= (p.alert_quantity || 5) ? 'text-danger' : ''}`}>
-                    {p.stock}
-                  </span>
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  {p.is_active ? (
-                    <span className="text-success small"><i className="bi bi-circle-fill me-1" style={{ fontSize: '8px' }}></i> Active</span>
-                  ) : (
-                    <span className="text-muted small"><i className="bi bi-circle-fill me-1" style={{ fontSize: '8px' }}></i> Inactive</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-end align-middle">
-                  <button
-                    className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                    onClick={() => handleOpenEdit(p)}
-                  >
-                    <i className="bi bi-pencil-square text-primary"></i>
-                  </button>
-                  <button
-                    className="btn btn-sm btn-outline-light rounded-3 border-0"
-                    onClick={() => askDelete(p)}
-                  >
-                    <i className="bi bi-trash text-danger"></i>
-                  </button>
-                </td>
               </tr>
-            ))}
-            {products.length === 0 && (
-              <tr>
-                <td colSpan="7" className="text-center py-4 text-muted">No products found</td>
-              </tr>
+            ) : (
+              <>
+                {paginatedProducts.map(p => (
+                  <tr key={p.id}>
+                    <td className="px-4 py-3 align-middle">
+                      <div className="d-flex align-items-center gap-3">
+                        <div
+                          className="rounded-3 bg-dark border border-secondary"
+                          style={{ width: '45px', height: '45px', overflow: 'hidden', flexShrink: 0 }}
+                        >
+                          {p.image ? (
+                            <img
+                              src={`${api.defaults.baseURL}${p.image}`}
+                              alt={p.name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div className="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                              <i className="bi bi-image" style={{ fontSize: '1.2rem' }}></i>
+                            </div>
+                          )}
+                        </div>
+                        <div className="fw-bold">{p.name}</div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-muted">{p.sku || "N/A"}</td>
+                    <td className="px-4 py-3 align-middle">
+                      <span className="badge-soft">{p.category_name || "Uncategorized"}</span>
+                    </td>
+                    <td className="px-4 py-3 align-middle">${parseFloat(p.price).toFixed(2)}</td>
+                    <td className="px-4 py-3 align-middle">
+                      <span className={`fw-bold ${p.stock <= (p.alert_quantity || 5) ? 'text-danger' : ''}`}>
+                        {p.stock}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      {p.is_active ? (
+                        <span className="text-success small"><i className="bi bi-circle-fill me-1" style={{ fontSize: '8px' }}></i> Active</span>
+                      ) : (
+                        <span className="text-muted small"><i className="bi bi-circle-fill me-1" style={{ fontSize: '8px' }}></i> Inactive</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-end align-middle">
+                      <button
+                        className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
+                        onClick={() => handleOpenEdit(p)}
+                      >
+                        <i className="bi bi-pencil-square text-primary"></i>
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-light rounded-3 border-0"
+                        onClick={() => askDelete(p)}
+                      >
+                        <i className="bi bi-trash text-danger"></i>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {products.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="text-center py-4 text-muted">No products found</td>
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>
       </div>
 
       <PaginationControl
-        pagination={pagination}
+        pagination={{
+          ...pagination,
+          total: filteredProducts.length,
+          pages: totalPages
+        }}
         setPage={(page) => setPagination(prev => ({ ...prev, page }))}
       />
 

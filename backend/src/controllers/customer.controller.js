@@ -8,9 +8,9 @@ const db = pool.db;
 exports.getAll = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
+        const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
         const search = req.query.search || "";
-        const offset = (page - 1) * limit;
+        const offset = limit ? (page - 1) * limit : null;
 
         let whereClause = undefined;
         if (search) {
@@ -20,12 +20,16 @@ exports.getAll = async (req, res) => {
             );
         }
 
-        const result = await db.select()
+        let query = db.select()
             .from(customers)
             .where(whereClause)
-            .orderBy(asc(customers.name))
-            .limit(limit)
-            .offset(offset);
+            .orderBy(asc(customers.name));
+
+        if (limit) {
+            query = query.limit(limit).offset(offset);
+        }
+
+        const result = await query;
 
         // Get total count for pagination with search filter
         let countQuery = db.select({ count: sql`count(*)::int` }).from(customers);
@@ -35,15 +39,19 @@ exports.getAll = async (req, res) => {
         const [countResult] = await countQuery;
         const total = countResult.count;
 
-        res.json({
-            data: result,
-            pagination: {
-                total,
-                totalPages: Math.ceil(total / limit),
-                currentPage: page,
-                limit
-            }
-        });
+        if (limit) {
+            res.json({
+                data: result,
+                pagination: {
+                    total,
+                    totalPages: Math.ceil(total / limit),
+                    currentPage: page,
+                    limit
+                }
+            });
+        } else {
+            res.json(result);
+        }
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

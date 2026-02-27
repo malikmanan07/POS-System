@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -17,7 +17,7 @@ export default function Customers() {
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", address: "" });
   const [editId, setEditId] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 12 });
   const { token, hasPermission } = useAuth();
   const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
 
@@ -30,23 +30,45 @@ export default function Customers() {
   const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
 
   useEffect(() => {
-    fetchCustomers(pagination.page);
-  }, [pagination.page, searchTerm]);
+    fetchCustomers();
+  }, []);
 
-  const fetchCustomers = async (page = 1) => {
+  const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/customers?page=${page}&limit=${pagination.limit}&search=${searchTerm}`, {
+      const res = await api.get(`/api/customers?limit=all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setCustomers(res.data.data || []);
-      setPagination(prev => ({ ...prev, ...res.data.pagination, pages: res.data.pagination.totalPages || res.data.pagination.pages || 1 }));
+      setCustomers(res.data || []);
     } catch (err) {
       toast.error("Failed to load customers");
     } finally {
       setLoading(false);
     }
   };
+
+  // Instant Search & Pagination logic
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm) return customers;
+    const s = searchTerm.toLowerCase();
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(s) ||
+      (c.phone && c.phone.toLowerCase().includes(s)) ||
+      (c.email && c.email.toLowerCase().includes(s))
+    );
+  }, [customers, searchTerm]);
+
+  const totalPages = Math.ceil(filteredCustomers.length / pagination.limit);
+
+  const paginatedCustomers = useMemo(() => {
+    const start = (pagination.page - 1) * pagination.limit;
+    return filteredCustomers.slice(start, start + pagination.limit);
+  }, [filteredCustomers, pagination.page]);
+
+  // Reset page when search term changes
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [searchTerm]);
 
   const fetchHistory = async (customer) => {
     setSelectedCustomer(customer);
@@ -92,7 +114,7 @@ export default function Customers() {
         headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Customer deleted successfully");
-      fetchCustomers(pagination.page);
+      fetchCustomers();
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting customer");
     }
@@ -113,7 +135,7 @@ export default function Customers() {
         toast.success("Customer added successfully");
       }
       setShowModal(false);
-      fetchCustomers(pagination.page);
+      fetchCustomers();
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving customer");
     }
@@ -164,8 +186,8 @@ export default function Customers() {
                   </div>
                 </td>
               </tr>
-            ) : customers.length > 0 ? (
-              customers.map(c => (
+            ) : paginatedCustomers.length > 0 ? (
+              paginatedCustomers.map(c => (
                 <tr key={c.id}>
                   <td className="px-4 py-3 align-middle fw-bold text-white">{c.name}</td>
                   <td className="px-4 py-3 align-middle text-white">{c.phone || "N/A"}</td>
@@ -210,7 +232,11 @@ export default function Customers() {
       </div>
 
       <PaginationControl
-        pagination={pagination}
+        pagination={{
+          ...pagination,
+          total: filteredCustomers.length,
+          pages: totalPages
+        }}
         setPage={(page) => setPagination(prev => ({ ...prev, page }))}
       />
 
