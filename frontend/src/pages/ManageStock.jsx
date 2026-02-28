@@ -10,6 +10,7 @@ export default function ManageStock() {
     const [products, setProducts] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [searchTerm, setSearchTerm] = useState("");
     const { token } = useAuth();
     const API_PATH = "/api/stock";
     const [pagination, setPagination] = useState({ page: 1, limit: 10 });
@@ -24,18 +25,32 @@ export default function ManageStock() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setProducts(res.data);
-            setPagination(prev => ({ ...prev, page: 1 }));
         } catch (err) {
             toast.error("Failed to load stock data");
         }
     };
 
+    // Instant Search logic
+    const filteredProducts = useMemo(() => {
+        if (!searchTerm) return products;
+        const s = searchTerm.toLowerCase();
+        return products.filter(p =>
+            p.name.toLowerCase().includes(s) ||
+            (p.sku && p.sku.toLowerCase().includes(s))
+        );
+    }, [products, searchTerm]);
+
+    // Reset page on search
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 1 }));
+    }, [searchTerm]);
+
     const paginatedProducts = useMemo(() => {
         const start = (pagination.page - 1) * pagination.limit;
-        return products.slice(start, start + pagination.limit);
-    }, [products, pagination.page, pagination.limit]);
+        return filteredProducts.slice(start, start + pagination.limit);
+    }, [filteredProducts, pagination.page, pagination.limit]);
 
-    const totalPages = Math.ceil(products.length / pagination.limit);
+    const totalPages = Math.ceil(filteredProducts.length / pagination.limit);
 
     const handleOpenAdjust = (product) => {
         setSelectedProduct(product);
@@ -51,10 +66,23 @@ export default function ManageStock() {
                 </div>
             </div>
 
+            <div className="glass p-3 mb-4 d-flex gap-3 align-items-center shadow-soft">
+                <i className="bi bi-search text-primary h5 mb-0"></i>
+                <input
+                    type="text"
+                    placeholder="Search stock by product name or SKU..."
+                    className="bg-transparent border-0 text-white shadow-none fs-5 w-100 outline-none"
+                    style={{ outline: 'none' }}
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
+
             <div className="table-darkx">
                 <Table className="table table-borderless table-hover mb-0">
                     <thead>
                         <tr>
+                            <th className="px-4 py-3">S.NO</th>
                             <th className="px-4 py-3">PRODUCT</th>
                             <th className="px-4 py-3">SKU</th>
                             <th className="px-4 py-3">CATEGORY</th>
@@ -63,8 +91,11 @@ export default function ManageStock() {
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedProducts.map(p => (
+                        {paginatedProducts.map((p, index) => (
                             <tr key={p.id}>
+                                <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${p.id}`}>
+                                    {(pagination.page - 1) * pagination.limit + index + 1}
+                                </td>
                                 <td className="px-4 py-3 align-middle">
                                     <div className="fw-bold">{p.name}</div>
                                 </td>
@@ -106,7 +137,7 @@ export default function ManageStock() {
             <PaginationControl
                 pagination={{
                     ...pagination,
-                    total: products.length,
+                    total: filteredProducts.length,
                     pages: totalPages
                 }}
                 setPage={(page) => setPagination(prev => ({ ...prev, page }))}

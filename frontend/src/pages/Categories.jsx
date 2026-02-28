@@ -67,10 +67,12 @@ export default function Categories() {
   }, [filteredCategories, pagination.page]);
 
   const handleOpenAdd = (pId = "") => {
+    // If called directly from onClick={handleOpenAdd}, pId will be the event object
+    const finalParentId = (typeof pId === 'object' && pId !== null) ? "" : pId;
     setEditMode(false);
     setEditId(null);
     setName("");
-    setParentId(pId);
+    setParentId(finalParentId);
     setShowModal(true);
   };
 
