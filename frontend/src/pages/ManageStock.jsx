@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Table, Badge } from "react-bootstrap";
 import StockAdjustmentModal from "../components/StockAdjustmentModal";
+import PaginationControl from "../components/PaginationControl";
 
 export default function ManageStock() {
     const [products, setProducts] = useState([]);
@@ -11,6 +12,7 @@ export default function ManageStock() {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const { token } = useAuth();
     const API_PATH = "/api/stock";
+    const [pagination, setPagination] = useState({ page: 1, limit: 10 });
 
     useEffect(() => {
         fetchStock();
@@ -22,10 +24,18 @@ export default function ManageStock() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setProducts(res.data);
+            setPagination(prev => ({ ...prev, page: 1 }));
         } catch (err) {
             toast.error("Failed to load stock data");
         }
     };
+
+    const paginatedProducts = useMemo(() => {
+        const start = (pagination.page - 1) * pagination.limit;
+        return products.slice(start, start + pagination.limit);
+    }, [products, pagination.page, pagination.limit]);
+
+    const totalPages = Math.ceil(products.length / pagination.limit);
 
     const handleOpenAdjust = (product) => {
         setSelectedProduct(product);
@@ -53,7 +63,7 @@ export default function ManageStock() {
                         </tr>
                     </thead>
                     <tbody>
-                        {products.map(p => (
+                        {paginatedProducts.map(p => (
                             <tr key={p.id}>
                                 <td className="px-4 py-3 align-middle">
                                     <div className="fw-bold">{p.name}</div>
@@ -92,6 +102,15 @@ export default function ManageStock() {
                     </tbody>
                 </Table>
             </div>
+
+            <PaginationControl
+                pagination={{
+                    ...pagination,
+                    total: products.length,
+                    pages: totalPages
+                }}
+                setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+            />
 
             <StockAdjustmentModal
                 show={showModal}
