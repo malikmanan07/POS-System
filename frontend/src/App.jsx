@@ -48,11 +48,7 @@ export default function App() {
             >
               <Route
                 index
-                element={
-                  <PermissionRoute permission="view_dashboard">
-                    <Dashboard />
-                  </PermissionRoute>
-                }
+                element={<Dashboard />}
               />
 
               <Route
