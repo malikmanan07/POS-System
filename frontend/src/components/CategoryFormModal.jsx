@@ -6,7 +6,11 @@ export default function CategoryFormModal({
     handleSubmit,
     name,
     setName,
-    editMode
+    parentId,
+    setParentId,
+    allCategories,
+    editMode,
+    editId
 }) {
     return (
         <Modal
@@ -32,6 +36,15 @@ export default function CategoryFormModal({
                             required
                         />
                     </Form.Group>
+
+                    {parentId && (
+                        <div className="mb-3 p-2 rounded bg-dark border border-secondary">
+                            <div className="text-muted extra-small fw-bold mb-1">PARENT CATEGORY</div>
+                            <div className="text-primary fw-bold">
+                                {allCategories.find(c => c.id === parseInt(parentId))?.fullPath || "Selected Category"}
+                            </div>
+                        </div>
+                    )}
                 </Modal.Body>
                 <Modal.Footer className="border-top border-secondary">
                     <Button variant="outline-secondary" onClick={onHide} className="border-0">
