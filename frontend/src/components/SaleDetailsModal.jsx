@@ -1,11 +1,11 @@
 import { Modal, Button, Table } from "react-bootstrap";
 import { printWindow, buildSaleDetailsPrintHTML } from "../utils/printUtils";
 
-export default function SaleDetailsModal({ show, onHide, sale }) {
+export default function SaleDetailsModal({ show, onHide, sale, currencySymbol, settings }) {
     if (!sale) return null;
 
     const handlePrint = () => {
-        const html = buildSaleDetailsPrintHTML(sale);
+        const html = buildSaleDetailsPrintHTML(sale, currencySymbol, settings);
         printWindow(html, `Sale Receipt - #${sale.id}`);
     };
 
@@ -29,6 +29,9 @@ export default function SaleDetailsModal({ show, onHide, sale }) {
                     <div className="text-end">
                         <div className="text-muted small fw-bold">METHOD</div>
                         <div className="text-capitalize">{sale.payment_method}</div>
+                        {sale.payment_reference && (
+                            <div className="mt-2 text-primary small fw-bold">REF: {sale.payment_reference}</div>
+                        )}
                     </div>
                 </div>
 
@@ -45,11 +48,11 @@ export default function SaleDetailsModal({ show, onHide, sale }) {
                             <tr key={i}>
                                 <td className="bg-transparent px-0 py-2">
                                     <div className="fw-bold">{item.product_name}</div>
-                                    <div className="small text-muted">${parseFloat(item.price).toFixed(2)} / unit</div>
+                                    <div className="small text-muted">{currencySymbol}{parseFloat(item.price).toFixed(2)} / unit</div>
                                 </td>
                                 <td className="bg-transparent text-center px-0 py-2">{item.qty}</td>
                                 <td className="bg-transparent text-end px-0 py-2 fw-bold">
-                                    ${parseFloat(item.line_total).toFixed(2)}
+                                    {currencySymbol}{parseFloat(item.line_total).toFixed(2)}
                                 </td>
                             </tr>
                         ))}
@@ -59,15 +62,15 @@ export default function SaleDetailsModal({ show, onHide, sale }) {
                 <div className="border-top border-secondary pt-3">
                     <div className="d-flex justify-content-between mb-1 small text-muted">
                         <span>Subtotal</span>
-                        <span>${parseFloat(sale.subtotal).toFixed(2)}</span>
+                        <span>{currencySymbol}{parseFloat(sale.subtotal).toFixed(2)}</span>
                     </div>
                     <div className="d-flex justify-content-between mb-1 small text-muted">
                         <span>Tax</span>
-                        <span>${parseFloat(sale.tax).toFixed(2)}</span>
+                        <span>{currencySymbol}{parseFloat(sale.tax).toFixed(2)}</span>
                     </div>
                     <div className="d-flex justify-content-between h4 fw-bold text-white mt-3">
                         <span>Grand Total</span>
-                        <span>${parseFloat(sale.total).toFixed(2)}</span>
+                        <span>{currencySymbol}{parseFloat(sale.total).toFixed(2)}</span>
                     </div>
                 </div>
             </Modal.Body>

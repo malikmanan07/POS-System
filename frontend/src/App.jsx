@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
 import { AuthProvider } from "./auth/AuthContext";
+import { SettingsProvider } from "./context/SettingsContext";
 import ProtectedRoute from "./auth/ProtectedRoute";
 
 import PageShell from "./components/PageShell";
@@ -27,148 +28,150 @@ import LowStock from "./pages/LowStock";
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Default entry -> login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+      <SettingsProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Default entry -> login */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* Public */}
-          <Route path="/login" element={<Login />} />
+            {/* Public */}
+            <Route path="/login" element={<Login />} />
 
-          {/* Protected Layout */}
-          <Route
-            path="/app"
-            element={
-              <ProtectedRoute>
-                <PageShell />
-              </ProtectedRoute>
-            }
-          >
+            {/* Protected Layout */}
             <Route
-              index
+              path="/app"
               element={
-                <PermissionRoute permission="view_dashboard">
-                  <Dashboard />
-                </PermissionRoute>
+                <ProtectedRoute>
+                  <PageShell />
+                </ProtectedRoute>
               }
-            />
+            >
+              <Route
+                index
+                element={
+                  <PermissionRoute permission="view_dashboard">
+                    <Dashboard />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="products"
-              element={
-                <PermissionRoute permission="manage_products">
-                  <Products />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="products"
+                element={
+                  <PermissionRoute permission="manage_products">
+                    <Products />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="categories"
-              element={
-                <PermissionRoute permission="manage_categories">
-                  <Categories />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="categories"
+                element={
+                  <PermissionRoute permission="manage_categories">
+                    <Categories />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="customers"
-              element={
-                <PermissionRoute permission="manage_customers">
-                  <Customers />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="customers"
+                element={
+                  <PermissionRoute permission="manage_customers">
+                    <Customers />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="roles"
-              element={
-                <PermissionRoute permission="manage_users">
-                  <Roles />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="roles"
+                element={
+                  <PermissionRoute permission="manage_users">
+                    <Roles />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="access"
-              element={
-                <PermissionRoute permission="manage_users">
-                  <Access />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="access"
+                element={
+                  <PermissionRoute permission="manage_users">
+                    <Access />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="users"
-              element={
-                <PermissionRoute permission="manage_users">
-                  <Users />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="users"
+                element={
+                  <PermissionRoute permission="manage_users">
+                    <Users />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="sales"
-              element={
-                <PermissionRoute permission="view_sales">
-                  <Sales />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="sales"
+                element={
+                  <PermissionRoute permission="view_sales">
+                    <Sales />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="pos"
-              element={
-                <PermissionRoute permission="create_sale">
-                  <POS />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="pos"
+                element={
+                  <PermissionRoute permission="create_sale">
+                    <POS />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route
-              path="settings"
-              element={
-                <PermissionRoute permission="system_settings">
-                  <Settings />
-                </PermissionRoute>
-              }
-            />
+              <Route
+                path="settings"
+                element={
+                  <PermissionRoute permission="system_settings">
+                    <Settings />
+                  </PermissionRoute>
+                }
+              />
 
-            {/* ✅ Inventory Routes */}
-            <Route
-              path="inventory"
-              element={
-                <PermissionRoute permission="manage_inventory">
-                  <ManageStock />
-                </PermissionRoute>
-              }
-            />
-            <Route
-              path="inventory/history"
-              element={
-                <PermissionRoute permission="manage_inventory">
-                  <StockHistory />
-                </PermissionRoute>
-              }
-            />
-            <Route
-              path="inventory/low-stock"
-              element={
-                <PermissionRoute permission="manage_inventory">
-                  <LowStock />
-                </PermissionRoute>
-              }
-            />
+              {/* ✅ Inventory Routes */}
+              <Route
+                path="inventory"
+                element={
+                  <PermissionRoute permission="manage_inventory">
+                    <ManageStock />
+                  </PermissionRoute>
+                }
+              />
+              <Route
+                path="inventory/history"
+                element={
+                  <PermissionRoute permission="manage_inventory">
+                    <StockHistory />
+                  </PermissionRoute>
+                }
+              />
+              <Route
+                path="inventory/low-stock"
+                element={
+                  <PermissionRoute permission="manage_inventory">
+                    <LowStock />
+                  </PermissionRoute>
+                }
+              />
 
-            <Route path="*" element={<NotFound />} />
-          </Route>
+              <Route path="*" element={<NotFound />} />
+            </Route>
 
-          {/* fallback */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+            {/* fallback */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
 
-        <ToastContainer position="top-right" autoClose={2000} />
-      </BrowserRouter>
+          <ToastContainer position="top-right" autoClose={2000} />
+        </BrowserRouter>
+      </SettingsProvider>
     </AuthProvider>
 
   );

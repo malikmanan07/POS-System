@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import { Row, Col, Form } from "react-bootstrap";
 
 import POSProductCard from "../components/POSProductCard";
@@ -16,15 +17,19 @@ export default function POS() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [cart, setCart] = useState([]);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [lastSale, setLastSale] = useState(null);
+  const { settings, currencySymbol: currency } = useSettings();
+  const [posPage, setPosPage] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [paidAmount, setPaidAmount] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
-  const [lastSale, setLastSale] = useState(null);
-  const [settings, setSettings] = useState({
-    business: { currency: "USD" },
-    tax: { taxRate: 0, enableTax: false, taxName: "Tax" }
-  });
-  const [posPage, setPosPage] = useState(1);
+  const [paymentReference, setPaymentReference] = useState("");
+
+  useEffect(() => {
+    if (settings?.payment?.defaultMethod) {
+      setPaymentMethod(settings.payment.defaultMethod);
+    }
+  }, [settings]);
   const itemsPerPage = 12;
 
   // Quick Customer Add
@@ -35,19 +40,7 @@ export default function POS() {
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
-    fetchSettings();
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const res = await api.get("/api/settings", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setSettings(prev => ({ ...prev, ...res.data }));
-    } catch (err) {
-      console.error("Failed to load settings in POS");
-    }
-  };
 
   const fetchProducts = async () => {
     try {
@@ -133,10 +126,7 @@ export default function POS() {
     }).filter(item => item.qty > 0));
   };
 
-  // Settings helpers
-  const currency = settings.business?.currency === 'PKR' ? 'Rs' :
-    settings.business?.currency === 'EUR' ? '€' :
-      settings.business?.currency === 'GBP' ? '£' : '$';
+  // Settings helpers (moved to context, but keeping aliases for POS logic)
   const taxRate = settings.tax?.enableTax ? (parseFloat(settings.tax.taxRate) || 0) : 0;
   const taxName = settings.tax?.taxName || "Tax";
 
@@ -159,7 +149,8 @@ export default function POS() {
         total: total,
         payment_method: paymentMethod,
         paid_amount: paidAmount || total,
-        change_amount: change > 0 ? change : 0
+        change_amount: change > 0 ? change : 0,
+        payment_reference: paymentReference || null
       };
 
       const res = await api.post("/api/sales", saleData, {
@@ -170,6 +161,7 @@ export default function POS() {
       toast.success("Sale completed successfully");
       setCart([]);
       setPaidAmount("");
+      setPaymentReference("");
       setSelectedCustomer("");
       setShowReceipt(true);
       fetchProducts(); // Refresh stock
@@ -367,41 +359,71 @@ export default function POS() {
 
               {/* Payment Methods */}
               <div className="mb-4">
-                <div className="d-flex gap-2">
-                  <button
-                    className={`payment-btn ${paymentMethod === 'cash' ? 'active' : ''}`}
-                    onClick={() => setPaymentMethod('cash')}
-                  >
-                    Cash
-                  </button>
-                  <button
-                    className={`payment-btn ${paymentMethod === 'card' ? 'active' : ''}`}
-                    onClick={() => setPaymentMethod('card')}
-                  >
-                    Card
-                  </button>
+                <div className="d-flex flex-wrap gap-2">
+                  {(settings.payment?.acceptedMethods || ["Cash", "Card", "Online"])
+                    .filter(m => m !== "Wallet")
+                    .map(method => (
+                      <button
+                        key={method}
+                        type="button"
+                        className={`payment-btn flex-grow-1 ${paymentMethod.toLowerCase() === method.toLowerCase() ? 'active' : ''}`}
+                        onClick={() => setPaymentMethod(method)}
+                      >
+                        {method}
+                      </button>
+                    ))}
                 </div>
               </div>
 
               {/* Paid Amount Input */}
               <div className="mb-4">
+                <div className="d-flex justify-content-between mb-2 align-items-center">
+                  <Form.Label className="text-muted small fw-bold mb-0">PAID AMOUNT</Form.Label>
+                  <span
+                    className="text-primary x-small fw-bold cursor-pointer opacity-75 hover-opacity-100"
+                    onClick={() => setPaidAmount(total.toFixed(2))}
+                  >
+                    EXACT AMOUNT?
+                  </span>
+                </div>
                 <div className="pos-amount-input-wrapper">
-                  <span className="currency-label">{currency}</span>
-                  <input
+                  <span className="pos-currency-symbol">{currency}</span>
+                  <Form.Control
                     type="number"
+                    step="0.01"
                     placeholder={total.toFixed(2)}
                     value={paidAmount}
-                    onChange={e => setPaidAmount(e.target.value)}
+                    onChange={(e) => setPaidAmount(e.target.value)}
                     className="pos-amount-input"
                   />
                 </div>
-                {change > 0 && (
+                {(settings.payment?.enableChangeCalculation && change > 0) && (
                   <div className="d-flex justify-content-between mt-2 p-2 rounded bg-success-20 border border-success-subtle">
                     <span className="small text-success fw-bold">CHANGE</span>
                     <span className="small text-success fw-bold">{currency}{change.toFixed(2)}</span>
                   </div>
                 )}
               </div>
+
+              {/* Reference Number for Card/Online */}
+              {(paymentMethod.toLowerCase() === 'card' || paymentMethod.toLowerCase() === 'online') && (
+                <div className="mb-4 animate-fade-in">
+                  <Form.Label className="text-muted small fw-bold">REF / TRANS ID</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter Card Auth or Trans ID"
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                    className="bg-transparent text-white border-secondary-subtle small"
+                    style={{
+                      height: '38px',
+                      fontSize: '0.875rem',
+                      background: 'rgba(255,255,255,0.03)',
+                      borderStyle: 'dashed'
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Checkout Action */}
               <button
@@ -422,6 +444,7 @@ export default function POS() {
         onHide={() => setShowReceipt(false)}
         lastSale={lastSale}
         currency={currency}
+        settings={settings}
       />
     </div>
   );

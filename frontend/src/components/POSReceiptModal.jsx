@@ -1,11 +1,11 @@
 import { Modal, Button } from "react-bootstrap";
 import { printWindow, buildReceiptPrintHTML } from "../utils/printUtils";
 
-export default function POSReceiptModal({ show, onHide, lastSale, currency }) {
+export default function POSReceiptModal({ show, onHide, lastSale, currency, settings }) {
     if (!lastSale) return null;
 
     const handlePrint = () => {
-        const html = buildReceiptPrintHTML(lastSale, currency);
+        const html = buildReceiptPrintHTML(lastSale, currency, settings);
         printWindow(html, `Receipt #${lastSale.id}`);
     };
 
@@ -18,6 +18,9 @@ export default function POSReceiptModal({ show, onHide, lastSale, currency }) {
                     </div>
                     <h2 className="fw-bold text-white mb-2">Sale Complete!</h2>
                     <p className="text-muted">Transaction ID: #{lastSale.id}</p>
+                    {lastSale.payment_reference && (
+                        <p className="text-primary small fw-bold mb-0">Ref: {lastSale.payment_reference}</p>
+                    )}
                 </div>
 
                 <div className="p-4 mx-4 mb-4 rounded-4 bg-dark bg-opacity-50 text-start">

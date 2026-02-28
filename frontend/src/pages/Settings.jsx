@@ -3,11 +3,14 @@ import { Tab, Nav, Form, Button, Row, Col, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 
 export default function Settings() {
     const [activeTab, setActiveTab] = useState("business");
     const [loading, setLoading] = useState(true);
-    const { token } = useAuth();
+    const { token, user } = useAuth();
+    const { refreshSettings } = useSettings();
+    const isSuperAdmin = user?.roles?.some(r => r.toLowerCase() === "super admin");
 
     // Local state for settings
     const [settings, setSettings] = useState({
@@ -46,9 +49,19 @@ export default function Settings() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             // Merge existing state with fetched data to ensure all keys exist
+            const fetched = res.data;
+            if (fetched.payment?.acceptedMethods) {
+                fetched.payment.acceptedMethods = fetched.payment.acceptedMethods.filter(m => m !== "Wallet");
+            }
+
             setSettings(prev => ({
                 ...prev,
-                ...res.data
+                ...fetched,
+                business: {
+                    ...prev.business,
+                    ...fetched.business,
+                    email: user?.email || fetched.business?.email || ""
+                }
             }));
         } catch (err) {
             toast.error("Failed to load settings");
@@ -70,10 +83,17 @@ export default function Settings() {
     const handleSave = async (e) => {
         e.preventDefault();
         try {
-            const sectionData = settings[activeTab];
+            const sectionData = { ...settings[activeTab] };
+
+            // If we are saving business settings, ensure email stays as logged-in user's email
+            if (activeTab === "business") {
+                sectionData.email = user?.email || sectionData.email;
+            }
+
             await api.post(`/api/settings/${activeTab}`, sectionData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            await refreshSettings();
             toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} settings saved successfully!`);
         } catch (err) {
             toast.error("Failed to save settings");
@@ -192,6 +212,7 @@ export default function Settings() {
                                                         value={settings.business.email}
                                                         onChange={(e) => handleChange("business", "email", e.target.value)}
                                                         className="bg-transparent"
+                                                        disabled
                                                     />
                                                 </Form.Group>
                                             </Col>
@@ -307,7 +328,7 @@ export default function Settings() {
                                             <Col md={12}>
                                                 <Form.Label className="text-muted small fw-bold">ACCEPTED PAYMENT METHODS</Form.Label>
                                                 <div className="d-flex gap-3 mb-4">
-                                                    {["Cash", "Card", "Online", "Wallet"].map(method => (
+                                                    {["Cash", "Card", "Online"].map(method => (
                                                         <Form.Check
                                                             key={method}
                                                             type="checkbox"
@@ -319,6 +340,12 @@ export default function Settings() {
                                                                     ? [...settings.payment.acceptedMethods, method]
                                                                     : settings.payment.acceptedMethods.filter(m => m !== method);
                                                                 handleChange("payment", "acceptedMethods", methods);
+
+                                                                // Sync default method if currently selected one is removed
+                                                                if (!e.target.checked && settings.payment.defaultMethod === method) {
+                                                                    const nextDefault = methods.length > 0 ? methods[0] : "";
+                                                                    handleChange("payment", "defaultMethod", nextDefault);
+                                                                }
                                                             }}
                                                         />
                                                     ))}
@@ -332,7 +359,7 @@ export default function Settings() {
                                                         onChange={(e) => handleChange("payment", "defaultMethod", e.target.value)}
                                                         className="bg-transparent text-white"
                                                     >
-                                                        {settings.payment.acceptedMethods.map(m => (
+                                                        {(settings.payment.acceptedMethods || []).filter(m => m !== "Wallet").map(m => (
                                                             <option key={m} value={m}>{m}</option>
                                                         ))}
                                                     </Form.Select>

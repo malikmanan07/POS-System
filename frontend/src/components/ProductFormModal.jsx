@@ -8,6 +8,7 @@ export default function ProductFormModal({
     setFormData,
     editMode,
     categories,
+    currencySymbol,
     imagePreview,
     handleImageChange,
     setImagePreview,
@@ -145,7 +146,7 @@ export default function ProductFormModal({
                     <Row>
                         <Col md={4}>
                             <Form.Group className="mb-3">
-                                <Form.Label className="text-muted small fw-bold">COST PRICE</Form.Label>
+                                <Form.Label className="text-muted small fw-bold">COST PRICE ({currencySymbol})</Form.Label>
                                 <Form.Control
                                     type="number"
                                     step="0.01"
@@ -157,7 +158,7 @@ export default function ProductFormModal({
                         </Col>
                         <Col md={4}>
                             <Form.Group className="mb-3">
-                                <Form.Label className="text-muted small fw-bold">SELLING PRICE</Form.Label>
+                                <Form.Label className="text-muted small fw-bold">SELLING PRICE ({currencySymbol})</Form.Label>
                                 <Form.Control
                                     type="number"
                                     step="0.01"

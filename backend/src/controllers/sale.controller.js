@@ -16,7 +16,8 @@ exports.create = async (req, res) => {
             total,
             payment_method,
             paid_amount,
-            change_amount
+            change_amount,
+            payment_reference
         } = req.body;
 
         const user_id = req.user?.id || 1;
@@ -38,6 +39,7 @@ exports.create = async (req, res) => {
                     paymentMethod: payment_method || 'cash',
                     paidAmount: String(paid_amount),
                     changeAmount: String(change_amount),
+                    paymentReference: payment_reference || null,
                 })
                 .returning();
 
@@ -105,6 +107,7 @@ exports.getAll = async (req, res) => {
             payment_method: sales.paymentMethod,
             paid_amount: sales.paidAmount,
             change_amount: sales.changeAmount,
+            payment_reference: sales.paymentReference,
             created_at: sales.createdAt,
             user_name: users.name,
             customer_name: customers.name,
@@ -159,6 +162,7 @@ exports.getById = async (req, res) => {
             tax: sales.tax,
             total: sales.total,
             payment_method: sales.paymentMethod,
+            payment_reference: sales.paymentReference,
             paid_amount: sales.paidAmount,
             change_amount: sales.changeAmount,
             created_at: sales.createdAt,

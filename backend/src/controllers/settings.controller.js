@@ -30,7 +30,18 @@ exports.getSettings = async (req, res) => {
 exports.updateSetting = async (req, res) => {
     try {
         const { key } = req.params;
-        const value = req.body;
+        let value = req.body;
+
+        // Restriction: Only Super Admin can update settings
+        const userRoles = req.user?.roles || [];
+        if (!userRoles.some(r => r.toLowerCase() === "super admin")) {
+            return res.status(403).json({ error: "Only Super Admin can update system settings" });
+        }
+
+        // Force current user's email if updating business settings
+        if (key === "business" && req.user?.email) {
+            value = { ...value, email: req.user.email };
+        }
 
         const [result] = await db.insert(settings)
             .values({ key, value })

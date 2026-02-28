@@ -127,7 +127,10 @@ export function printWindow(htmlContent, title = "Print") {
 /**
  * Generates HTML for a customer purchase history print.
  */
-export function buildHistoryPrintHTML(customer, history, currency = "$") {
+export function buildHistoryPrintHTML(customer, history, currency = "$", settings = {}) {
+  const biz = settings.business || {};
+  const inv = settings.invoice || {};
+
   const salesHTML = history.map(sale => {
     const itemsHTML = sale.items.map(item => `
           <tr>
@@ -147,12 +150,13 @@ export function buildHistoryPrintHTML(customer, history, currency = "$") {
         <div class="sale-block">
           <div class="sale-meta">
             <div>
-              <div class="sale-id">Sale #${sale.id}</div>
+              <div class="sale-id">Sale ${inv.prefix || "#"}${sale.id}${inv.suffix || ""}</div>
               <div class="sale-date">${new Date(sale.created_at).toLocaleString()}</div>
             </div>
             <div class="sale-total">
               <div class="amount">${currency}${parseFloat(sale.total).toFixed(2)}</div>
-              <div class="paid">Paid: ${currency}${parseFloat(sale.paid_amount).toFixed(2)}</div>
+              <div class="paid">Paid: ${currency}${parseFloat(sale.paid_amount).toFixed(2)} (${sale.payment_method})</div>
+              ${sale.payment_reference ? `<div class="paid" style="color:#666">Ref: ${sale.payment_reference}</div>` : ""}
               ${parseFloat(sale.change_amount) > 0
         ? `<div class="change">Change: ${currency}${parseFloat(sale.change_amount).toFixed(2)}</div>`
         : ""}
@@ -174,33 +178,45 @@ export function buildHistoryPrintHTML(customer, history, currency = "$") {
 
   return `
       <div class="print-header">
-        <h1>Purchase History</h1>
-        <p>Customer: <strong>${customer.name}</strong>${customer.phone ? " &nbsp;|&nbsp; " + customer.phone : ""}${customer.email ? " &nbsp;|&nbsp; " + customer.email : ""}</p>
-        <p>${history.length} transaction${history.length !== 1 ? "s" : ""} found</p>
+        <h1>${biz.storeName || "Purchase History"}</h1>
+        ${biz.address ? `<p>${biz.address}</p>` : ""}
+        ${biz.phone ? `<p>Phone: ${biz.phone}</p>` : ""}
+        <div style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+          <p>Customer: <strong>${customer.name}</strong>${customer.phone ? " &nbsp;|&nbsp; " + customer.phone : ""}${customer.email ? " &nbsp;|&nbsp; " + customer.email : ""}</p>
+          <p>${history.length} transaction${history.length !== 1 ? "s" : ""} found</p>
+        </div>
       </div>
-      ${salesHTML}`;
+      ${salesHTML}
+      <p style="text-align:center; margin-top:20px; font-size:12px; color:#666;">${inv.footerNote || ""}</p>`;
 }
 
 /**
  * Generates HTML for a Sale Details print (from Sales History page).
  */
-export function buildSaleDetailsPrintHTML(sale) {
+export function buildSaleDetailsPrintHTML(sale, currency = "$", settings = {}) {
+  const biz = settings.business || {};
+  const inv = settings.invoice || {};
+
   const itemsHTML = (sale.items || []).map(item => `
       <tr>
         <td>
           <div style="font-weight:600">${item.product_name}</div>
-          <div style="font-size:11px;color:#666">$${parseFloat(item.price).toFixed(2)} / unit</div>
+          <div style="font-size:11px;color:#666">${currency}${parseFloat(item.price).toFixed(2)} / unit</div>
         </td>
         <td class="center">${item.qty}</td>
-        <td class="right"><strong>$${parseFloat(item.line_total).toFixed(2)}</strong></td>
+        <td class="right"><strong>${currency}${parseFloat(item.line_total).toFixed(2)}</strong></td>
       </tr>`).join("");
 
   return `
       <div class="print-header">
-        <h1>Sale Receipt</h1>
-        <p>Transaction #${sale.id}</p>
-        ${sale.customer_name ? `<p>Customer: <strong>${sale.customer_name}</strong></p>` : ""}
-        <p>${new Date(sale.created_at).toLocaleString()}</p>
+        <h1>${biz.storeName || "Sale Receipt"}</h1>
+        ${biz.address ? `<p>${biz.address}</p>` : ""}
+        ${biz.phone ? `<p>Phone: ${biz.phone}</p>` : ""}
+        <div style="margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 10px;">
+          <p>Transaction ${inv.prefix || "#"}${sale.id}${inv.suffix || ""}</p>
+          ${sale.customer_name ? `<p>Customer: <strong>${sale.customer_name}</strong></p>` : ""}
+          <p>${new Date(sale.created_at).toLocaleString()}</p>
+        </div>
       </div>
       <div class="sale-block">
         <table>
@@ -216,36 +232,44 @@ export function buildSaleDetailsPrintHTML(sale) {
         <div style="margin-top:14px; border-top:1px solid #ddd; padding-top:10px;">
           <div class="receipt-row" style="color:#555; font-size:12px">
             <span>Subtotal</span>
-            <span>$${parseFloat(sale.subtotal || 0).toFixed(2)}</span>
+            <span>${currency}${parseFloat(sale.subtotal || 0).toFixed(2)}</span>
           </div>
           ${parseFloat(sale.tax || 0) > 0 ? `
           <div class="receipt-row" style="color:#555; font-size:12px">
             <span>Tax</span>
-            <span>$${parseFloat(sale.tax).toFixed(2)}</span>
+            <span>${currency}${parseFloat(sale.tax).toFixed(2)}</span>
           </div>` : ""}
           <div class="receipt-row receipt-total" style="margin-top:8px; padding-top:8px; border-top:2px solid #111;">
             <span>Grand Total</span>
-            <span>$${parseFloat(sale.total).toFixed(2)}</span>
+            <span>${currency}${parseFloat(sale.total).toFixed(2)}</span>
           </div>
           ${sale.paid_amount ? `
           <div class="receipt-row" style="color:#2a7d4f; font-size:12px; margin-top:4px">
             <span>Paid (${sale.payment_method || "cash"})</span>
-            <span>$${parseFloat(sale.paid_amount).toFixed(2)}</span>
+            <span>${currency}${parseFloat(sale.paid_amount).toFixed(2)}</span>
+          </div>` : ""}
+          ${sale.payment_reference ? `
+          <div class="receipt-row" style="color:#666; font-size:11px; margin-top:2px">
+            <span>Payment Ref</span>
+            <span>${sale.payment_reference}</span>
           </div>` : ""}
           ${parseFloat(sale.change_amount || 0) > 0 ? `
           <div class="receipt-row" style="color:#0070bb; font-size:12px">
             <span>Change Given</span>
-            <span>$${parseFloat(sale.change_amount).toFixed(2)}</span>
+            <span>${currency}${parseFloat(sale.change_amount).toFixed(2)}</span>
           </div>` : ""}
         </div>
       </div>
-      <p style="text-align:center; margin-top:20px; font-size:13px; color:#999;">Thank you for your purchase!</p>`;
+      <p style="text-align:center; margin-top:20px; font-size:13px; color:#555;">${inv.footerNote || "Thank you for your purchase!"}</p>`;
 }
 
 /**
  * Generates HTML for a POS receipt print (after checkout).
  */
-export function buildReceiptPrintHTML(sale, currency = "$") {
+export function buildReceiptPrintHTML(sale, currency = "$", settings = {}) {
+  const biz = settings.business || {};
+  const inv = settings.invoice || {};
+
   const itemsHTML = (sale.items || []).map(item => `
       <div class="receipt-row">
         <span>${item.qty}x ${item.name}</span>
@@ -254,9 +278,13 @@ export function buildReceiptPrintHTML(sale, currency = "$") {
 
   return `
       <div class="print-header">
-        <h1>Sale Receipt</h1>
-        <p>Transaction #${sale.id}</p>
-        <p>${new Date(sale.created_at || Date.now()).toLocaleString()}</p>
+        <h1>${biz.storeName || "Sale Receipt"}</h1>
+        ${biz.address ? `<p>${biz.address}</p>` : ""}
+        ${biz.phone ? `<p>Phone: ${biz.phone}</p>` : ""}
+        <div style="margin-top: 10px; border-top: 1px dashed #ccc; padding-top: 10px;">
+          <p>Transaction ${inv.prefix || "#"}${sale.id}${inv.suffix || ""}</p>
+          <p>${new Date(sale.created_at || Date.now()).toLocaleString()}</p>
+        </div>
       </div>
       <div class="sale-block">
         ${itemsHTML}
@@ -267,8 +295,13 @@ export function buildReceiptPrintHTML(sale, currency = "$") {
         </div>
         ${sale.paid_amount ? `
         <div class="receipt-row" style="color:#2a7d4f">
-          <span>Paid</span>
+          <span>Paid (${sale.payment_method || "cash"})</span>
           <span>${currency}${parseFloat(sale.paid_amount).toFixed(2)}</span>
+        </div>` : ""}
+        ${sale.payment_reference ? `
+        <div class="receipt-row" style="color:#666; font-size:11px; margin-top:2px">
+          <span>Ref</span>
+          <span>${sale.payment_reference}</span>
         </div>` : ""}
         ${parseFloat(sale.change_amount || 0) > 0 ? `
         <div class="receipt-row" style="color:#0070bb">
@@ -276,5 +309,5 @@ export function buildReceiptPrintHTML(sale, currency = "$") {
           <span>${currency}${parseFloat(sale.change_amount).toFixed(2)}</span>
         </div>` : ""}
       </div>
-      <p style="text-align:center; margin-top:16px; font-size:13px; color:#555;">Thank you for your purchase!</p>`;
+      <p style="text-align:center; margin-top:16px; font-size:13px; color:#555;">${inv.footerNote || "Thank you for your purchase!"}</p>`;
 }
