@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const { eq, desc, sql } = require("drizzle-orm");
 const { sales, saleItems, products, stockMovements, users, customers } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -85,6 +86,17 @@ exports.create = async (req, res) => {
             }
 
             return newSale;
+        });
+
+        // Activity Log
+        await logActivity({
+            userId: user_id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'CREATE',
+            module: 'SALES',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) processed sale #${saleResult.id} for amount ${total}`,
+            ipAddress: req.ip
         });
 
         res.status(201).json(saleResult);

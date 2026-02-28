@@ -13,6 +13,8 @@ const dashboardRoutes = require("./src/routes/dashboard.routes");
 const settingsRoutes = require("./src/routes/settings.routes");
 
 const stockRoutes = require("./src/routes/stock.routes");
+const activityRoutes = require("./src/routes/activity.routes");
+const reportsRoutes = require("./src/routes/reports.routes");
 
 const app = express();
 
@@ -31,6 +33,8 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/settings", settingsRoutes);
 
 app.use("/api/stock", stockRoutes);
+app.use("/api/activity", activityRoutes);
+app.use("/api/reports", reportsRoutes);
 
 
 const PORT = process.env.PORT || 5000;

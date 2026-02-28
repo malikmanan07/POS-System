@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const { eq, sql, desc, notInArray } = require("drizzle-orm");
 const { users, userRoles, roles } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -58,6 +59,26 @@ exports.createUser = async (req, res) => {
             return [createdUser];
         });
 
+        // Fetch role names for logging
+        let roleNames = 'No Role';
+        if (role_ids && role_ids.length > 0) {
+            const selectedRoles = await db.select({ name: roles.name })
+                .from(roles)
+                .where(sql`${roles.id} IN (${sql.join(role_ids, sql`, `)})`);
+            roleNames = selectedRoles.map(r => r.name).join(', ');
+        }
+
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'CREATE',
+            module: 'USERS',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) created new ${roleNames}: ${newUser.name} (${newUser.email})`,
+            ipAddress: req.ip
+        });
+
         res.status(201).json(newUser);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -109,18 +130,59 @@ exports.updateUser = async (req, res) => {
             return [resUser];
         });
 
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'UPDATE',
+            module: 'USERS',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) updated user: ${updatedUser.name} (#${updatedUser.id})`,
+            ipAddress: req.ip
+        });
+
         res.json(updatedUser);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 
-// Delete a user
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const [result] = await db.delete(users).where(eq(users.id, id)).returning();
-        if (!result) return res.status(404).json({ error: "User not found" });
+        const targetId = parseInt(id);
+
+        // 1. Fetch victim with roles before deletion for detailed logging
+        const victim = await db.query.users.findFirst({
+            where: eq(users.id, targetId),
+            with: {
+                roles: {
+                    with: {
+                        role: true
+                    }
+                }
+            }
+        });
+
+        if (!victim) return res.status(404).json({ error: "User not found" });
+
+        const victimName = victim.name;
+        const victimRole = victim.roles?.map(r => r.role.name).join(', ') || 'No Role';
+
+        // 2. Perform deletion
+        await db.delete(users).where(eq(users.id, targetId));
+
+        // 3. Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'DELETE',
+            module: 'USERS',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) deleted ${victimRole} (${victimName})`,
+            ipAddress: req.ip
+        });
+
         res.json({ message: "User deleted successfully" });
     } catch (err) {
         res.status(500).json({ error: err.message });

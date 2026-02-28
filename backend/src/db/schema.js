@@ -160,6 +160,19 @@ const settings = pgTable("settings", {
     updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// 13️⃣ ACTIVITY_LOGS
+const activityLogs = pgTable("activity_logs", {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    userName: varchar("user_name", { length: 150 }),
+    userRole: varchar("user_role", { length: 100 }),
+    action: varchar("action", { length: 100 }).notNull(), // e.g., 'CREATE', 'UPDATE', 'DELETE', 'LOGIN'
+    module: varchar("module", { length: 50 }).notNull(), // e.g., 'SALES', 'STOCK', 'USERS'
+    details: text("details"),
+    ipAddress: varchar("ip_address", { length: 45 }),
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
 // --- RELATIONS ---
 
 const usersRelations = relations(users, ({ many }) => ({
@@ -238,6 +251,10 @@ const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
     }),
 }));
 
+const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+    user: one(users, { fields: [activityLogs.userId], references: [users.id] }),
+}));
+
 module.exports = {
     users,
     roles,
@@ -251,6 +268,7 @@ module.exports = {
     saleItems,
     stockMovements,
     settings,
+    activityLogs,
     // Relations
     usersRelations,
     rolesRelations,
@@ -263,4 +281,5 @@ module.exports = {
     salesRelations,
     saleItemsRelations,
     stockMovementsRelations,
+    activityLogsRelations,
 };

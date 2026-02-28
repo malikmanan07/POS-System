@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { eq, sql } = require("drizzle-orm");
 const { users, userRoles, roles, rolePermissions, permissions } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -69,10 +70,21 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, roles: rolesList },
+      { id: user.id, name: user.name, email: user.email, roles: rolesList },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+
+    // Activity Log
+    await logActivity({
+      userId: user.id,
+      userName: user.name,
+      userRole: rolesList,
+      action: 'LOGIN',
+      module: 'AUTH',
+      details: `User logged in from ${req.ip || 'unknown'}`,
+      ipAddress: req.ip
+    });
 
     res.json({
       token,

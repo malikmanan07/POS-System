@@ -29,7 +29,8 @@ async function seed() {
             "view_reports",
             "manage_roles",
             "system_settings",
-            "manage_inventory"
+            "manage_inventory",
+            "view_activity_logs"
         ];
 
         // 1. Ensure Roles

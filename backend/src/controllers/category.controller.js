@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const { eq, asc, sql } = require("drizzle-orm");
 const { alias } = require("drizzle-orm/pg-core");
 const { categories, products } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -64,6 +65,17 @@ exports.create = async (req, res) => {
       name,
       parentId: parentId ? parseInt(parentId) : null
     }).returning();
+    // Activity Log
+    await logActivity({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userRole: req.user?.roles,
+      action: 'CREATE',
+      module: 'CATEGORIES',
+      details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) created category: ${result.name}`,
+      ipAddress: req.ip
+    });
+
     res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -94,6 +106,18 @@ exports.update = async (req, res) => {
     if (!result) {
       return res.status(404).json({ error: "Category not found" });
     }
+
+    // Activity Log
+    await logActivity({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userRole: req.user?.roles,
+      action: 'UPDATE',
+      module: 'CATEGORIES',
+      details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) updated category: ${result.name}`,
+      ipAddress: req.ip
+    });
+
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -129,6 +153,17 @@ exports.remove = async (req, res) => {
     if (!result) {
       return res.status(404).json({ error: "Category not found" });
     }
+    // Activity Log
+    await logActivity({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userRole: req.user?.roles,
+      action: 'DELETE',
+      module: 'CATEGORIES',
+      details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) deleted category: ${result.name}`,
+      ipAddress: req.ip
+    });
+
     res.json({ message: "Category deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

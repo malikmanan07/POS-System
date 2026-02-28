@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const { eq, desc, sql } = require("drizzle-orm");
 const { products, categories, stockMovements, saleItems } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -91,6 +92,17 @@ exports.create = async (req, res) => {
         });
     }
 
+    // Activity Log
+    await logActivity({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userRole: req.user?.roles,
+      action: 'CREATE',
+      module: 'PRODUCTS',
+      details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) created product: ${product.name} (SKU: ${product.sku}) with ${product.stock} stock`,
+      ipAddress: req.ip
+    });
+
     res.status(201).json(product);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -127,6 +139,17 @@ exports.update = async (req, res) => {
     if (!updatedProduct)
       return res.status(404).json({ error: "Product not found" });
 
+    // Activity Log
+    await logActivity({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userRole: req.user?.roles,
+      action: 'UPDATE',
+      module: 'PRODUCTS',
+      details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) updated product: ${updatedProduct.name} (#${updatedProduct.id})`,
+      ipAddress: req.ip
+    });
+
     res.json(updatedProduct);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -160,6 +183,17 @@ exports.remove = async (req, res) => {
 
     if (!deletedProduct)
       return res.status(404).json({ error: "Product not found" });
+
+    // Activity Log
+    await logActivity({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userRole: req.user?.roles,
+      action: 'DELETE',
+      module: 'PRODUCTS',
+      details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) deleted product: ${deletedProduct.name} (#${deletedProduct.id})`,
+      ipAddress: req.ip
+    });
 
     res.json({ message: "Deleted successfully" });
   } catch (err) {

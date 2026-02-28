@@ -50,6 +50,18 @@ export default function Sidebar() {
         </>
       )}
 
+      {hasPermission("view_activity_logs") && (
+        <NavLink to="/app/activity" className="nav-itemx">
+          <i className="bi bi-journal-text"></i> Activity Log
+        </NavLink>
+      )}
+
+      {hasPermission("view_reports") && (
+        <NavLink to="/app/reports" className="nav-itemx">
+          <i className="bi bi-graph-up-arrow"></i> Reports & Analytics
+        </NavLink>
+      )}
+
       {hasPermission("manage_inventory") && (
         <>
           <NavLink to="/app/inventory" className="nav-itemx" end>
