@@ -85,11 +85,12 @@ exports.adjustStock = async (req, res) => {
 // GET /api/stock/history
 exports.getMovementHistory = async (req, res) => {
     try {
+        const limitArg = req.query.limit;
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const offset = (page - 1) * limit;
+        const limit = limitArg === 'all' ? null : (parseInt(limitArg) || 10);
+        const offset = limit ? (page - 1) * limit : null;
 
-        const result = await db.select({
+        let query = db.select({
             id: stockMovements.id,
             productId: stockMovements.productId,
             type: stockMovements.type,
@@ -102,9 +103,17 @@ exports.getMovementHistory = async (req, res) => {
         })
             .from(stockMovements)
             .innerJoin(products, eq(stockMovements.productId, products.id))
-            .orderBy(desc(stockMovements.createdAt))
-            .limit(limit)
-            .offset(offset);
+            .orderBy(desc(stockMovements.createdAt));
+
+        if (limit) {
+            query = query.limit(limit).offset(offset);
+        }
+
+        const result = await query;
+
+        if (!limit) {
+            return res.json(result);
+        }
 
         // Get total count for pagination
         const [totalCount] = await db.select({ count: sql`count(*)::int` }).from(stockMovements);
