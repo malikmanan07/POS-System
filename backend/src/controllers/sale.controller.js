@@ -26,6 +26,12 @@ exports.create = async (req, res) => {
             return res.status(400).json({ error: "No items in sale" });
         }
 
+        // Validate payment reference for non-cash payments
+        const method = (payment_method || 'cash').toLowerCase();
+        if ((method === 'card' || method === 'online') && !payment_reference) {
+            return res.status(400).json({ error: `Reference / Transaction ID is required for ${payment_method} payments` });
+        }
+
         const saleResult = await db.transaction(async (tx) => {
             // 1. Insert Sale record
             const [newSale] = await tx.insert(sales)

@@ -2,17 +2,26 @@ import { Container, Nav, Navbar, Button, Dropdown, Badge } from "react-bootstrap
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSettings } from "../context/SettingsContext";
 
 export default function AppNavbar({ onMenu }) {
   const { user, logout, token } = useAuth();
   const navigate = useNavigate();
-  const [lowStockCount, setLowStockCount] = useState(0);
-  const [lowStockItems, setLowStockItems] = useState([]);
-  const [dismissedAlerts, setDismissedAlerts] = useState(() => {
-    const saved = localStorage.getItem("dismissed_alerts");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [rawStockData, setRawStockData] = useState([]);
+  const { settings, updateSystemSetting, refreshSettings } = useSettings();
+
+  const dismissedAlerts = useMemo(() => settings?.dismissed_alerts || [], [settings?.dismissed_alerts]);
+
+  const alerts = useMemo(() => {
+    return rawStockData.filter(p =>
+      p.stock <= (p.alert_quantity || 5) &&
+      !dismissedAlerts.includes(p.id)
+    );
+  }, [rawStockData, dismissedAlerts]);
+
+  const lowStockCount = alerts.length;
+  const lowStockItems = alerts.slice(0, 5);
 
   useEffect(() => {
     if (token) {
@@ -24,7 +33,10 @@ export default function AppNavbar({ onMenu }) {
       };
 
       window.addEventListener("saleCompleted", handleSale);
-      const interval = setInterval(fetchLowStock, 60000);
+      const interval = setInterval(() => {
+        fetchLowStock();
+        refreshSettings();
+      }, 10000); // 10s sync
 
       return () => {
         clearInterval(interval);
@@ -39,21 +51,14 @@ export default function AppNavbar({ onMenu }) {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = res.data || [];
+      setRawStockData(data);
 
       // Auto-clear dismissed for restocked items
       const currentlyLow = data.filter(p => p.stock <= (p.alert_quantity || 5)).map(p => p.id);
       const stillDismissed = dismissedAlerts.filter(id => currentlyLow.includes(id));
       if (stillDismissed.length !== dismissedAlerts.length) {
-        setDismissedAlerts(stillDismissed);
-        localStorage.setItem("dismissed_alerts", JSON.stringify(stillDismissed));
+        updateSystemSetting("dismissed_alerts", stillDismissed);
       }
-
-      const alerts = data.filter(p =>
-        p.stock <= (p.alert_quantity || 5) &&
-        !stillDismissed.includes(p.id)
-      );
-      setLowStockCount(alerts.length);
-      setLowStockItems(alerts.slice(0, 5));
     } catch (err) {
       console.error("Failed to fetch low stock");
     }
@@ -61,8 +66,7 @@ export default function AppNavbar({ onMenu }) {
 
   const handleDismiss = (id) => {
     const newDismissed = [...dismissedAlerts, id];
-    setDismissedAlerts(newDismissed);
-    localStorage.setItem("dismissed_alerts", JSON.stringify(newDismissed));
+    updateSystemSetting("dismissed_alerts", newDismissed);
   };
 
   const handleLogout = () => {

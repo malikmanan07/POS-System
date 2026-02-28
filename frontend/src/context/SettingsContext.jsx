@@ -44,9 +44,31 @@ export function SettingsProvider({ children }) {
         return `${currencySymbol}${parseFloat(price || 0).toFixed(2)}`;
     };
 
+    const updateSystemSetting = async (key, value) => {
+        if (!token) return;
+
+        // Optimistic Update: Update local state immediately for instant feedback
+        const previousSettings = settings;
+        setSettings(prev => ({ ...prev, [key]: value }));
+
+        try {
+            await api.put(`/api/settings/${key}`, value, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            // Optional: refresh from server to ensure sync, but not strictly necessary if PUT was successful
+            // await fetchSettings(); 
+            return true;
+        } catch (err) {
+            console.error(`Failed to update setting ${key}`);
+            // Rollback on error
+            setSettings(previousSettings);
+            return false;
+        }
+    };
+
     return (
         <SettingsContext.Provider
-            value={{ settings, currencySymbol, formatPrice, refreshSettings: fetchSettings, loading }}
+            value={{ settings, currencySymbol, formatPrice, refreshSettings: fetchSettings, updateSystemSetting, loading }}
         >
             {children}
         </SettingsContext.Provider>

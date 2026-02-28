@@ -139,6 +139,12 @@ export default function POS() {
     if (cart.length === 0) return toast.error("Cart is empty");
     if (paidAmount && parseFloat(paidAmount) < total) return toast.error("Insufficient payment");
 
+    // Mandatory Reference ID for Card/Online payments
+    const method = paymentMethod.toLowerCase();
+    if ((method === 'card' || method === 'online') && !paymentReference.trim()) {
+      return toast.error(`Reference / Transaction ID is required for ${paymentMethod} payments`);
+    }
+
     try {
       const saleData = {
         customer_id: selectedCustomer || null,
