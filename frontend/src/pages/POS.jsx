@@ -168,6 +168,11 @@ export default function POS() {
 
       setLastSale({ ...res.data, items: cart });
       toast.success("Sale completed successfully");
+
+      // Notify other components (like Navbar) to refresh notifications
+      console.log("Dispatching saleCompleted event...");
+      window.dispatchEvent(new CustomEvent("saleCompleted"));
+
       setCart([]);
       setPaidAmount("");
       setSelectedCustomer("");
