@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const { eq, asc, desc, sql, or, ilike } = require("drizzle-orm");
 const { customers, sales, saleItems, products } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -128,6 +129,17 @@ exports.create = async (req, res) => {
             })
             .returning();
 
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'CREATE',
+            module: 'CUSTOMERS',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) added new customer: ${newCustomer.name}`,
+            ipAddress: req.ip
+        });
+
         res.status(201).json(newCustomer);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -153,6 +165,17 @@ exports.update = async (req, res) => {
         if (!updatedCustomer) {
             return res.status(404).json({ error: "Customer not found" });
         }
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'UPDATE',
+            module: 'CUSTOMERS',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) updated customer: ${updatedCustomer.name}`,
+            ipAddress: req.ip
+        });
+
         res.json(updatedCustomer);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -185,6 +208,17 @@ exports.remove = async (req, res) => {
         if (!deletedCustomer) {
             return res.status(404).json({ error: "Customer not found" });
         }
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'DELETE',
+            module: 'CUSTOMERS',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) deleted customer: ${deletedCustomer.name}`,
+            ipAddress: req.ip
+        });
+
         res.json({ message: "Customer deleted" });
     } catch (err) {
         res.status(500).json({ error: err.message });

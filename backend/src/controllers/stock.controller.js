@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const { eq, sql, asc, desc } = require("drizzle-orm");
 const { products, categories, stockMovements } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -74,6 +75,20 @@ exports.adjustStock = async (req, res) => {
             });
 
             return newStock;
+        });
+
+        // Fetch product name for logging
+        const [prodInfo] = await db.select({ name: products.name }).from(products).where(eq(products.id, product_id)).limit(1);
+
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'UPDATE',
+            module: 'INVENTORY',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) adjusted stock for ${prodInfo?.name || 'Product #' + product_id} (${type}: ${qty})`,
+            ipAddress: req.ip
         });
 
         res.json({ message: "Stock adjusted successfully", newStock: result });

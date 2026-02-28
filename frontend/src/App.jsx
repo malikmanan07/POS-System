@@ -24,6 +24,8 @@ import Settings from "./pages/Settings";
 import ManageStock from "./pages/ManageStock";
 import StockHistory from "./pages/StockHistory";
 import LowStock from "./pages/LowStock";
+import ActivityLog from "./pages/ActivityLog";
+import Reports from "./pages/Reports";
 
 export default function App() {
   return (
@@ -154,6 +156,24 @@ export default function App() {
                 element={
                   <PermissionRoute permission="manage_inventory">
                     <LowStock />
+                  </PermissionRoute>
+                }
+              />
+
+              <Route
+                path="activity"
+                element={
+                  <PermissionRoute permission="view_activity_logs">
+                    <ActivityLog />
+                  </PermissionRoute>
+                }
+              />
+
+              <Route
+                path="reports"
+                element={
+                  <PermissionRoute permission="view_reports">
+                    <Reports />
                   </PermissionRoute>
                 }
               />

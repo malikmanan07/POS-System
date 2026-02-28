@@ -122,6 +122,7 @@ export default function Dashboard() {
     // User Management
     if (hasPermission("manage_users")) {
       actions.push({ title: "Manage Users", subtitle: "Roles & Permissions", icon: "bi-person-gear", link: "/app/users" });
+      actions.push({ title: "Activity Log", subtitle: "Audit Trail & Logs", icon: "bi-journal-text", link: "/app/activity" });
       actions.push({ title: "Shared Access", subtitle: "Role Assignment", icon: "bi-shield-lock", link: "/app/access" });
     }
 

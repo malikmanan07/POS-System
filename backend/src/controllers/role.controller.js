@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 const { eq, asc, sql, and, ne } = require("drizzle-orm");
 const { roles, userRoles, permissions, rolePermissions } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -27,6 +28,18 @@ exports.createRole = async (req, res) => {
         }
 
         const [created] = await db.insert(roles).values({ name }).returning();
+
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'CREATE',
+            module: 'ROLES',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) created new role: ${name}`,
+            ipAddress: req.ip
+        });
+
         res.status(201).json(created);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -60,6 +73,17 @@ exports.updateRole = async (req, res) => {
             return res.status(404).json({ error: "Role not found" });
         }
 
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'UPDATE',
+            module: 'ROLES',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) updated role: ${name} (ID: ${id})`,
+            ipAddress: req.ip
+        });
+
         res.json(updated);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -81,6 +105,17 @@ exports.deleteRole = async (req, res) => {
         if (!deleted) {
             return res.status(404).json({ error: "Role not found" });
         }
+
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'DELETE',
+            module: 'ROLES',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) deleted role: ${deleted.name} (ID: ${id})`,
+            ipAddress: req.ip
+        });
 
         res.json({ message: "Role deleted successfully" });
     } catch (err) {
@@ -127,6 +162,20 @@ exports.updateRolePermissions = async (req, res) => {
                     permIds.map(pid => ({ roleId: id, permissionId: pid }))
                 );
             }
+        });
+
+        // Fetch role name for better log details
+        const [roleObj] = await db.select({ name: roles.name }).from(roles).where(eq(roles.id, id)).limit(1);
+
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'UPDATE',
+            module: 'ACCESS',
+            details: `${req.user?.roles?.[0] || 'User'} (${req.user?.name}) updated permissions for role: ${roleObj?.name || 'ID ' + id}`,
+            ipAddress: req.ip
         });
 
         res.json({ message: "Permissions updated successfully" });
