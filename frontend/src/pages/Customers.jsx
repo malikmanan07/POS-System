@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Form } from "react-bootstrap";
+import { useSettings } from "../context/SettingsContext";
 
 import CustomerHistoryModal from "../components/CustomerHistoryModal";
 import CustomerFormModal from "../components/CustomerFormModal";
@@ -19,6 +20,7 @@ export default function Customers() {
   const [editId, setEditId] = useState(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 12 });
   const { token, hasPermission } = useAuth();
+  const { currencySymbol, settings } = useSettings();
   const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -247,6 +249,8 @@ export default function Customers() {
         isLoadingHistory={isLoadingHistory}
         history={history}
         apiBaseUrl={api.defaults.baseURL}
+        currency={currencySymbol}
+        settings={settings}
       />
 
       <CustomerFormModal

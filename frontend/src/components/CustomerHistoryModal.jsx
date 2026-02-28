@@ -7,7 +7,9 @@ export default function CustomerHistoryModal({
     selectedCustomer,
     isLoadingHistory,
     history,
-    apiBaseUrl
+    apiBaseUrl,
+    currency,
+    settings
 }) {
     const handlePrint = () => {
         if (!selectedCustomer || history.length === 0) return;
@@ -19,7 +21,7 @@ export default function CustomerHistoryModal({
                 image: item.image ? `${apiBaseUrl}${item.image}` : null
             }))
         }));
-        const html = buildHistoryPrintHTML(selectedCustomer, historyWithAbsImages);
+        const html = buildHistoryPrintHTML(selectedCustomer, historyWithAbsImages, currency, settings);
         printWindow(html, `Purchase History - ${selectedCustomer.name}`);
     };
 
@@ -40,10 +42,10 @@ export default function CustomerHistoryModal({
                                     <div className="small text-muted">{new Date(sale.created_at).toLocaleString()}</div>
                                 </div>
                                 <div className="text-end">
-                                    <div className="fw-bold text-white fs-5">${parseFloat(sale.total).toFixed(2)}</div>
-                                    <div className="small text-success">Paid: ${parseFloat(sale.paid_amount).toFixed(2)}</div>
+                                    <div className="fw-bold text-white fs-5">{currency}{parseFloat(sale.total).toFixed(2)}</div>
+                                    <div className="small text-success">Paid: {currency}{parseFloat(sale.paid_amount).toFixed(2)}</div>
                                     {parseFloat(sale.change_amount) > 0 && (
-                                        <div className="small text-info">Change: ${parseFloat(sale.change_amount).toFixed(2)}</div>
+                                        <div className="small text-info">Change: {currency}{parseFloat(sale.change_amount).toFixed(2)}</div>
                                     )}
                                 </div>
                             </div>
@@ -71,8 +73,8 @@ export default function CustomerHistoryModal({
                                                     </div>
                                                 </td>
                                                 <td className="py-2 text-center small bg-transparent text-white">{item.qty}</td>
-                                                <td className="py-2 text-end small bg-transparent text-white-50">${parseFloat(item.price).toFixed(2)}</td>
-                                                <td className="py-2 text-end small fw-bold bg-transparent text-primary">${parseFloat(item.line_total).toFixed(2)}</td>
+                                                <td className="py-2 text-end small bg-transparent text-white-50">{currency}{parseFloat(item.price).toFixed(2)}</td>
+                                                <td className="py-2 text-end small fw-bold bg-transparent text-primary">{currency}{parseFloat(item.line_total).toFixed(2)}</td>
                                             </tr>
                                         ))}
                                     </tbody>

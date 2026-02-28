@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 // No react-bootstrap imports needed here
 
 import SaleDetailsModal from "../components/SaleDetailsModal";
@@ -14,6 +15,7 @@ export default function Sales() {
   const [showModal, setShowModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const { token, hasPermission } = useAuth();
+  const { currencySymbol, settings } = useSettings();
   const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
   const API_PATH = "/api/sales";
 
@@ -94,7 +96,7 @@ export default function Sales() {
                     {s.customer_name || <span className="text-muted italic">Walk-in</span>}
                   </td>
                   <td className="px-4 py-3 align-middle fw-bold">
-                    ${parseFloat(s.total).toFixed(2)}
+                    {currencySymbol}{parseFloat(s.total).toFixed(2)}
                   </td>
                   <td className="px-4 py-3 align-middle text-center">
                     <span className={`badge-soft ${s.payment_method === 'cash' ? 'text-success' : 'text-info'}`}>
@@ -126,6 +128,8 @@ export default function Sales() {
         show={showModal}
         onHide={() => setShowModal(false)}
         sale={selectedSale}
+        currencySymbol={currencySymbol}
+        settings={settings}
       />
     </div>
   );

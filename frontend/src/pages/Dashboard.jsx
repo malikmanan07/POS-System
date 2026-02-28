@@ -3,6 +3,7 @@ import { Card, Col, Row, Badge, Button, Spinner } from "react-bootstrap";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import { toast } from "react-toastify";
+import { useSettings } from "../context/SettingsContext";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, PieChart, Pie, Legend
@@ -47,13 +48,13 @@ const CustomBarTooltip = ({ active, payload }) => {
   return null;
 };
 
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, currencySymbol }) => {
   if (active && payload && payload.length) {
     return (
       <div className="glass p-3 rounded border-0 shadow-lg" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)" }}>
         <p className="fw-bold text-white mb-1">{label}</p>
         <p className="mb-0 fw-bold fs-5" style={{ color: "#22c55e" }}>
-          ${parseFloat(payload[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {currencySymbol}{parseFloat(payload[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
     );
@@ -63,6 +64,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Dashboard() {
   const { hasPermission, user, token } = useAuth();
+  const { currencySymbol } = useSettings();
   const [loading, setLoading] = useState(true);
   // Cashier-like user = can create sale but cannot view reports
   const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
@@ -144,7 +146,7 @@ export default function Dashboard() {
             <Col md={6} xl={3}>
               <KPI
                 title="Sales Today"
-                value={`$${parseFloat(data.kpis.todayRevenue).toFixed(2)}`}
+                value={`${currencySymbol}${parseFloat(data.kpis.todayRevenue).toFixed(2)}`}
                 icon="bi-graph-up-arrow"
                 hint="Real-time revenue"
               />
@@ -231,10 +233,10 @@ export default function Dashboard() {
                             tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `$${value}`}
+                            tickFormatter={(value) => `${currencySymbol}${value}`}
                           />
                           <Tooltip
-                            content={<CustomTooltip />}
+                            content={<CustomTooltip currencySymbol={currencySymbol} />}
                             cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }}
                           />
                           <Area

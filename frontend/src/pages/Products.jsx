@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 // No react-bootstrap imports needed here
 
 import ProductFormModal from "../components/ProductFormModal";
@@ -19,6 +20,7 @@ export default function Products() {
   const [pagination, setPagination] = useState({ page: 1, limit: 12 }); // 12 per page for grid/table consistency
   const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
   const { token } = useAuth();
+  const { currencySymbol } = useSettings();
   const API_PATH = "/api/products";
 
   const [formData, setFormData] = useState({
@@ -313,7 +315,7 @@ export default function Products() {
                     <td className="px-4 py-3 align-middle">
                       <span className="badge-soft">{p.category_name || "Uncategorized"}</span>
                     </td>
-                    <td className="px-4 py-3 align-middle">${parseFloat(p.price).toFixed(2)}</td>
+                    <td className="px-4 py-3 align-middle">{currencySymbol}{parseFloat(p.price).toFixed(2)}</td>
                     <td className="px-4 py-3 align-middle">
                       <span className={`fw-bold ${p.stock <= (p.alert_quantity || 5) ? 'text-danger' : ''}`}>
                         {p.stock}
@@ -370,6 +372,7 @@ export default function Products() {
         setFormData={setFormData}
         editMode={editMode}
         categories={categories}
+        currencySymbol={currencySymbol}
         imagePreview={imagePreview}
         handleImageChange={handleImageChange}
         setImagePreview={setImagePreview}

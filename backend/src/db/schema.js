@@ -122,6 +122,7 @@ const sales = pgTable("sales", {
     changeAmount: numeric("change_amount", { precision: 10, scale: 2 })
         .notNull()
         .default("0"),
+    paymentReference: varchar("payment_reference", { length: 100 }),
     createdAt: timestamp("created_at").defaultNow(),
 });
 
