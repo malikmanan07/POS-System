@@ -139,7 +139,7 @@ exports.remove = async (req, res) => {
     const { id } = req.params;
     const productId = parseInt(id);
 
-    // Check if product is used in sales
+    // 1. Check if product is used in sales (We keep this as a safety check)
     const existingSales = await db.select({ id: saleItems.id })
       .from(saleItems)
       .where(eq(saleItems.productId, productId))
@@ -149,6 +149,11 @@ exports.remove = async (req, res) => {
       return res.status(400).json({ error: "Cannot delete product that has sales history" });
     }
 
+    // 2. Delete related stock movements first (to avoid foreign key constraint error)
+    await db.delete(stockMovements)
+      .where(eq(stockMovements.productId, productId));
+
+    // 3. Delete the product
     const [deletedProduct] = await db.delete(products)
       .where(eq(products.id, productId))
       .returning();
