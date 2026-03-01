@@ -1,6 +1,6 @@
 const pool = require("../config/db");
-const { eq, and, desc, sql, gte, lte } = require("drizzle-orm");
-const { shifts, sales, users } = require("../db/schema");
+const { eq, and, desc, sql, gte, lte, inArray } = require("drizzle-orm");
+const { shifts, sales, users, roles, permissions, rolePermissions } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
@@ -151,7 +151,26 @@ exports.endShift = async (req, res) => {
 // GET /api/shifts (Admin History)
 exports.getAllShifts = async (req, res) => {
     try {
-        const isAdmin = req.user.roles?.some(r => ["super admin", "admin"].includes(r.toLowerCase()));
+        const originalRoles = req.user.roles || [];
+        const lowerRoles = originalRoles.map(r => r.toLowerCase());
+        const isSuperAdmin = lowerRoles.includes("super admin");
+        const isAdmin = lowerRoles.includes("admin");
+
+        // Check for 'manage_shifts' permission in DB if not super admin
+        let hasManageShifts = isSuperAdmin || isAdmin;
+        if (!hasManageShifts && originalRoles.length > 0) {
+            const [permResult] = await db.select({ roleId: rolePermissions.roleId })
+                .from(rolePermissions)
+                .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+                .innerJoin(roles, eq(rolePermissions.roleId, roles.id))
+                .where(and(
+                    eq(permissions.name, 'manage_shifts'),
+                    inArray(roles.name, originalRoles)
+                ))
+                .limit(1);
+            if (permResult) hasManageShifts = true;
+        }
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
@@ -173,8 +192,8 @@ exports.getAllShifts = async (req, res) => {
             .leftJoin(users, eq(shifts.userId, users.id))
             .orderBy(desc(shifts.id));
 
-        // If not admin, only see own shifts
-        if (!isAdmin) {
+        // If no manage permission, only see own shifts
+        if (!hasManageShifts) {
             query = query.where(eq(shifts.userId, req.user.id));
         }
 
@@ -182,7 +201,7 @@ exports.getAllShifts = async (req, res) => {
 
         // Get total count
         let countQuery = db.select({ count: sql`count(*)::int` }).from(shifts);
-        if (!isAdmin) {
+        if (!hasManageShifts) {
             countQuery = countQuery.where(eq(shifts.userId, req.user.id));
         }
         const [countResult] = await countQuery;
