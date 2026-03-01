@@ -1,45 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Table, Form, Button, Spinner, Badge } from "react-bootstrap";
+import { Container, Row, Col, Card, Table, Button, Spinner, Badge } from "react-bootstrap";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { toast } from "react-toastify";
 import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    BarChart, Bar, Cell
+    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 
-const KPI = ({ title, value, icon, color }) => (
-    <Card className="glass shadow-soft border-0 h-100 p-3">
-        <div className="d-flex align-items-center justify-content-between">
-            <div>
-                <p className="text-muted small mb-1">{title}</p>
-                <h4 className="fw-bold text-white mb-0">{value}</h4>
-            </div>
-            <div className="rounded-circle d-flex align-items-center justify-content-center shadow-sm"
-                style={{ width: '45px', height: '45px', backgroundColor: 'rgba(255,255,255,0.05)', color }}>
-                <i className={`bi ${icon} fs-4`}></i>
-            </div>
-        </div>
-    </Card>
-);
-
-const CustomTooltip = ({ active, payload, label, currencySymbol }) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="glass p-3 rounded border-0 shadow-lg" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)" }}>
-                <p className="fw-bold text-white mb-1">{label}</p>
-                <p className="mb-0 fw-bold fs-5" style={{ color: "#22c55e" }}>
-                    {currencySymbol}{parseFloat(payload[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-            </div>
-        );
-    }
-    return null;
-};
+// Shared Components
+import StatCard from "../components/StatCard";
+import ChartTooltip from "../components/ChartTooltip";
+import ReportFilter from "../components/ReportFilter";
 
 export default function Reports() {
-    const { token } = useAuth();
     const { currencySymbol } = useSettings();
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
@@ -72,14 +46,8 @@ export default function Reports() {
         fetchAnalytics();
     }, []);
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
+    const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSearch = (e) => {
-        e.preventDefault();
-        fetchAnalytics();
     };
 
     const handleExportCsv = async () => {
@@ -103,9 +71,7 @@ export default function Reports() {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
+    const handlePrint = () => window.print();
 
     if (loading && !data.chartData.length) {
         return (
@@ -134,7 +100,7 @@ export default function Reports() {
                 </div>
             </div>
 
-            {/* Print Header (Visible only on print) */}
+            {/* Print Header */}
             <div className="d-none d-print-block mb-4">
                 <h1 className="text-dark">Business Performance Report</h1>
                 <p className="text-secondary">Period: {filters.startDate} to {filters.endDate}</p>
@@ -142,42 +108,17 @@ export default function Reports() {
             </div>
 
             {/* Filters */}
-            <Card className="glass shadow-soft border-0 mb-4 p-3 no-print">
-                <Form onSubmit={handleSearch}>
-                    <Row className="g-3 align-items-end">
-                        <Col md={4}>
-                            <Form.Label className="text-muted small">From Date</Form.Label>
-                            <Form.Control
-                                type="date"
-                                name="startDate"
-                                value={filters.startDate}
-                                onChange={handleFilterChange}
-                                className="bg-dark text-white border-secondary"
-                            />
-                        </Col>
-                        <Col md={4}>
-                            <Form.Label className="text-muted small">To Date</Form.Label>
-                            <Form.Control
-                                type="date"
-                                name="endDate"
-                                value={filters.endDate}
-                                onChange={handleFilterChange}
-                                className="bg-dark text-white border-secondary"
-                            />
-                        </Col>
-                        <Col md={4}>
-                            <Button type="submit" variant="primary" className="w-100" disabled={loading}>
-                                {loading ? <Spinner size="sm" /> : <><i className="bi bi-filter me-2"></i>Apply Filters</>}
-                            </Button>
-                        </Col>
-                    </Row>
-                </Form>
-            </Card>
+            <ReportFilter
+                filters={filters}
+                onChange={handleFilterChange}
+                onApply={fetchAnalytics}
+                loading={loading}
+            />
 
             {/* KPI Cards */}
             <Row className="g-3 mb-4">
                 <Col md={3}>
-                    <KPI
+                    <StatCard
                         title="Total Sales"
                         value={data.summary.totalSales}
                         icon="bi-receipt"
@@ -185,7 +126,7 @@ export default function Reports() {
                     />
                 </Col>
                 <Col md={3}>
-                    <KPI
+                    <StatCard
                         title="Total Revenue"
                         value={`${currencySymbol}${parseFloat(data.summary.totalRevenue).toLocaleString()}`}
                         icon="bi-currency-dollar"
@@ -193,7 +134,7 @@ export default function Reports() {
                     />
                 </Col>
                 <Col md={3}>
-                    <KPI
+                    <StatCard
                         title="Total Customers"
                         value={data.summary.totalCustomers}
                         icon="bi-people"
@@ -201,7 +142,7 @@ export default function Reports() {
                     />
                 </Col>
                 <Col md={3}>
-                    <KPI
+                    <StatCard
                         title="Avg Order Value"
                         value={`${currencySymbol}${parseFloat(data.summary.avgOrderValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                         icon="bi-calculator"
@@ -227,7 +168,7 @@ export default function Reports() {
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                                     <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
                                     <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} tickFormatter={(val) => `${currencySymbol}${val}`} />
-                                    <Tooltip content={<CustomTooltip currencySymbol={currencySymbol} />} />
+                                    <Tooltip content={<ChartTooltip currencySymbol={currencySymbol} />} />
                                     <Area type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={3} fill="url(#colorRevenue)" />
                                 </AreaChart>
                             </ResponsiveContainer>

@@ -6,27 +6,12 @@ import { toast } from "react-toastify";
 import { useSettings } from "../context/SettingsContext";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell, PieChart, Pie, Legend
+  BarChart, Bar, Cell
 } from 'recharts';
 
-const KPI = ({ title, value, icon, hint }) => (
-  <div className="glass kpi shadow-soft h-100">
-    <div className="d-flex align-items-center justify-content-between">
-      <div>
-        <div className="small" style={{ color: "var(--muted)" }}>
-          {title}
-        </div>
-        <div className="fs-3 fw-bold text-white">{value}</div>
-        <div className="small" style={{ color: "var(--muted)" }}>
-          {hint}
-        </div>
-      </div>
-      <div className="icon">
-        <i className={`bi ${icon} fs-4`} style={{ color: "var(--primary2)" }} />
-      </div>
-    </div>
-  </div>
-);
+// Shared Components
+import StatCard from "../components/StatCard";
+import ChartTooltip from "../components/ChartTooltip";
 
 const ActionCard = ({ title, subtitle, icon, link, color = "var(--primary2)" }) => (
   <div
@@ -49,8 +34,6 @@ const ActionCard = ({ title, subtitle, icon, link, color = "var(--primary2)" }) 
   </div>
 );
 
-const COLORS = ['#6d5efc', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4'];
-
 const CustomBarTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
@@ -63,20 +46,6 @@ const CustomBarTooltip = ({ active, payload }) => {
             {data.sales} units sold
           </span>
         </div>
-      </div>
-    );
-  }
-  return null;
-};
-
-const CustomTooltip = ({ active, payload, label, currencySymbol }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="glass p-3 rounded border-0 shadow-lg" style={{ backgroundColor: "rgba(15, 23, 42, 0.95)" }}>
-        <p className="fw-bold text-white mb-1">{label}</p>
-        <p className="mb-0 fw-bold fs-5" style={{ color: "#22c55e" }}>
-          {currencySymbol}{parseFloat(payload[0].value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </p>
       </div>
     );
   }
@@ -221,7 +190,7 @@ export default function Dashboard() {
           {/* Products */}
           {showInventoryStats && (
             <Col md={6} xl={3}>
-              <KPI
+              <StatCard
                 title="Products"
                 value={data.kpis.totalProducts}
                 icon="bi-box-seam"
@@ -233,11 +202,12 @@ export default function Dashboard() {
           {/* Sales Today */}
           {showRevenueStats && (
             <Col md={6} xl={3}>
-              <KPI
+              <StatCard
                 title="Sales Today"
                 value={`${currencySymbol}${parseFloat(data.kpis.todayRevenue).toFixed(2)}`}
                 icon="bi-graph-up-arrow"
                 hint="Real-time revenue"
+                color="#22c55e"
               />
             </Col>
           )}
@@ -245,11 +215,12 @@ export default function Dashboard() {
           {/* Low Stock */}
           {showInventoryStats && (
             <Col md={6} xl={3}>
-              <KPI
+              <StatCard
                 title="Low Stock"
                 value={data.kpis.lowStock}
                 icon="bi-exclamation-triangle"
                 hint="SKUs needing refill"
+                color="#ef4444"
               />
             </Col>
           )}
@@ -257,11 +228,12 @@ export default function Dashboard() {
           {/* Customers */}
           {showCustomerStats && (
             <Col md={6} xl={3}>
-              <KPI
+              <StatCard
                 title="Customers"
                 value={data.kpis.totalCustomers}
                 icon="bi-people"
                 hint={isCashier ? "Add & search customers" : "Registered clients"}
+                color="#06b6d4"
               />
             </Col>
           )}
@@ -322,9 +294,10 @@ export default function Dashboard() {
                           tickFormatter={(value) => `${currencySymbol}${value}`}
                         />
                         <Tooltip
-                          content={<CustomTooltip currencySymbol={currencySymbol} />}
+                          content={<ChartTooltip currencySymbol={currencySymbol} />}
                           cursor={{ stroke: "rgba(255,255,255,0.1)", strokeWidth: 1 }}
                         />
+
                         <Area
                           type="monotone"
                           dataKey="revenue"
