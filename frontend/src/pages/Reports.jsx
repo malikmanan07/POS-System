@@ -250,24 +250,26 @@ export default function Reports() {
                 </Col>
             </Row>
 
-            {/* Print Friendly Styles */}
             <style>
                 {`
                 @media print {
-                    body { background: white !important; color: black !important; }
-                    .glass { background: white !important; border: 1px solid #ddd !important; box-shadow: none !important; }
-                    .text-white, .page-title { color: black !important; }
-                    .text-muted { color: #666 !important; }
-                    .no-print { display: none !important; }
-                    .report-container { padding: 0 !important; }
-                    .card { margin-bottom: 20px !important; break-inside: avoid; }
-                    .recharts-area-path { fill: #eee !important; cursor: default; }
-                    .recharts-curve { stroke: #333 !important; }
-                    table { color: black !important; border-top: 2px solid black !important; }
-                    th { background-color: #f0f0f0 !important; color: black !important; }
-                    td { border-bottom: 1px solid #eee !important; }
-                    h4, h6 { color: black !important; }
+                    @page { margin: 1.5cm; }
+                    body { background: white !important; color: black !important; padding: 0 !important; }
+                    .app-shell, .app-main, .app-content { overflow: visible !important; height: auto !important; display: block !important; padding: 0 !important; background: white !important; }
+                    .glass { background: white !important; border: 1px solid #ddd !important; box-shadow: none !important; backdrop-filter: none !important; color: black !important; }
+                    .text-white, .page-title, h1, h2, h3, h4, h5, h6, .fw-bold { color: black !important; }
+                    .text-muted, .text-secondary { color: #555 !important; }
+                    .no-print, .btn, .report-filter, .navbar, .sidebar { display: none !important; }
+                    .report-container { padding: 0 !important; width: 100% !important; margin: 0 !important; }
+                    .card { margin-bottom: 25px !important; break-inside: avoid; border: 1px solid #eee !important; background: white !important; }
+                    .table { color: black !important; width: 100% !important; background: white !important; }
+                    .table-responsive { overflow: visible !important; }
+                    .table thead th { background-color: #f8f9fa !important; color: black !important; border-bottom: 2px solid #333 !important; }
+                    .table tbody td { border-bottom: 1px solid #ddd !important; color: black !important; }
                     .badge { border: 1px solid #333 !important; color: black !important; background: transparent !important; }
+                    .recharts-responsive-container { height: 300px !important; width: 100% !important; }
+                    .stat-card { border: 1px solid #ddd !important; background: white !important; }
+                    .stat-card * { color: black !important; }
                 }
                 `}
             </style>

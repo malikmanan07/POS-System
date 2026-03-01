@@ -33,13 +33,13 @@ export default function ActivityLog() {
         }
     };
 
-    const fetchLogs = async (page = 1) => {
+    const fetchLogs = async (page = 1, overriddenFilters = null) => {
         setLoading(true);
         try {
             const queryParams = new URLSearchParams({
                 page,
                 limit: 12,
-                ...filters
+                ...(overriddenFilters || filters)
             }).toString();
 
             const res = await api.get(`/api/activity?${queryParams}`);
@@ -70,8 +70,8 @@ export default function ActivityLog() {
     const resetFilters = () => {
         const emptyFilters = { module: "", userName: "", startDate: "", endDate: "" };
         setFilters(emptyFilters);
-        // We need to pass the reset filters to fetchLogs because setFilters is async
-        setTimeout(() => fetchLogs(1), 0);
+        setPagination(prev => ({ ...prev, page: 1 }));
+        fetchLogs(1, emptyFilters);
     };
 
     const handleExport = async () => {
