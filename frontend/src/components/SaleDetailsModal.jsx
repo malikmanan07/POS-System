@@ -40,6 +40,7 @@ export default function SaleDetailsModal({ show, onHide, sale, currencySymbol, s
                         <tr className="border-bottom border-secondary">
                             <th className="bg-transparent text-muted small px-0">ITEM</th>
                             <th className="bg-transparent text-muted small text-center px-0">QTY</th>
+                            {sale.returned_amount > 0 && <th className="bg-transparent text-muted small text-center px-0">RET</th>}
                             <th className="bg-transparent text-muted small text-end px-0">TOTAL</th>
                         </tr>
                     </thead>
@@ -51,6 +52,11 @@ export default function SaleDetailsModal({ show, onHide, sale, currencySymbol, s
                                     <div className="small text-muted">{currencySymbol}{parseFloat(item.price).toFixed(2)} / unit</div>
                                 </td>
                                 <td className="bg-transparent text-center px-0 py-2">{item.qty}</td>
+                                {sale.returned_amount > 0 && (
+                                    <td className="bg-transparent text-center px-0 py-2 text-danger small">
+                                        {item.returned_qty > 0 ? `-${item.returned_qty}` : '0'}
+                                    </td>
+                                )}
                                 <td className="bg-transparent text-end px-0 py-2 fw-bold">
                                     {currencySymbol}{parseFloat(item.line_total).toFixed(2)}
                                 </td>
@@ -68,10 +74,16 @@ export default function SaleDetailsModal({ show, onHide, sale, currencySymbol, s
                         <span>Tax</span>
                         <span>{currencySymbol}{parseFloat(sale.tax).toFixed(2)}</span>
                     </div>
-                    <div className="d-flex justify-content-between h4 fw-bold text-white mt-3">
+                    <div className="d-flex justify-content-between h4 fw-bold text-white mt-3 mb-1">
                         <span>Grand Total</span>
                         <span>{currencySymbol}{parseFloat(sale.total).toFixed(2)}</span>
                     </div>
+                    {parseFloat(sale.returned_amount) > 0 && (
+                        <div className="d-flex justify-content-between small text-danger fw-bold">
+                            <span>Refunded Amount</span>
+                            <span>-{currencySymbol}{parseFloat(sale.returned_amount).toFixed(2)}</span>
+                        </div>
+                    )}
                 </div>
             </Modal.Body>
             <Modal.Footer className="border-top border-secondary">

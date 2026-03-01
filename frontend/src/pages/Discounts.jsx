@@ -82,7 +82,7 @@ export default function Discounts() {
             if (index > -1) current.splice(index, 1);
             else current.push(catId);
 
-            return { ...prev, categoryIds: current, productIds: [] };
+            return { ...prev, categoryIds: current };
         });
     };
 

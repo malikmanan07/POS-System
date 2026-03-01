@@ -7,6 +7,7 @@ import ProductFormModal from "../components/ProductFormModal";
 import PaginationControl from "../components/PaginationControl";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ProductTable from "../components/Products/ProductTable";
+import ImportProductsModal from "../components/Products/ImportProductsModal";
 
 export default function Products() {
   const [products, setProducts] = useState([]);
@@ -19,6 +20,7 @@ export default function Products() {
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 12 }); // 12 per page for grid/table consistency
   const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
+  const [showImportModal, setShowImportModal] = useState(false);
   const { token } = useAuth();
   const { currencySymbol } = useSettings();
   const API_PATH = "/api/products";
@@ -260,12 +262,20 @@ export default function Products() {
           <h2 className="page-title mb-1">Manage Products</h2>
           <p className="text-white mb-0">List and manage your inventory products</p>
         </div>
-        <button
-          className="btn btn-gradient gap-2 d-flex align-items-center"
-          onClick={handleOpenAdd}
-        >
-          <i className="bi bi-plus-lg"></i> Add Product
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            className="btn btn-outline-primary gap-2 d-flex align-items-center rounded-pill px-4"
+            onClick={() => setShowImportModal(true)}
+          >
+            <i className="bi bi-file-earmark-arrow-up"></i> Import CSV
+          </button>
+          <button
+            className="btn btn-gradient gap-2 d-flex align-items-center"
+            onClick={handleOpenAdd}
+          >
+            <i className="bi bi-plus-lg"></i> Add Product
+          </button>
+        </div>
       </div>
 
       <div className="glass p-3 mb-4 d-flex gap-3 align-items-center shadow-soft">
@@ -313,6 +323,12 @@ export default function Products() {
         handleImageChange={handleImageChange}
         setImagePreview={setImagePreview}
         setRemoveImageFlag={setRemoveImageFlag}
+      />
+      <ImportProductsModal
+        show={showImportModal}
+        onHide={() => setShowImportModal(false)}
+        token={token}
+        onSuccess={fetchProducts}
       />
       <ConfirmDialog
         show={confirmDialog.show}

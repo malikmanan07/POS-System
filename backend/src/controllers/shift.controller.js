@@ -23,8 +23,8 @@ exports.getCurrentShift = async (req, res) => {
 
         // Fetch current totals for this active shift
         const [salesSummary] = await db.select({
-            total: sql`COALESCE(SUM(${sales.total})::numeric, 0)`,
-            cashTotal: sql`COALESCE(SUM(CASE WHEN LOWER(${sales.paymentMethod}) = 'cash' THEN ${sales.total} ELSE 0 END)::numeric, 0)`
+            total: sql`COALESCE(SUM(${sales.total} - ${sales.returnedAmount})::numeric, 0)`,
+            cashTotal: sql`COALESCE(SUM(CASE WHEN LOWER(${sales.paymentMethod}) = 'cash' THEN ${sales.total} - ${sales.returnedAmount} ELSE 0 END)::numeric, 0)`
         })
             .from(sales)
             .where(eq(sales.shiftId, activeShift.id));
@@ -110,8 +110,8 @@ exports.endShift = async (req, res) => {
 
         // Calculate total sales and cash sales during this shift
         const [salesSummary] = await db.select({
-            total: sql`COALESCE(SUM(${sales.total})::numeric, 0)`,
-            cashTotal: sql`COALESCE(SUM(CASE WHEN LOWER(${sales.paymentMethod}) = 'cash' THEN ${sales.total} ELSE 0 END)::numeric, 0)`
+            total: sql`COALESCE(SUM(${sales.total} - ${sales.returnedAmount})::numeric, 0)`,
+            cashTotal: sql`COALESCE(SUM(CASE WHEN LOWER(${sales.paymentMethod}) = 'cash' THEN ${sales.total} - ${sales.returnedAmount} ELSE 0 END)::numeric, 0)`
         })
             .from(sales)
             .where(eq(sales.shiftId, activeShift.id));

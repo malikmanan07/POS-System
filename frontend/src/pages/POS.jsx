@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -12,6 +12,9 @@ import POSCategoryFilter from "../components/POS/POSCategoryFilter";
 import POSCustomerSearch from "../components/POS/POSCustomerSearch";
 import POSCartList from "../components/POS/POSCartList";
 import POSBillingSummary from "../components/POS/POSBillingSummary";
+import POSHeader from "../components/POS/POSHeader";
+import POSProductGrid from "../components/POS/POSProductGrid";
+import POSShiftOverlay from "../components/POS/POSShiftOverlay";
 import ShiftModal from "../components/Shifts/ShiftModal";
 import { useShift } from "../context/ShiftContext";
 
@@ -53,6 +56,56 @@ export default function POS() {
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
 
   const itemsPerPage = 12;
+
+  // Barcode Scanner Logic
+  const barcodeBuffer = useRef("");
+  const lastBarcodeCharTime = useRef(0);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't process barcode if a modal is open
+      if (showReceipt || showShiftModal) return;
+
+      // Ignore if typing in an input field normally (like search or note)
+      // BUT scanners often trigger Enter, so we allow it if the buffer is fast
+      const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+
+      const currentTime = Date.now();
+      const timeDiff = currentTime - lastBarcodeCharTime.current;
+
+      // Scanners are extremely fast (usually < 20ms between keys)
+      // Manual typing is slower (> 80ms). 
+      // We use 50ms as a safe threshold.
+      if (timeDiff > 50) {
+        barcodeBuffer.current = "";
+      }
+
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.current.length >= 2) {
+          const sku = barcodeBuffer.current.trim();
+          const product = products.find(p => p.sku && p.sku.toLowerCase() === sku.toLowerCase());
+
+          if (product) {
+            addToCart(product);
+            toast.success(`Scanned: ${product.name}`, { autoClose: 1500, position: "bottom-center" });
+            // If we were in an input, clear it to prevent the barcode from staying there
+            if (isInput) {
+              e.preventDefault();
+              document.activeElement.value = "";
+            }
+          }
+          barcodeBuffer.current = "";
+        }
+      } else if (e.key.length === 1) {
+        barcodeBuffer.current += e.key;
+      }
+
+      lastBarcodeCharTime.current = currentTime;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [products, showReceipt, showShiftModal]);
 
   useEffect(() => {
     if (token) {
@@ -301,43 +354,23 @@ export default function POS() {
 
   return (
     <div className="p-3 h-100 pos-container position-relative">
-      {!shiftLoading && needsShift && !activeShift && (
-        <div className="position-absolute top-0 start-0 w-100 h-100 z-3 d-flex align-items-center justify-content-center rounded-4" style={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}>
-          <div className="glass p-5 border-white-10 shadow-lg text-center" style={{ maxWidth: '400px' }}>
-            <div className="receipt-success-icon mb-4 border-danger bg-danger-soft">
-              <i className="bi bi-lock-fill text-danger"></i>
-            </div>
-            <h3 className="fw-bold mb-2">Shift Required</h3>
-            <p className="text-muted mb-4 small">You must start your shift and enter an opening balance before processing any sales.</p>
-            <Button
-              variant="primary"
-              className="rounded-pill px-5 py-2 fw-bold shadow-sm d-flex align-items-center gap-2 mx-auto"
-              onClick={() => setShowShiftModal(true)}
-            >
-              <i className="bi bi-clock-history"></i>
-              Start Shift
-            </Button>
-          </div>
-        </div>
-      )}
+      <POSShiftOverlay
+        needsShift={needsShift}
+        activeShift={activeShift}
+        shiftLoading={shiftLoading}
+        onStartShift={() => setShowShiftModal(true)}
+      />
+
       <Row className="h-100 g-3">
         {/* Left Side: Product Discovery */}
         <Col lg={8} xl={8} className="d-flex flex-column h-100">
-          <div className="glass p-4 mb-3 d-flex flex-column flex-md-row gap-3 align-items-center justify-content-between shadow-soft border-0">
-            <div className="d-flex align-items-center gap-3 w-100" style={{ maxWidth: '400px' }}>
-              <div className="search-icon-wrapper"><i className="bi bi-search text-primary fs-5"></i></div>
-              <Form.Control
-                type="text" placeholder="Search products..."
-                className="pos-search-input" value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)} autoFocus
-              />
-            </div>
-            <div className="d-none d-md-flex align-items-center gap-3 text-end">
-              <div><div className="text-muted x-small fw-bold">TOTAL</div><div className="h5 mb-0 fw-bold">{filteredProducts.length}</div></div>
-              <div className="vr opacity-25" style={{ height: '30px' }}></div>
-              <div><div className="text-muted x-small fw-bold">PAGE</div><div className="h5 mb-0 text-primary fw-bold">{posPage}/{totalPosPages || 1}</div></div>
-            </div>
-          </div>
+          <POSHeader
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            totalProducts={filteredProducts.length}
+            currentPage={posPage}
+            totalPages={totalPosPages}
+          />
 
           <POSCategoryFilter
             categories={categories}
@@ -345,65 +378,19 @@ export default function POS() {
             onSelectCategory={(id) => { setSelectedCategoryId(id); setPosPage(1); }}
           />
 
-          <div className="flex-grow-1 overflow-auto pe-2 pos-products-grid">
-            {products.length === 0 ? (
-              <div className="h-100 d-flex flex-column align-items-center justify-content-center text-center p-5 glass rounded-4 border-white-10 opacity-75">
-                <i className="bi bi-box-seam-fill fs-1 text-primary mb-3"></i>
-                <h4 className="fw-bold text-white">No Products Registered</h4>
-                <p className="text-muted small">Go to Products page to add items to your inventory.</p>
-                <Button variant="outline-primary" className="rounded-pill px-4 mt-2" onClick={() => (window.location.href = "/app/products")}>
-                  Go to Products
-                </Button>
-              </div>
-            ) : paginatedProducts.length === 0 ? (
-              <div className="h-100 d-flex flex-column align-items-center justify-content-center text-center p-5 glass rounded-4 border-white-10 opacity-75">
-                <i className="bi bi-search fs-1 text-muted mb-3"></i>
-                <h4 className="fw-bold text-white">No Match Found</h4>
-                <p className="text-muted small">Try adjusting your search or category filters.</p>
-                <Button variant="link" className="text-primary mt-2 p-0 text-decoration-none" onClick={() => { setSearchTerm(""); setSelectedCategoryId(""); }}>
-                  Clear all filters
-                </Button>
-              </div>
-            ) : (
-              <Row className="g-3 pb-3">
-                {paginatedProducts.map(p => (
-                  <Col key={p.id} xs={6} sm={4} md={3}>
-                    <POSProductCard
-                      product={p}
-                      onAdd={addToCart}
-                      currency={currency}
-                      apiBaseUrl={api.defaults.baseURL}
-                    />
-                  </Col>
-                ))}
-              </Row>
-            )}
-          </div>
-
-          {totalPosPages > 1 && (
-            <div className="d-flex justify-content-center align-items-center gap-2 mt-4 pos-pagination-wrapper mx-auto" style={{ width: 'fit-content' }}>
-              <Button
-                variant="glass"
-                className="btn-glass"
-                disabled={posPage === 1}
-                onClick={() => setPosPage(prev => prev - 1)}
-              >
-                <i className="bi bi-chevron-left text-white fs-5"></i>
-              </Button>
-              <div className="glass px-4 h-100 d-flex align-items-center fw-bold text-primary pagination-number">
-                {posPage} / {totalPosPages}
-              </div>
-              <Button
-                variant="glass"
-                className="btn-glass"
-                disabled={posPage === totalPosPages}
-                onClick={() => setPosPage(prev => prev + 1)}
-              >
-                <i className="bi bi-chevron-right text-white fs-5"></i>
-              </Button>
-            </div>
-          )}
-
+          <POSProductGrid
+            products={products}
+            paginatedProducts={paginatedProducts}
+            onAdd={addToCart}
+            currency={currency}
+            apiBaseUrl={api.defaults.baseURL}
+            onSearchClear={() => { setSearchTerm(""); setSelectedCategoryId(""); }}
+            onNavigateToProducts={() => (window.location.href = "/app/products")}
+            currentPage={posPage}
+            totalPages={totalPosPages}
+            onPageChange={setPosPage}
+            discounts={discounts}
+          />
         </Col>
 
         {/* Right Side: Cart & Billing */}

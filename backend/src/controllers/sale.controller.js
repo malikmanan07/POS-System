@@ -138,6 +138,8 @@ exports.getAll = async (req, res) => {
             paid_amount: sales.paidAmount,
             change_amount: sales.changeAmount,
             payment_reference: sales.paymentReference,
+            status: sales.status,
+            returned_amount: sales.returnedAmount,
             created_at: sales.createdAt,
             user_name: users.name,
             customer_name: customers.name,
@@ -229,6 +231,8 @@ exports.getById = async (req, res) => {
             payment_reference: sales.paymentReference,
             paid_amount: sales.paidAmount,
             change_amount: sales.changeAmount,
+            status: sales.status,
+            returned_amount: sales.returnedAmount,
             created_at: sales.createdAt,
             user_name: users.name,
             customer_name: customers.name,
@@ -253,6 +257,7 @@ exports.getById = async (req, res) => {
             qty: saleItems.qty,
             price: saleItems.price,
             line_total: saleItems.lineTotal,
+            returned_qty: saleItems.returnedQty,
             product_name: products.name,
             sku: products.sku,
         })
@@ -264,6 +269,122 @@ exports.getById = async (req, res) => {
             ...sale,
             items
         });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+// POST /api/sales/:id/return
+exports.returnItems = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { items } = req.body; // Array of { productId, returnQty }
+        const saleId = parseInt(id);
+
+        if (!items || items.length === 0) {
+            return res.status(400).json({ error: "No items selected for return" });
+        }
+
+        const returnResult = await db.transaction(async (tx) => {
+            // 1. Fetch the sale
+            const [sale] = await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1);
+            if (!sale) throw new Error("Sale not found");
+
+            let totalRefund = 0;
+            let allItemsReturned = true;
+            let someItemsReturned = false;
+
+            // 2. Process each returned item
+            for (const rItem of items) {
+                const [sItem] = await tx.select()
+                    .from(saleItems)
+                    .where(and(eq(saleItems.saleId, saleId), eq(saleItems.productId, rItem.productId)))
+                    .limit(1);
+
+                if (!sItem) throw new Error(`Item ${rItem.productId} not found in sale`);
+
+                // Check if already returned
+                const newReturnedQty = sItem.returnedQty + rItem.returnQty;
+                if (newReturnedQty > sItem.qty) {
+                    throw new Error(`Cannot return more than purchased for product ${rItem.productId}`);
+                }
+
+                // Update saleItems
+                await tx.update(saleItems)
+                    .set({ returnedQty: newReturnedQty })
+                    .where(eq(saleItems.id, sItem.id));
+
+                // Calculate refund for this item (proportionate to price)
+                const refundAmount = parseFloat(sItem.price) * rItem.returnQty;
+                totalRefund += refundAmount;
+
+                // Update product stock
+                await tx.update(products)
+                    .set({ stock: sql`${products.stock} + ${rItem.returnQty}` })
+                    .where(eq(products.id, rItem.productId));
+
+                // Log movement
+                await tx.insert(stockMovements)
+                    .values({
+                        productId: rItem.productId,
+                        type: 'increase',
+                        qty: rItem.returnQty,
+                        reference: `RETURN#${saleId}`,
+                        note: 'Customer return',
+                    });
+            }
+
+            // 3. Check final status
+            const currentSaleItems = await tx.select().from(saleItems).where(eq(saleItems.saleId, saleId));
+            const totalItems = currentSaleItems.reduce((acc, i) => acc + i.qty, 0);
+            const totalReturned = currentSaleItems.reduce((acc, i) => acc + i.returnedQty, 0);
+
+            let newStatus = 'completed';
+            if (totalReturned >= totalItems) {
+                newStatus = 'returned';
+            } else if (totalReturned > 0) {
+                newStatus = 'partial_return';
+            }
+
+            const updatedReturnedAmount = parseFloat(sale.returnedAmount) + totalRefund;
+
+            await tx.update(sales)
+                .set({
+                    status: newStatus,
+                    returnedAmount: String(updatedReturnedAmount)
+                })
+                .where(eq(sales.id, saleId));
+
+            // 4. Update Shift (if active shift exists for this user)
+            const [activeShift] = await tx.select()
+                .from(shifts)
+                .where(and(eq(shifts.userId, req.user.id), eq(shifts.status, 'active')))
+                .limit(1);
+
+            if (activeShift && totalRefund > 0) {
+                await tx.update(shifts)
+                    .set({
+                        expectedCash: sql`${shifts.expectedCash} - ${totalRefund}`,
+                        totalSales: sql`${shifts.totalSales} - ${totalRefund}`,
+                    })
+                    .where(eq(shifts.id, activeShift.id));
+            }
+
+            return { refund: totalRefund, status: newStatus };
+        });
+
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'RETURN',
+            module: 'SALES',
+            details: `Processed return for sale #${saleId}. Refund: ${returnResult.refund}`,
+            ipAddress: req.ip
+        });
+
+        res.json({ message: "Return processed successfully", ...returnResult });
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

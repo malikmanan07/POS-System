@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 const { eq, desc, sql } = require("drizzle-orm");
-const { products, categories, stockMovements, saleItems } = require("../db/schema");
+const { products, categories, suppliers, stockMovements, saleItems } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
@@ -199,6 +199,98 @@ exports.remove = async (req, res) => {
     });
 
     res.json({ message: "Deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// POST /api/products/bulk
+exports.bulkImport = async (req, res) => {
+  try {
+    const { products: items } = req.body;
+    if (!Array.isArray(items)) return res.status(400).json({ error: "Invalid data format" });
+
+    // Fetch all categories and suppliers for matching
+    const allCats = await db.select().from(categories);
+    const allSups = await db.select().from(suppliers);
+
+    let successCount = 0;
+    let skipCount = 0;
+    const errors = [];
+
+    for (const item of items) {
+      try {
+        if (!item.name) {
+          skipCount++;
+          errors.push(`Row missing name`);
+          continue;
+        }
+
+        // Try to find category ID
+        let categoryId = item.category_id;
+        if (!categoryId && item.category_name) {
+          const match = allCats.find(c => c.name.toLowerCase() === item.category_name.toLowerCase());
+          if (match) categoryId = match.id;
+        }
+
+        // Try to find supplier ID
+        let supplierId = item.supplier_id;
+        if (!supplierId && item.supplier_name) {
+          const match = allSups.find(s => s.name.toLowerCase() === item.supplier_name.toLowerCase());
+          if (match) supplierId = match.id;
+        }
+
+        const [product] = await db.insert(products)
+          .values({
+            name: item.name,
+            sku: String(item.sku || "").trim() || null,
+            categoryId: categoryId || null,
+            supplierId: supplierId || null,
+            costPrice: String(item.cost_price ?? 0),
+            price: String(item.price ?? 0),
+            stock: parseInt(item.stock) || 0,
+            isActive: true,
+            alertQuantity: parseInt(item.alert_quantity) || 5,
+          })
+          .returning();
+
+        // Stock movement
+        if (product.stock > 0) {
+          await db.insert(stockMovements)
+            .values({
+              productId: product.id,
+              type: 'increase',
+              qty: product.stock,
+              reference: 'Bulk Import',
+              note: 'Imported via CSV',
+            });
+        }
+        successCount++;
+      } catch (err) {
+        skipCount++;
+        errors.push(`${item.name || 'Unknown'}: ${err.message}`);
+      }
+    }
+
+    await logActivity({
+      userId: req.user?.id,
+      userName: req.user?.name,
+      userRole: req.user?.roles,
+      action: 'BULK_IMPORT',
+      module: 'PRODUCTS',
+      details: `Bulk imported ${successCount} products, skipped ${skipCount}`,
+      ipAddress: req.ip
+    });
+
+    res.json({
+      success: true,
+      summary: {
+        total: items.length,
+        success: successCount,
+        skipped: skipCount
+      },
+      errors
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

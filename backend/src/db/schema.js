@@ -126,6 +126,8 @@ const sales = pgTable("sales", {
         .notNull()
         .default("0"),
     paymentReference: varchar("payment_reference", { length: 100 }),
+    status: varchar("status", { length: 20 }).notNull().default("completed"), // 'completed', 'returned', 'partial_return'
+    returnedAmount: numeric("returned_amount", { precision: 10, scale: 2 }).notNull().default("0"),
     shiftId: integer("shift_id").references(() => shifts.id), // <-- Link to shift
     createdAt: timestamp("created_at").defaultNow(),
 }, (table) => {
@@ -160,6 +162,7 @@ const saleItems = pgTable("sale_items", {
     qty: integer("qty").notNull(),
     price: numeric("price", { precision: 10, scale: 2 }).notNull(),
     lineTotal: numeric("line_total", { precision: 10, scale: 2 }).notNull(),
+    returnedQty: integer("returned_qty").notNull().default(0),
 });
 
 // 11️⃣ STOCK_MOVEMENTS

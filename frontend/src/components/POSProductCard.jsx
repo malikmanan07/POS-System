@@ -1,6 +1,25 @@
 import { Card } from "react-bootstrap";
 
-export default function POSProductCard({ product, currency, onAdd, apiBaseUrl }) {
+export default function POSProductCard({ product, currency, onAdd, apiBaseUrl, discounts = [] }) {
+    // Find applicable discounts for this product
+    const applicableDiscount = discounts.find(d => {
+        const hasProducts = (d.products?.length || 0) > 0;
+        const hasCategories = (d.categories?.length || 0) > 0;
+
+        // 1. If specific products are defined, strictly match them (Ignore categories)
+        if (hasProducts) {
+            return d.products.some(p => String(p.productId) === String(product.id));
+        }
+
+        // 2. If no products but categories defined, match category
+        if (hasCategories) {
+            return d.categories.some(c => String(c.categoryId) === String(product.category_id));
+        }
+
+        // 3. Global discount (no restrictions)
+        return true;
+    });
+
     return (
         <Card
             className="pos-product-card border-0 h-100"
@@ -18,6 +37,18 @@ export default function POSProductCard({ product, currency, onAdd, apiBaseUrl })
                         <span>{product.name.charAt(0)}</span>
                     </div>
                 )}
+
+                {applicableDiscount && (
+                    <div className="pos-discount-badge animate-pop-in">
+                        <span className="badge bg-primary shadow-sm border border-white border-opacity-10">
+                            <i className="bi bi-tag-fill me-1 small"></i>
+                            {applicableDiscount.type === 'percentage'
+                                ? `${parseFloat(applicableDiscount.value)}% OFF`
+                                : `${currency}${parseFloat(applicableDiscount.value)} OFF`}
+                        </span>
+                    </div>
+                )}
+
                 <div className="pos-stock-badge">
                     <span className={`badge ${product.stock < 10 ? 'bg-danger' : 'bg-success'}`}>
                         {product.stock}
