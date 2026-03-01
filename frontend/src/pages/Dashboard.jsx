@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, Col, Row, Badge, Button, Spinner } from "react-bootstrap";
+import { useNavigate } from "react-router-dom"; // Add useNavigate
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import { toast } from "react-toastify";
@@ -13,26 +14,30 @@ import {
 import StatCard from "../components/StatCard";
 import ChartTooltip from "../components/ChartTooltip";
 
-const ActionCard = ({ title, subtitle, icon, link, color = "var(--primary2)" }) => (
-  <div
-    className="glass action-card shadow-soft h-100 cursor-pointer p-4 border-0 hover-lift ripple-effect"
-    onClick={() => (window.location.href = link)}
-    style={{ transition: 'all 0.3s ease' }}
-  >
-    <div className="d-flex align-items-center gap-3">
-      <div
-        className="icon-box rounded-3 d-flex align-items-center justify-content-center shadow-lg"
-        style={{ width: '50px', height: '50px', backgroundColor: 'rgba(255,255,255,0.05)', color }}
-      >
-        <i className={`bi ${icon} fs-4`} />
-      </div>
-      <div>
-        <h6 className="mb-0 fw-bold text-white">{title}</h6>
-        <div className="small text-muted">{subtitle}</div>
+const ActionCard = ({ title, subtitle, icon, link, color = "var(--primary2)" }) => {
+  const navigate = useNavigate(); // Add navigate hook
+
+  return (
+    <div
+      className="glass action-card shadow-soft h-100 cursor-pointer p-4 border-0 hover-lift ripple-effect"
+      onClick={() => navigate(link)} // Replace window.location.href with navigate
+      style={{ transition: 'all 0.3s ease' }}
+    >
+      <div className="d-flex align-items-center gap-3">
+        <div
+          className="icon-box rounded-3 d-flex align-items-center justify-content-center shadow-lg"
+          style={{ width: '50px', height: '50px', backgroundColor: 'rgba(255,255,255,0.05)', color }}
+        >
+          <i className={`bi ${icon} fs-4`} />
+        </div>
+        <div>
+          <h6 className="mb-0 fw-bold text-white">{title}</h6>
+          <div className="small text-muted">{subtitle}</div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const CustomBarTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
@@ -55,6 +60,7 @@ const CustomBarTooltip = ({ active, payload }) => {
 export default function Dashboard() {
   const { hasPermission, user, token } = useAuth();
   const { currencySymbol } = useSettings();
+  const navigate = useNavigate(); // Add navigate hook
   const [loading, setLoading] = useState(true);
 
   // Define logical roles for dashboard visibility
@@ -178,7 +184,10 @@ export default function Dashboard() {
         </div>
 
         {hasPermission("create_sale") && (
-          <Button href="/app/pos" className="btn btn-gradient gap-2 d-flex align-items-center">
+          <Button
+            onClick={() => navigate("/app/pos")} // Replace href with navigate
+            className="btn btn-gradient gap-2 d-flex align-items-center"
+          >
             <i className="bi bi-cart3"></i> Open POS
           </Button>
         )}

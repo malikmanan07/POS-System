@@ -97,6 +97,7 @@ const products = pgTable("products", {
     alertQuantity: integer("alert_quantity").notNull().default(5),
     isActive: boolean("is_active").notNull().default(true),
     image: text("image"),
+    supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -105,6 +106,7 @@ const sales = pgTable("sales", {
     id: serial("id").primaryKey(),
     userId: integer("user_id").references(() => users.id),
     customerId: integer("customer_id").references(() => customers.id),
+    discountId: integer("discount_id").references(() => discounts.id, { onDelete: "set null" }), // <-- Campaign link
     subtotal: numeric("subtotal", { precision: 10, scale: 2 })
         .notNull()
         .default("0"),
@@ -173,6 +175,42 @@ const activityLogs = pgTable("activity_logs", {
     createdAt: timestamp("created_at").defaultNow(),
 });
 
+// 14️⃣ SUPPLIERS
+const suppliers = pgTable("suppliers", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 150 }).notNull(),
+    phone: varchar("phone", { length: 30 }),
+    email: varchar("email", { length: 120 }),
+    address: text("address"),
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
+// 15️⃣ DISCOUNTS
+const discounts = pgTable("discounts", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 150 }).notNull(),
+    type: varchar("type", { length: 20 }).notNull().default("percentage"), // 'percentage' or 'flat'
+    value: numeric("value", { precision: 10, scale: 2 }).notNull(),
+    startDate: timestamp("start_date"),
+    endDate: timestamp("end_date"),
+    isActive: boolean("is_active").default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
+// 16️⃣ DISCOUNT_PRODUCTS (Many-to-Many)
+const discountProducts = pgTable("discount_products", {
+    id: serial("id").primaryKey(),
+    discountId: integer("discount_id").references(() => discounts.id, { onDelete: "cascade" }),
+    productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }),
+});
+
+// 17️⃣ DISCOUNT_CATEGORIES (Many-to-Many)
+const discountCategories = pgTable("discount_categories", {
+    id: serial("id").primaryKey(),
+    discountId: integer("discount_id").references(() => discounts.id, { onDelete: "cascade" }),
+    categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }),
+});
+
 // --- RELATIONS ---
 
 const usersRelations = relations(users, ({ many }) => ({
@@ -219,6 +257,10 @@ const productsRelations = relations(products, ({ one, many }) => ({
         fields: [products.categoryId],
         references: [categories.id],
     }),
+    supplier: one(suppliers, {
+        fields: [products.supplierId],
+        references: [suppliers.id],
+    }),
     saleItems: many(saleItems),
     stockMovements: many(stockMovements),
 }));
@@ -255,6 +297,25 @@ const activityLogsRelations = relations(activityLogs, ({ one }) => ({
     user: one(users, { fields: [activityLogs.userId], references: [users.id] }),
 }));
 
+const suppliersRelations = relations(suppliers, ({ many }) => ({
+    products: many(products),
+}));
+
+const discountsRelations = relations(discounts, ({ many }) => ({
+    products: many(discountProducts),
+    categories: many(discountCategories),
+}));
+
+const discountProductsRelations = relations(discountProducts, ({ one }) => ({
+    discount: one(discounts, { fields: [discountProducts.discountId], references: [discounts.id] }),
+    product: one(products, { fields: [discountProducts.productId], references: [products.id] }),
+}));
+
+const discountCategoriesRelations = relations(discountCategories, ({ one }) => ({
+    discount: one(discounts, { fields: [discountCategories.discountId], references: [discounts.id] }),
+    category: one(categories, { fields: [discountCategories.categoryId], references: [categories.id] }),
+}));
+
 module.exports = {
     users,
     roles,
@@ -269,6 +330,10 @@ module.exports = {
     stockMovements,
     settings,
     activityLogs,
+    suppliers,
+    discounts,
+    discountProducts,
+    discountCategories,
     // Relations
     usersRelations,
     rolesRelations,
@@ -282,4 +347,8 @@ module.exports = {
     saleItemsRelations,
     stockMovementsRelations,
     activityLogsRelations,
+    suppliersRelations,
+    discountsRelations,
+    discountProductsRelations,
+    discountCategoriesRelations,
 };

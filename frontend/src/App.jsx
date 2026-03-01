@@ -26,6 +26,8 @@ import StockHistory from "./pages/StockHistory";
 import LowStock from "./pages/LowStock";
 import ActivityLog from "./pages/ActivityLog";
 import Reports from "./pages/Reports";
+import Suppliers from "./pages/Suppliers"; // <-- Import Suppliers
+import Discounts from "./pages/Discounts";
 
 export default function App() {
   return (
@@ -174,6 +176,24 @@ export default function App() {
                 element={
                   <PermissionRoute permission="view_reports">
                     <Reports />
+                  </PermissionRoute>
+                }
+              />
+
+              <Route
+                path="suppliers"
+                element={
+                  <PermissionRoute permission="manage_suppliers">
+                    <Suppliers />
+                  </PermissionRoute>
+                }
+              />
+
+              <Route
+                path="discounts"
+                element={
+                  <PermissionRoute permission="manage_discounts">
+                    <Discounts />
                   </PermissionRoute>
                 }
               />

@@ -78,6 +78,18 @@ export default function Sidebar() {
         </>
       )}
 
+      {hasPermission("manage_suppliers") && (
+        <NavLink to="/app/suppliers" className="nav-itemx">
+          <i className="bi bi-truck"></i> Suppliers
+        </NavLink>
+      )}
+
+      {hasPermission("manage_discounts") && (
+        <NavLink to="/app/discounts" className="nav-itemx">
+          <i className="bi bi-percent"></i> Discounts
+        </NavLink>
+      )}
+
       {hasPermission("create_sale") && (
         <NavLink to="/app/pos" className="nav-itemx">
           <i className="bi bi-cart3"></i> POS
