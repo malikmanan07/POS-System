@@ -113,8 +113,13 @@ export default function ActivityLog() {
     };
 
     const getActionBadge = (action) => {
-        const variant = action === 'DELETE' ? 'danger' : action === 'LOGIN' ? 'success' : 'light';
-        return <Badge bg={variant} text={variant === 'light' ? 'dark' : 'white'}>{action}</Badge>;
+        let variant = 'light';
+        if (action === 'DELETE') variant = 'danger';
+        else if (action === 'LOGIN') variant = 'success';
+        else if (action === 'RETURN') variant = 'warning';
+        else if (action === 'BULK_IMPORT' || action === 'IMPORT') variant = 'info';
+
+        return <Badge bg={variant} text={(variant === 'light' || variant === 'warning' || variant === 'info') ? 'dark' : 'white'}>{action}</Badge>;
     };
 
     return (

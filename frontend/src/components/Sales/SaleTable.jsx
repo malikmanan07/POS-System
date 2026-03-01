@@ -4,7 +4,8 @@ export default function SaleTable({
     pagination,
     currencySymbol,
     isCashierLike,
-    handleViewDetail
+    handleViewDetail,
+    handleReturn
 }) {
     return (
         <div className="table-darkx shadow-soft border-white-10">
@@ -56,7 +57,15 @@ export default function SaleTable({
                                     </div>
                                 </td>
                                 <td className="px-4 py-3 fw-bold text-primary">
-                                    {currencySymbol}{parseFloat(s.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    <div className="d-flex flex-column">
+                                        <span>{currencySymbol}{parseFloat(s.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                        {s.status === 'returned' && (
+                                            <span className="badge bg-danger-soft text-danger x-small border-0 mt-1" style={{ width: 'fit-content' }}>FULL RETURN</span>
+                                        )}
+                                        {s.status === 'partial_return' && (
+                                            <span className="badge bg-warning-soft text-warning x-small border-0 mt-1" style={{ width: 'fit-content' }}>PARTIAL RETURN</span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                     <span className={`badge-soft border-0 x-small px-3 py-1 fw-bold ${s.payment_method === 'cash' ? 'text-success bg-success-soft' : 'text-info bg-info-soft'}`}>
@@ -65,13 +74,24 @@ export default function SaleTable({
                                 </td>
                                 {!isCashierLike && <td className="px-4 py-3 small opacity-75">{s.user_name}</td>}
                                 <td className="px-4 py-3 text-end">
-                                    <button
-                                        className="btn btn-sm btn-icon border border-white-10 rounded-3 hover-glass transition-all"
-                                        onClick={() => handleViewDetail(s.id)}
-                                        title="View Detail"
-                                    >
-                                        <i className="bi bi-eye text-primary"></i>
-                                    </button>
+                                    <div className="d-flex justify-content-end gap-2 text-nowrap">
+                                        {s.status !== 'returned' && (
+                                            <button
+                                                className="btn btn-sm btn-icon border border-white-10 rounded-3 hover-glass transition-all"
+                                                onClick={() => handleReturn(s.id)}
+                                                title="Return Items"
+                                            >
+                                                <i className="bi bi-arrow-return-left text-warning"></i>
+                                            </button>
+                                        )}
+                                        <button
+                                            className="btn btn-sm btn-icon border border-white-10 rounded-3 hover-glass transition-all"
+                                            onClick={() => handleViewDetail(s.id)}
+                                            title="View Detail"
+                                        >
+                                            <i className="bi bi-eye text-primary"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))

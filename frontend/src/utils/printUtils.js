@@ -224,10 +224,22 @@ export function buildSaleDetailsPrintHTML(sale, currency = "$", settings = {}) {
             <tr>
               <th>Item</th>
               <th class="center">Qty</th>
+              ${parseFloat(sale.returned_amount || 0) > 0 ? `<th class="center">RE</th>` : ""}
               <th class="right">Total</th>
             </tr>
           </thead>
-          <tbody>${itemsHTML}</tbody>
+          <tbody>
+            ${(sale.items || []).map(item => `
+              <tr>
+                <td>
+                  <div style="font-weight:600">${item.product_name}</div>
+                  <div style="font-size:11px;color:#666">${currency}${parseFloat(item.price).toFixed(2)} / unit</div>
+                </td>
+                <td class="center">${item.qty}</td>
+                ${parseFloat(sale.returned_amount || 0) > 0 ? `<td class="center text-danger">-${item.returned_qty || 0}</td>` : ""}
+                <td class="right"><strong>${currency}${parseFloat(item.line_total).toFixed(2)}</strong></td>
+              </tr>`).join("")}
+          </tbody>
         </table>
         <div style="margin-top:14px; border-top:1px solid #ddd; padding-top:10px;">
           <div class="receipt-row" style="color:#555; font-size:12px">
@@ -240,9 +252,14 @@ export function buildSaleDetailsPrintHTML(sale, currency = "$", settings = {}) {
             <span>${currency}${parseFloat(sale.tax).toFixed(2)}</span>
           </div>` : ""}
           <div class="receipt-row receipt-total" style="margin-top:8px; padding-top:8px; border-top:2px solid #111;">
-            <span>Grand Total</span>
+            <span>Grand Total${parseFloat(sale.returned_amount || 0) > 0 ? ' (Net)' : ''}</span>
             <span>${currency}${parseFloat(sale.total).toFixed(2)}</span>
           </div>
+          ${parseFloat(sale.returned_amount || 0) > 0 ? `
+          <div class="receipt-row" style="color:#dc3545; font-size:12px; margin-top:4px; font-weight:bold">
+            <span>Total Refunded</span>
+            <span>-${currency}${parseFloat(sale.returned_amount).toFixed(2)}</span>
+          </div>` : ""}
           ${sale.paid_amount ? `
           <div class="receipt-row" style="color:#2a7d4f; font-size:12px; margin-top:4px">
             <span>Paid (${sale.payment_method || "cash"})</span>

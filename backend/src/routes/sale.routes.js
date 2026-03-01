@@ -7,5 +7,6 @@ const { requireAuth } = require("../middleware/auth");
 router.get("/", requireAuth, sale.getAll);
 router.get("/:id", requireAuth, sale.getById);
 router.post("/", requireAuth, sale.create);
+router.post("/:id/return", requireAuth, sale.returnItems);
 
 module.exports = router;

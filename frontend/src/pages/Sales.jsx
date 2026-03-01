@@ -8,6 +8,7 @@ import { Form } from "react-bootstrap";
 import SaleDetailsModal from "../components/SaleDetailsModal";
 import PaginationControl from "../components/PaginationControl";
 import SaleTable from "../components/Sales/SaleTable";
+import ReturnSaleModal from "../components/Sales/ReturnSaleModal";
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
@@ -20,6 +21,8 @@ export default function Sales() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
   const [showModal, setShowModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [selectedReturnId, setSelectedReturnId] = useState(null);
   const { token, hasPermission } = useAuth();
   const { currencySymbol, settings } = useSettings();
   const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
@@ -80,6 +83,11 @@ export default function Sales() {
     } catch (err) {
       toast.error("Failed to load sale details");
     }
+  };
+
+  const handleReturn = (id) => {
+    setSelectedReturnId(id);
+    setShowReturnModal(true);
   };
 
   return (
@@ -164,6 +172,7 @@ export default function Sales() {
         currencySymbol={currencySymbol}
         isCashierLike={isCashierLike}
         handleViewDetail={handleViewDetail}
+        handleReturn={handleReturn}
       />
 
       <div className="mt-4">
@@ -179,6 +188,15 @@ export default function Sales() {
         sale={selectedSale}
         currencySymbol={currencySymbol}
         settings={settings}
+      />
+
+      <ReturnSaleModal
+        show={showReturnModal}
+        onHide={() => setShowReturnModal(false)}
+        saleId={selectedReturnId}
+        token={token}
+        currencySymbol={currencySymbol}
+        onSuccess={() => fetchSales(pagination.page)}
       />
     </div>
   );

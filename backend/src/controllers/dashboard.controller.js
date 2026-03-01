@@ -23,7 +23,7 @@ exports.getStats = async (req, res) => {
 
     // 2. Today's Revenue
     const todayRevenueQuery = db.select({
-      revenue: sql`COALESCE(SUM(${sales.total}), 0)`
+      revenue: sql`COALESCE(SUM(${sales.total}), 0) - COALESCE(SUM(${sales.returnedAmount}), 0)`
     })
       .from(sales)
       .where(gte(sales.createdAt, sql`CURRENT_DATE`));
@@ -50,7 +50,7 @@ exports.getStats = async (req, res) => {
         ? sql`
             SELECT 
               TO_CHAR(d, 'Mon') || ' ' || TO_CHAR(d, 'DD') as name,
-              COALESCE(SUM(s.total), 0) as revenue
+              COALESCE(SUM(s.total), 0) - COALESCE(SUM(s.returned_amount), 0) as revenue
             FROM (
               SELECT CURRENT_DATE - i as d
               FROM generate_series(0, 6) i
@@ -62,7 +62,7 @@ exports.getStats = async (req, res) => {
         : sql`
             SELECT 
               TO_CHAR(d, 'Mon') || ' ' || TO_CHAR(d, 'DD') as name,
-              COALESCE(SUM(s.total), 0) as revenue
+              COALESCE(SUM(s.total), 0) - COALESCE(SUM(s.returned_amount), 0) as revenue
             FROM (
               SELECT CURRENT_DATE - i as d
               FROM generate_series(0, 6) i

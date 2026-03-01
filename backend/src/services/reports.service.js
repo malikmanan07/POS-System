@@ -13,9 +13,9 @@ const ReportsService = {
         const filter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
         const [summary] = await db.select({
             totalSales: sql`COUNT(${sales.id})::int`,
-            totalRevenue: sql`COALESCE(SUM(${sales.total})::numeric, 0)`,
+            totalRevenue: sql`COALESCE(SUM(${sales.total})::numeric, 0) - COALESCE(SUM(${sales.returnedAmount})::numeric, 0)`,
             totalCustomers: sql`COUNT(DISTINCT ${sales.customerId})::int`,
-            avgOrderValue: sql`COALESCE(AVG(${sales.total})::numeric, 0)`
+            avgOrderValue: sql`COALESCE(AVG(${sales.total} - ${sales.returnedAmount})::numeric, 0)`
         })
             .from(sales)
             .where(filter);
@@ -29,7 +29,7 @@ const ReportsService = {
         const filter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
         const dailyRevenue = await db.select({
             date: sql`DATE(${sales.createdAt})`,
-            revenue: sql`SUM(${sales.total})::numeric`
+            revenue: sql`SUM(${sales.total} - ${sales.returnedAmount})::numeric`
         })
             .from(sales)
             .where(filter)
@@ -50,8 +50,8 @@ const ReportsService = {
         return await db.select({
             id: products.id,
             name: products.name,
-            qtySold: sql`SUM(${saleItems.qty})::int`,
-            revenue: sql`SUM(${saleItems.lineTotal})::numeric`
+            qtySold: sql`SUM(${saleItems.qty} - ${saleItems.returnedQty})::int`,
+            revenue: sql`SUM((${saleItems.qty} - ${saleItems.returnedQty}) * ${saleItems.price})::numeric`
         })
             .from(saleItems)
             .innerJoin(sales, eq(saleItems.saleId, sales.id))
@@ -71,7 +71,7 @@ const ReportsService = {
             id: customers.id,
             name: customers.name,
             totalOrders: sql`COUNT(${sales.id})::int`,
-            totalSpent: sql`SUM(${sales.total})::numeric`
+            totalSpent: sql`SUM(${sales.total} - ${sales.returnedAmount})::numeric`
         })
             .from(sales)
             .innerJoin(customers, eq(sales.customerId, customers.id))
