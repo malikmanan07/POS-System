@@ -87,11 +87,21 @@ export default function AppNavbar({ onMenu }) {
             <i className="bi bi-list" />
           </Button>
 
-          <div className="brand-badge">P</div>
+          <div className="brand-badge" style={{ backgroundColor: settings?.business?.logo ? 'transparent' : undefined }}>
+            {settings?.business?.logo ? (
+              <img
+                src={settings.business.logo.startsWith('/uploads') ? `${api.defaults.baseURL}${settings.business.logo}` : settings.business.logo}
+                alt="Logo"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            ) : (
+              settings?.business?.storeName?.charAt(0) || "P"
+            )}
+          </div>
           <div>
-            <div className="fw-bold">POS System</div>
+            <div className="fw-bold">{settings?.business?.storeName || "POS System"}</div>
             <div className="small" style={{ color: "var(--muted)", textTransform: "capitalize" }}>
-              {user?.roles?.length > 0 ? `${user.roles[0]} Console` : "Console"}
+              {user?.roles?.length > 0 ? (user.roles[0]?.name || user.roles[0]) : "Console"}
             </div>
           </div>
         </div>
