@@ -32,3 +32,138 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* Category Chips Styling */
+.category-chip {
+  padding: 10px 22px !important;
+  border-radius: 100px !important;
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  transition: all 0.25s ease !important;
+  white-space: nowrap !important;
+  margin-right: 4px;
+}
+
+.category-chip:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px);
+}
+
+.category-chip.active {
+  background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+  color: white !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4) !important;
+}
+
+.parent-chip {
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px;
+  font-weight: 700 !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+.sub-chip {
+  opacity: 0.9;
+  font-style: italic;
+  font-size: 0.85rem !important;
+}
+
+.sub-indicator {
+  margin-right: 8px;
+  opacity: 0.6;
+}
+
+.active .sub-indicator {
+  opacity: 1;
+}
+
+/* Hide scrollbar but keep functionality */
+.category-scroll-wrapper>div::-webkit-scrollbar {
+  display: none !important;
+}
+
+.category-scroll-wrapper>div {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* --- Accordion & Tree UI Customization --- */
+.category-accordion .accordion-item {
+  background: transparent !important;
+  border: none !important;
+}
+
+.category-accordion .accordion-button {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  /* Extremely important for removing the big box */
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Professional Arrow Styling (Smaller & Clean) */
+.category-accordion .accordion-button::after {
+  background-size: 0.75rem !important;
+  width: 0.75rem !important;
+  height: 0.75rem !important;
+  filter: invert(1) brightness(1.5);
+  transition: transform 0.2s ease;
+  margin: 0 !important;
+}
+
+.category-accordion .accordion-button:not(.collapsed) {
+  background: transparent !important;
+}
+
+.item-row {
+  transition: all 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+.item-row:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 4px;
+}
+
+.bg-primary-soft {
+  background: rgba(99, 102, 241, 0.12) !important;
+  border-radius: 4px;
+}
+
+.hover-bg-white-5:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.min-h-40 {
+  min-height: 40px;
+}
+
+/* Custom Selection Dot (Instead of ugly circle) */
+.selection-dot {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: inline-block;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.item-row.bg-primary-soft .selection-dot {
+  border-color: #6366f1;
+  background-color: #6366f1;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.6);
+}
+
+.ls-1 {
+  letter-spacing: 0.5px;
+}

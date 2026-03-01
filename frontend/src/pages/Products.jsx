@@ -12,6 +12,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]); // <-- Supplier list
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -32,6 +33,7 @@ export default function Products() {
     stock: 0,
     is_active: true,
     alert_quantity: 5,
+    supplier_id: "", // <-- Initialize supplier_id
     image: null
   });
   const [imagePreview, setImagePreview] = useState(null);
@@ -40,6 +42,7 @@ export default function Products() {
   useEffect(() => {
     fetchProducts();
     fetchCategories();
+    fetchSuppliers(); // <-- Fetch suppliers
   }, []);
 
   const fetchProducts = async () => {
@@ -126,6 +129,17 @@ export default function Products() {
     }
   };
 
+  const fetchSuppliers = async () => {
+    try {
+      const res = await api.get("/api/suppliers", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSuppliers(res.data || []);
+    } catch (err) {
+      toast.error("Failed to load suppliers");
+    }
+  };
+
   const handleOpenAdd = () => {
     setEditMode(false);
     setEditId(null);
@@ -138,6 +152,7 @@ export default function Products() {
       stock: 0,
       is_active: true,
       alert_quantity: 5,
+      supplier_id: "",
       image: null
     });
     setImagePreview(null);
@@ -157,6 +172,7 @@ export default function Products() {
       stock: p.stock,
       is_active: p.is_active,
       alert_quantity: p.alert_quantity || 5,
+      supplier_id: p.supplierId || "",
       image: null
     });
     setImagePreview(p.image ? `${api.defaults.baseURL}${p.image}` : null);
@@ -208,6 +224,7 @@ export default function Products() {
       data.append("stock", formData.stock);
       data.append("is_active", formData.is_active);
       data.append("alert_quantity", formData.alert_quantity);
+      data.append("supplier_id", formData.supplier_id === "" ? "" : formData.supplier_id);
 
       if (formData.image) {
         data.append("image", formData.image);
@@ -372,6 +389,7 @@ export default function Products() {
         setFormData={setFormData}
         editMode={editMode}
         categories={categories}
+        suppliers={suppliers} // <-- Pass suppliers
         currencySymbol={currencySymbol}
         imagePreview={imagePreview}
         handleImageChange={handleImageChange}

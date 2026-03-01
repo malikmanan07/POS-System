@@ -18,7 +18,8 @@ exports.create = async (req, res) => {
             payment_method,
             paid_amount,
             change_amount,
-            payment_reference
+            payment_reference,
+            discount_id // <-- Extract discount_id
         } = req.body;
 
         const user_id = req.user?.id || 1;
@@ -47,6 +48,7 @@ exports.create = async (req, res) => {
                     paidAmount: String(paid_amount),
                     changeAmount: String(change_amount),
                     paymentReference: payment_reference || null,
+                    discountId: discount_id || null, // <-- Save discountId
                 })
                 .returning();
 

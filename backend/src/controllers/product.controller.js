@@ -25,6 +25,7 @@ exports.getAll = async (req, res) => {
         alert_quantity: products.alertQuantity,
         is_active: products.isActive,
         image: products.image,
+        supplierId: products.supplierId, // <-- Include supplierId
         createdAt: products.createdAt,
       })
       .from(products)
@@ -71,6 +72,7 @@ exports.create = async (req, res) => {
         name,
         sku: sku || null,
         categoryId: category_id || null,
+        supplierId: req.body.supplier_id || null, // <-- Handle supplierId
         costPrice: String(cost_price ?? 0),
         price: String(price ?? 0),
         stock: stock ?? 0,
@@ -113,11 +115,12 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
+    const { name, sku, category_id, supplier_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
     const updateData = {
       name,
       sku: sku || null,
       categoryId: category_id || null,
+      supplierId: supplier_id || null, // <-- Update supplierId
       costPrice: String(cost_price ?? 0),
       price: String(price ?? 0),
       stock: stock ?? 0,

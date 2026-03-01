@@ -1,5 +1,7 @@
 import { Modal, Button, Form, Row, Col } from "react-bootstrap";
 
+import CascadingCategorySelect from "./CascadingCategorySelect";
+
 export default function ProductFormModal({
     show,
     onHide,
@@ -8,6 +10,7 @@ export default function ProductFormModal({
     setFormData,
     editMode,
     categories,
+    suppliers,
     currencySymbol,
     imagePreview,
     handleImageChange,
@@ -59,81 +62,37 @@ export default function ProductFormModal({
                         <Col md={6}>
                             <Form.Group className="mb-3">
                                 <Form.Label className="text-muted small fw-bold">CATEGORY</Form.Label>
-                                {(() => {
-                                    const path = [];
-                                    let currentId = formData.category_id;
-
-                                    const findPath = (id) => {
-                                        const cat = categories.find(c => c.id === parseInt(id));
-                                        if (cat) {
-                                            path.unshift(cat);
-                                            if (cat.parentId) findPath(cat.parentId);
-                                        }
-                                    };
-                                    if (currentId) findPath(currentId);
-
-                                    const renders = [];
-
-                                    const roots = categories.filter(c => !c.parentId);
-                                    renders.push(
-                                        <Form.Select
-                                            key="root"
-                                            value={path[0]?.id || ""}
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                setFormData({ ...formData, category_id: val || null });
-                                            }}
-                                            className="bg-dark text-light border-secondary shadow-none mb-2"
-                                        >
-                                            <option value="">Select Main Category</option>
-                                            {roots.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </Form.Select>
-                                    );
-
-                                    let lastSelected = path[0];
-                                    let depth = 1;
-
-                                    while (lastSelected) {
-                                        const children = categories.filter(c => c.parentId === lastSelected.id);
-                                        if (children.length === 0) break;
-
-                                        const currentSelectionAtThisLevel = path[depth];
-                                        const parentOfThisLevel = lastSelected;
-
-                                        renders.push(
-                                            <div key={`level-wrap-${depth}`} className="d-flex align-items-center gap-2 mb-2">
-                                                <i className="bi bi-arrow-return-right text-muted ms-2"></i>
-                                                <Form.Select
-                                                    value={currentSelectionAtThisLevel?.id || ""}
-                                                    onChange={e => {
-                                                        const val = e.target.value;
-                                                        setFormData({ ...formData, category_id: val || parentOfThisLevel.id });
-                                                    }}
-                                                    className="bg-dark text-light border-secondary shadow-none flex-grow-1"
-                                                >
-                                                    <option value="">Select Sub-category</option>
-                                                    {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                </Form.Select>
-                                            </div>
-                                        );
-
-                                        if (!currentSelectionAtThisLevel) break;
-                                        lastSelected = currentSelectionAtThisLevel;
-                                        depth++;
-                                    }
-
-                                    return renders;
-                                })()}
+                                <CascadingCategorySelect
+                                    categories={categories}
+                                    selectedId={formData.category_id}
+                                    onSelect={(id) => setFormData({ ...formData, category_id: id })}
+                                />
+                            </Form.Group>
+                        </Col>
+                        <Col md={6}>
+                            <Form.Group className="mb-3">
+                                <Form.Label className="text-muted small fw-bold text-primary">SELECT SUPPLIER</Form.Label>
+                                <Form.Select
+                                    value={formData.supplier_id}
+                                    onChange={e => setFormData({ ...formData, supplier_id: e.target.value })}
+                                    className="bg-dark text-light border-primary shadow-none"
+                                >
+                                    <option value="">No Supplier Assigned</option>
+                                    {suppliers.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </Form.Select>
+                                <Form.Text className="text-muted x-small">Link this product to a vendor.</Form.Text>
                             </Form.Group>
                         </Col>
                         <Col md={6}>
                             <Form.Group className="mb-3">
                                 <Form.Label className="text-muted small fw-bold">STATUS</Form.Label>
-                                <div className="mt-2">
+                                <div className="mt-2 text-end pe-3">
                                     <Form.Check
                                         type="switch"
                                         id="product-active-switch"
-                                        label={formData.is_active ? "Product is Active" : "Product is Inactive"}
+                                        label={formData.is_active ? "Active" : "Inactive"}
                                         checked={formData.is_active}
                                         onChange={e => setFormData({ ...formData, is_active: e.target.checked })}
                                         className="text-light"

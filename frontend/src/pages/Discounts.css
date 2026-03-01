@@ -1,0 +1,40 @@
+.product-select-box {
+    max-height: 250px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.product-select-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.product-select-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.product-select-item.selected {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.category-list-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+
+.category-list-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+.bg-black-25 {
+    background: rgba(0, 0, 0, 0.25);
+}
