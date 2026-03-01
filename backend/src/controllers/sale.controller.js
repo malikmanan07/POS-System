@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 const { eq, desc, sql, like, or, cast, gte, lte, ilike, and } = require("drizzle-orm");
-const { sales, saleItems, products, stockMovements, users, customers } = require("../db/schema");
+const { sales, saleItems, products, stockMovements, users, customers, shifts } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
@@ -24,6 +24,12 @@ exports.create = async (req, res) => {
 
         const user_id = req.user?.id || 1;
 
+        // Fetch active shift
+        const [activeShift] = await db.select()
+            .from(shifts)
+            .where(and(eq(shifts.userId, user_id), eq(shifts.status, 'active')))
+            .limit(1);
+
         if (!items || items.length === 0) {
             return res.status(400).json({ error: "No items in sale" });
         }
@@ -44,11 +50,12 @@ exports.create = async (req, res) => {
                     discount: String(discount || 0),
                     tax: String(tax || 0),
                     total: String(total),
-                    paymentMethod: payment_method || 'cash',
+                    paymentMethod: method,
                     paidAmount: String(paid_amount),
                     changeAmount: String(change_amount),
                     paymentReference: payment_reference || null,
-                    discountId: discount_id || null, // <-- Save discountId
+                    discountId: discount_id || null,
+                    shiftId: activeShift ? activeShift.id : null, // <-- Link active shift
                 })
                 .returning();
 

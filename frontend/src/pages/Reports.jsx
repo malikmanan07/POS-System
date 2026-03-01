@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Table, Button, Spinner, Badge } from "react-bootstrap";
+import { Container, Row, Col, Card, Button, Spinner } from "react-bootstrap";
 import { api } from "../api/client";
-import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { toast } from "react-toastify";
-import {
-    AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Shared Components
-import StatCard from "../components/StatCard";
 import ChartTooltip from "../components/ChartTooltip";
 import ReportFilter from "../components/ReportFilter";
+
+// Page Components
+import ReportsKPIs from "../components/Reports/ReportsKPIs";
+import BestSellersTable from "../components/Reports/BestSellersTable";
+import CustomerBreakdownTable from "../components/Reports/CustomerBreakdownTable";
 
 export default function Reports() {
     const { currencySymbol } = useSettings();
@@ -83,7 +84,6 @@ export default function Reports() {
 
     return (
         <Container fluid className="py-4 report-container">
-            {/* Header */}
             <div className="d-flex justify-content-between align-items-center mb-4 no-print">
                 <div>
                     <h2 className="page-title text-white mb-0">Reports & Analytics</h2>
@@ -100,14 +100,12 @@ export default function Reports() {
                 </div>
             </div>
 
-            {/* Print Header */}
             <div className="d-none d-print-block mb-4">
                 <h1 className="text-dark">Business Performance Report</h1>
                 <p className="text-secondary">Period: {filters.startDate} to {filters.endDate}</p>
                 <hr />
             </div>
 
-            {/* Filters */}
             <ReportFilter
                 filters={filters}
                 onChange={handleFilterChange}
@@ -115,43 +113,8 @@ export default function Reports() {
                 loading={loading}
             />
 
-            {/* KPI Cards */}
-            <Row className="g-3 mb-4">
-                <Col md={3}>
-                    <StatCard
-                        title="Total Sales"
-                        value={data.summary.totalSales}
-                        icon="bi-receipt"
-                        color="#6d5efc"
-                    />
-                </Col>
-                <Col md={3}>
-                    <StatCard
-                        title="Total Revenue"
-                        value={`${currencySymbol}${parseFloat(data.summary.totalRevenue).toLocaleString()}`}
-                        icon="bi-currency-dollar"
-                        color="#22c55e"
-                    />
-                </Col>
-                <Col md={3}>
-                    <StatCard
-                        title="Total Customers"
-                        value={data.summary.totalCustomers}
-                        icon="bi-people"
-                        color="#06b6d4"
-                    />
-                </Col>
-                <Col md={3}>
-                    <StatCard
-                        title="Avg Order Value"
-                        value={`${currencySymbol}${parseFloat(data.summary.avgOrderValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-                        icon="bi-calculator"
-                        color="#f59e0b"
-                    />
-                </Col>
-            </Row>
+            <ReportsKPIs data={data} currencySymbol={currencySymbol} />
 
-            {/* Daily Revenue Chart */}
             <Row className="mb-4">
                 <Col lg={12}>
                     <Card className="glass shadow-soft border-0 p-4">
@@ -177,76 +140,12 @@ export default function Reports() {
                 </Col>
             </Row>
 
-            {/* Tables Section */}
             <Row className="g-4">
-                {/* Best Selling Products */}
                 <Col lg={6}>
-                    <Card className="glass shadow-soft border-0 h-100 overflow-hidden">
-                        <div className="p-3 bg-black d-flex justify-content-between align-items-center">
-                            <h6 className="fw-bold text-white mb-0">Best Selling Products</h6>
-                            <Badge bg="success">Top 10</Badge>
-                        </div>
-                        <div className="table-responsive">
-                            <Table hover variant="dark" className="mb-0">
-                                <thead>
-                                    <tr>
-                                        <th className="ps-3">Product Name</th>
-                                        <th>Qty Sold</th>
-                                        <th className="pe-3 text-end">Revenue</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.topProducts.map(p => (
-                                        <tr key={p.id}>
-                                            <td className="ps-3 fw-bold">{p.name}</td>
-                                            <td>{p.qtySold}</td>
-                                            <td className="pe-3 text-end text-success fw-bold">
-                                                {currencySymbol}{parseFloat(p.revenue).toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {data.topProducts.length === 0 && (
-                                        <tr><td colSpan="3" className="text-center py-4 text-muted">No data available</td></tr>
-                                    )}
-                                </tbody>
-                            </Table>
-                        </div>
-                    </Card>
+                    <BestSellersTable data={data} currencySymbol={currencySymbol} />
                 </Col>
-
-                {/* Customer Breakdown */}
                 <Col lg={6}>
-                    <Card className="glass shadow-soft border-0 h-100 overflow-hidden">
-                        <div className="p-3 bg-black d-flex justify-content-between align-items-center">
-                            <h6 className="fw-bold text-white mb-0">Customer Breakdown</h6>
-                            <Badge bg="info">Top Spenders</Badge>
-                        </div>
-                        <div className="table-responsive">
-                            <Table hover variant="dark" className="mb-0">
-                                <thead>
-                                    <tr>
-                                        <th className="ps-3">Customer Name</th>
-                                        <th>Orders</th>
-                                        <th className="pe-3 text-end">Total Spent</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.customerStats.map(c => (
-                                        <tr key={c.id}>
-                                            <td className="ps-3 fw-bold">{c.name}</td>
-                                            <td>{c.totalOrders}</td>
-                                            <td className="pe-3 text-end text-info fw-bold">
-                                                {currencySymbol}{parseFloat(c.totalSpent).toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {data.customerStats.length === 0 && (
-                                        <tr><td colSpan="3" className="text-center py-4 text-muted">No data available</td></tr>
-                                    )}
-                                </tbody>
-                            </Table>
-                        </div>
-                    </Card>
+                    <CustomerBreakdownTable data={data} currencySymbol={currencySymbol} />
                 </Col>
             </Row>
 

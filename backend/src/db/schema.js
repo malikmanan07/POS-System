@@ -8,6 +8,7 @@ const {
     numeric,
     boolean,
     primaryKey,
+    index,
     jsonb,
 } = require("drizzle-orm/pg-core");
 const { relations } = require("drizzle-orm");
@@ -125,7 +126,26 @@ const sales = pgTable("sales", {
         .notNull()
         .default("0"),
     paymentReference: varchar("payment_reference", { length: 100 }),
+    shiftId: integer("shift_id").references(() => shifts.id), // <-- Link to shift
     createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+    return {
+        salesCreatedAtIndex: index("sales_created_at_idx").on(table.createdAt),
+    }
+});
+
+// 18️⃣ SHIFTS
+const shifts = pgTable("shifts", {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").references(() => users.id).notNull(),
+    openingBalance: numeric("opening_balance", { precision: 10, scale: 2 }).notNull().default("0"),
+    closingBalance: numeric("closing_balance", { precision: 10, scale: 2 }),
+    totalSales: numeric("total_sales", { precision: 10, scale: 2 }).default("0"),
+    expectedCash: numeric("expected_cash", { precision: 10, scale: 2 }).default("0"),
+    startTime: timestamp("start_time").defaultNow().notNull(),
+    endTime: timestamp("end_time"),
+    status: varchar("status", { length: 20 }).notNull().default("active"), // 'active', 'closed'
+    note: text("note"),
 });
 
 // 10️⃣ SALE_ITEMS
@@ -213,6 +233,11 @@ const discountCategories = pgTable("discount_categories", {
 
 // --- RELATIONS ---
 
+const shiftsRelations = relations(shifts, ({ one, many }) => ({
+    user: one(users, { fields: [shifts.userId], references: [users.id] }),
+    sales: many(sales),
+}));
+
 const usersRelations = relations(users, ({ many }) => ({
     roles: many(userRoles),
     sales: many(sales),
@@ -275,6 +300,10 @@ const salesRelations = relations(sales, ({ one, many }) => ({
         fields: [sales.customerId],
         references: [customers.id],
     }),
+    shift: one(shifts, {
+        fields: [sales.shiftId],
+        references: [shifts.id],
+    }),
     items: many(saleItems),
 }));
 
@@ -334,6 +363,7 @@ module.exports = {
     discounts,
     discountProducts,
     discountCategories,
+    shifts,
     // Relations
     usersRelations,
     rolesRelations,
@@ -351,4 +381,5 @@ module.exports = {
     discountsRelations,
     discountProductsRelations,
     discountCategoriesRelations,
+    shiftsRelations,
 };
