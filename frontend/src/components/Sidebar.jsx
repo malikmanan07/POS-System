@@ -14,14 +14,15 @@ export default function Sidebar() {
       )}
 
       {hasPermission("manage_products") && (
-        <>
-          <NavLink to="/app/products" className="nav-itemx">
-            <i className="bi bi-box-seam"></i> Products
-          </NavLink>
-          <NavLink to="/app/categories" className="nav-itemx">
-            <i className="bi bi-tags"></i> Categories
-          </NavLink>
-        </>
+        <NavLink to="/app/products" className="nav-itemx">
+          <i className="bi bi-box-seam"></i> Products
+        </NavLink>
+      )}
+
+      {hasPermission("manage_categories") && (
+        <NavLink to="/app/categories" className="nav-itemx">
+          <i className="bi bi-tags"></i> Categories
+        </NavLink>
       )}
 
       {hasPermission("manage_customers") && (
@@ -36,18 +37,22 @@ export default function Sidebar() {
         </NavLink>
       )}
 
+      {hasPermission("manage_roles") && (
+        <NavLink to="/app/roles" className="nav-itemx">
+          <i className="bi bi-shield-lock"></i> Roles
+        </NavLink>
+      )}
+
       {hasPermission("manage_users") && (
-        <>
-          <NavLink to="/app/roles" className="nav-itemx">
-            <i className="bi bi-shield-lock"></i> Roles
-          </NavLink>
-          <NavLink to="/app/users" className="nav-itemx">
-            <i className="bi bi-people"></i> Users
-          </NavLink>
-          <NavLink to="/app/access" className="nav-itemx">
-            <i className="bi bi-key"></i> Access
-          </NavLink>
-        </>
+        <NavLink to="/app/users" className="nav-itemx">
+          <i className="bi bi-people"></i> Users
+        </NavLink>
+      )}
+
+      {hasPermission("manage_roles") && (
+        <NavLink to="/app/access" className="nav-itemx">
+          <i className="bi bi-key"></i> Access
+        </NavLink>
       )}
 
       {hasPermission("view_activity_logs") && (
