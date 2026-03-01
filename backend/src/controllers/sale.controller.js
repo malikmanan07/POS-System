@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { eq, desc, sql } = require("drizzle-orm");
+const { eq, desc, sql, like, or, cast, gte, lte, ilike, and } = require("drizzle-orm");
 const { sales, saleItems, products, stockMovements, users, customers } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
@@ -113,6 +113,9 @@ exports.getAll = async (req, res) => {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
+        const search = req.query.search || "";
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
 
         let query = db.select({
             id: sales.id,
@@ -134,17 +137,51 @@ exports.getAll = async (req, res) => {
             .leftJoin(users, eq(sales.userId, users.id))
             .leftJoin(customers, eq(sales.customerId, customers.id));
 
+        const conditions = [];
+
         if (isCashier) {
-            query = query.where(eq(sales.userId, req.user.id));
+            conditions.push(eq(sales.userId, req.user.id));
         }
 
-        const result = await query.orderBy(desc(sales.createdAt)).limit(limit).offset(offset);
+        if (search) {
+            const searchPattern = `%${search}%`;
+            const searchConditions = [
+                ilike(customers.name, searchPattern),
+                ilike(sales.paymentReference, searchPattern)
+            ];
+
+            // If search is a number, try matching ID
+            if (!isNaN(parseInt(search))) {
+                searchConditions.push(sql`${sales.id}::text ILIKE ${searchPattern}`);
+            }
+
+            conditions.push(or(...searchConditions));
+        }
+
+        if (startDate) {
+            conditions.push(gte(sales.createdAt, new Date(startDate)));
+        }
+
+        if (endDate) {
+            // Add one day to endDate to include the full day
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            conditions.push(lte(sales.createdAt, end));
+        }
+
+        const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+        const result = await query
+            .where(where)
+            .orderBy(desc(sales.createdAt))
+            .limit(limit)
+            .offset(offset);
 
         // Get total count for pagination
-        let countQuery = db.select({ count: sql`count(*)::int` }).from(sales);
-        if (isCashier) {
-            countQuery = countQuery.where(eq(sales.userId, req.user.id));
-        }
+        let countQuery = db.select({ count: sql`count(*)::int` }).from(sales)
+            .leftJoin(customers, eq(sales.customerId, customers.id))
+            .where(where);
+
         const [totalCount] = await countQuery;
 
         res.json({
