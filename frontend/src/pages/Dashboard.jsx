@@ -146,7 +146,21 @@ export default function Dashboard() {
       const res = await api.get("/api/dashboard/stats", {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setData(res.data);
+
+      // Ensure numeric data is parsed as actual numbers for the charts
+      const stats = {
+        ...res.data,
+        revenueData: (res.data.revenueData || []).map(row => ({
+          ...row,
+          revenue: parseFloat(row.revenue) || 0
+        })),
+        topProducts: (res.data.topProducts || []).map(row => ({
+          ...row,
+          sales: parseInt(row.sales) || 0
+        }))
+      };
+
+      setData(stats);
     } catch (err) {
       toast.error("Failed to load dashboard data");
     } finally {
@@ -266,7 +280,7 @@ export default function Dashboard() {
                     <ResponsiveContainer>
                       <AreaChart
                         data={data.revenueData}
-                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                        margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
                       >
                         <defs>
                           <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -287,11 +301,15 @@ export default function Dashboard() {
                           axisLine={false}
                         />
                         <YAxis
-                          stroke="rgba(255,255,255,0.5)"
-                          tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
+                          stroke="rgba(255,255,255,0.4)"
+                          tick={{ fill: "rgba(255,255,255,0.6)", fontSize: 12 }}
                           tickLine={false}
                           axisLine={false}
-                          tickFormatter={(value) => `${currencySymbol}${value}`}
+                          width={60}
+                          tickFormatter={(value) => {
+                            if (value >= 1000) return `${currencySymbol}${(value / 1000).toFixed(1)}k`;
+                            return `${currencySymbol}${value}`;
+                          }}
                         />
                         <Tooltip
                           content={<ChartTooltip currencySymbol={currencySymbol} />}
@@ -302,9 +320,11 @@ export default function Dashboard() {
                           type="monotone"
                           dataKey="revenue"
                           stroke="#22c55e"
-                          strokeWidth={3}
+                          strokeWidth={4}
                           fillOpacity={1}
                           fill="url(#colorRevenue)"
+                          dot={{ r: 4, fill: "#22c55e", strokeWidth: 2, stroke: "#fff" }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
                         />
                       </AreaChart>
                     </ResponsiveContainer>

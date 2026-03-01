@@ -39,8 +39,13 @@ exports.updateSetting = async (req, res) => {
         }
 
         // Force current user's email if updating business settings
-        if (key === "business" && req.user?.email) {
-            value = { ...value, email: req.user.email };
+        if (key === "business") {
+            if (req.user?.email) {
+                value = { ...value, email: req.user.email };
+            }
+            if (req.file) {
+                value = { ...value, logo: `/uploads/${req.file.filename}` };
+            }
         }
 
         const [result] = await db.insert(settings)
