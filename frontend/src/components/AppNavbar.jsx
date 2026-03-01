@@ -8,7 +8,7 @@ import { useShift } from "../context/ShiftContext";
 import ShiftModal from "./Shifts/ShiftModal";
 
 export default function AppNavbar({ onMenu }) {
-  const { user, logout, token, hasPermission } = useAuth();
+  const { user, logout, token, hasPermission, permissions } = useAuth();
   const { activeShift, loading: shiftLoading } = useShift();
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [shiftType, setShiftType] = useState('start');
@@ -21,7 +21,7 @@ export default function AppNavbar({ onMenu }) {
     userRoles.includes("super admin") ||
     userRoles.includes("admin") ||
     (typeof hasPermission === "function" && hasPermission("manage_users")),
-    [userRoles, hasPermission]);
+    [userRoles, permissions]);
   const isCashier = useMemo(() => userRoles.includes("cashier"), [userRoles]);
   const needsShift = isCashier;
 
@@ -38,7 +38,7 @@ export default function AppNavbar({ onMenu }) {
   const lowStockItems = alerts.slice(0, 5);
 
   useEffect(() => {
-    if (token) {
+    if (token && hasPermission?.("manage_inventory")) {
       fetchLowStock();
 
       const handleSale = () => {
@@ -57,7 +57,7 @@ export default function AppNavbar({ onMenu }) {
         window.removeEventListener("saleCompleted", handleSale);
       };
     }
-  }, [token, dismissedAlerts]);
+  }, [token, dismissedAlerts, permissions]);
 
   const fetchLowStock = async () => {
     try {
@@ -153,52 +153,54 @@ export default function AppNavbar({ onMenu }) {
             Open POS
           </Nav.Link>
 
-          <Dropdown align="end" className="d-none d-md-inline-block">
-            <Dropdown.Toggle as={Button} className="btn btn-soft p-0 border-0 bg-transparent shadow-none position-relative" style={{ width: '40px', height: '40px' }}>
-              <i className="bi bi-bell h5 mb-0" />
-              {lowStockCount > 0 && (
-                <Badge
-                  pill
-                  bg="danger"
-                  className="position-absolute top-10 start-90 translate-middle p-1 border border-light border-2 rounded-circle"
-                  style={{ fontSize: '0.6rem', border: 'none' }}
-                >
-                  {lowStockCount}
-                </Badge>
-              )}
-            </Dropdown.Toggle>
-
-            <Dropdown.Menu className="dropdown-menu-dark glass shadow-lg border-secondary mt-2 p-0 overflow-hidden" style={{ width: '300px', zIndex: 9999 }}>
-              <div className="p-3 border-bottom border-secondary d-flex justify-content-between align-items-center bg-dark">
-                <h6 className="mb-0 fw-bold text-white">Notifications</h6>
-                {lowStockCount > 0 && <Badge bg="danger" className="small">{lowStockCount} Alerts</Badge>}
-              </div>
-              <div className="notification-list py-0" style={{ maxHeight: '350px', overflowY: 'auto', backgroundColor: 'rgba(20, 20, 20, 0.9)' }}>
-                {lowStockItems.length > 0 ? (
-                  lowStockItems.map(item => (
-                    <Dropdown.Item
-                      key={item.id}
-                      as={Link}
-                      to="/app/inventory/low-stock"
-                      className="px-3 py-3 border-bottom border-secondary d-flex flex-column gap-1 dropdown-item-custom"
-                      onClick={() => handleDismiss(item.id)}
-                    >
-                      <div className="d-flex justify-content-between align-items-start">
-                        <span className="fw-bold small text-white">{item.name}</span>
-                        <span className="text-danger extra-small fw-bold bg-danger-soft px-1 rounded">{item.stock} left</span>
-                      </div>
-                      <span className="extra-small text-muted">Stock below threshold ({item.alert_quantity || 5})</span>
-                    </Dropdown.Item>
-                  ))
-                ) : (
-                  <div className="p-4 text-center text-muted small">
-                    <i className="bi bi-check2-circle text-success mb-2 d-xl-block h3"></i>
-                    All stock levels are normal
-                  </div>
+          {hasPermission?.("manage_inventory") && (
+            <Dropdown align="end" className="d-none d-md-inline-block">
+              <Dropdown.Toggle as={Button} className="btn btn-soft p-0 border-0 bg-transparent shadow-none position-relative" style={{ width: '40px', height: '40px' }}>
+                <i className="bi bi-bell h5 mb-0" />
+                {lowStockCount > 0 && (
+                  <Badge
+                    pill
+                    bg="danger"
+                    className="position-absolute top-10 start-90 translate-middle p-1 border border-light border-2 rounded-circle"
+                    style={{ fontSize: '0.6rem', border: 'none' }}
+                  >
+                    {lowStockCount}
+                  </Badge>
                 )}
-              </div>
-            </Dropdown.Menu>
-          </Dropdown>
+              </Dropdown.Toggle>
+
+              <Dropdown.Menu className="dropdown-menu-dark glass shadow-lg border-secondary mt-2 p-0 overflow-hidden" style={{ width: '300px', zIndex: 9999 }}>
+                <div className="p-3 border-bottom border-secondary d-flex justify-content-between align-items-center bg-dark">
+                  <h6 className="mb-0 fw-bold text-white">Notifications</h6>
+                  {lowStockCount > 0 && <Badge bg="danger" className="small">{lowStockCount} Alerts</Badge>}
+                </div>
+                <div className="notification-list py-0" style={{ maxHeight: '350px', overflowY: 'auto', backgroundColor: 'rgba(20, 20, 20, 0.9)' }}>
+                  {lowStockItems.length > 0 ? (
+                    lowStockItems.map(item => (
+                      <Dropdown.Item
+                        key={item.id}
+                        as={Link}
+                        to="/app/inventory/low-stock"
+                        className="px-3 py-3 border-bottom border-secondary d-flex flex-column gap-1 dropdown-item-custom"
+                        onClick={() => handleDismiss(item.id)}
+                      >
+                        <div className="d-flex justify-content-between align-items-start">
+                          <span className="fw-bold small text-white">{item.name}</span>
+                          <span className="text-danger extra-small fw-bold bg-danger-soft px-1 rounded">{item.stock} left</span>
+                        </div>
+                        <span className="extra-small text-muted">Stock below threshold ({item.alert_quantity || 5})</span>
+                      </Dropdown.Item>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-muted small">
+                      <i className="bi bi-check2-circle text-success mb-2 d-xl-block h3"></i>
+                      All stock levels are normal
+                    </div>
+                  )}
+                </div>
+              </Dropdown.Menu>
+            </Dropdown>
+          )}
 
           <Dropdown align="end">
             <Dropdown.Toggle as={Button} className="btn btn-soft d-flex align-items-center bg-transparent border-0 shadow-none">

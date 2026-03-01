@@ -88,7 +88,7 @@ export default function App() {
                 <Route
                   path="roles"
                   element={
-                    <PermissionRoute permission="manage_users">
+                    <PermissionRoute permission="manage_roles">
                       <Roles />
                     </PermissionRoute>
                   }
@@ -97,7 +97,7 @@ export default function App() {
                 <Route
                   path="access"
                   element={
-                    <PermissionRoute permission="manage_users">
+                    <PermissionRoute permission="manage_roles">
                       <Access />
                     </PermissionRoute>
                   }
