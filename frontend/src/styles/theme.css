@@ -31,7 +31,7 @@ body,
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow-x: hidden !important;
+  overflow: hidden !important;
   color: var(--text);
 }
 
@@ -56,9 +56,11 @@ a {
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .app-navbar {
@@ -68,26 +70,47 @@ a {
 }
 
 .app-main {
+  flex: 1;
   width: 100%;
   max-width: 100%;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 14px;
   padding: 14px;
-  /* safe padding */
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .app-sidebar {
-  position: sticky;
-  top: 86px;
-  /* navbar height approx */
-  height: calc(100vh - 100px);
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  transition: all 0.3s ease;
+}
+
+.app-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
 
 .app-content {
+  height: 100%;
+  overflow-y: auto;
   min-width: 0;
   max-width: 100%;
+  padding-bottom: 3rem !important;
+  /* Extra space at bottom */
+  scroll-behavior: smooth;
+}
+
+/* Specific content scrollbar */
+.app-content::-webkit-scrollbar {
+  width: 8px;
 }
 
 .sidebar {
