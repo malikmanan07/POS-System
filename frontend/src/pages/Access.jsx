@@ -59,8 +59,13 @@ export default function Access() {
   };
 
   const isSuperAdmin = user?.roles?.some(r => r.toLowerCase() === "super admin");
+  const selectedRole = roles.find(r => r.id.toString() === selectedRoleId.toString());
+  const isSelectedRoleSuperAdmin = selectedRole?.name?.toLowerCase() === "super admin";
 
   const isPermissionDisabled = (permName) => {
+    // If the selected role is super admin, disable modification
+    if (isSelectedRoleSuperAdmin) return true;
+
     if (isSuperAdmin) return false;
     return !userPermissions.includes(permName);
   };
@@ -145,7 +150,7 @@ export default function Access() {
                     <Button
                       className="btn-gradient w-100 border-0 shadow-none mt-2"
                       onClick={handleSavePermissions}
-                      disabled={saving}
+                      disabled={saving || isSelectedRoleSuperAdmin}
                     >
                       {saving ? (
                         <>
@@ -155,6 +160,11 @@ export default function Access() {
                         "Save Access"
                       )}
                     </Button>
+                    {isSelectedRoleSuperAdmin && (
+                      <div className="mt-2 text-warning small text-center">
+                        Super Admin permissions are locked and cannot be modified.
+                      </div>
+                    )}
                   </div>
                 )}
               </Card.Body>
