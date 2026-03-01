@@ -22,7 +22,8 @@ const REQUIRED_PERMISSIONS = [
     "system_settings",
     "manage_inventory",
     "manage_suppliers", // <-- New permission
-    "manage_discounts", // <-- Discount permission
+    "manage_discounts",
+    "manage_shifts",
     "view_activity_logs"
 ];
 

@@ -90,6 +90,12 @@ export default function Sidebar() {
         </NavLink>
       )}
 
+      {hasPermission("manage_shifts") && (
+        <NavLink to="/app/shifts" className="nav-itemx">
+          <i className="bi bi-clock"></i> Shifts
+        </NavLink>
+      )}
+
       {hasPermission("create_sale") && (
         <NavLink to="/app/pos" className="nav-itemx">
           <i className="bi bi-cart3"></i> POS

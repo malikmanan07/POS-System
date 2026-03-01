@@ -17,9 +17,12 @@ const activityRoutes = require("./src/routes/activity.routes");
 const reportsRoutes = require("./src/routes/reports.routes");
 const supplierRoutes = require("./src/routes/suppliers.routes"); // <-- Supplier Routes
 const discountRoutes = require("./src/routes/discounts.routes"); // <-- Discount Routes
+const shiftRoutes = require("./src/routes/shift.routes"); // <-- Shift Routes
 const { syncPermissions } = require("./src/utils/permission.sync"); // <-- Import sync utility
+const { initCronJobs } = require("./src/utils/cronJobs"); // <-- Import cron jobs
 
 const app = express();
+initCronJobs(); // <-- Initialize retention policy cron
 
 app.use(cors());
 app.use(express.json());
@@ -40,6 +43,7 @@ app.use("/api/activity", activityRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/suppliers", supplierRoutes); // <-- New Suppliers route
 app.use("/api/discounts", discountRoutes); // <-- New Discounts route
+app.use("/api/shifts", shiftRoutes); // <-- New Shift Management routes
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {

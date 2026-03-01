@@ -7,6 +7,7 @@ import { Form } from "react-bootstrap";
 
 import SaleDetailsModal from "../components/SaleDetailsModal";
 import PaginationControl from "../components/PaginationControl";
+import SaleTable from "../components/Sales/SaleTable";
 
 export default function Sales() {
   const [sales, setSales] = useState([]);
@@ -83,144 +84,94 @@ export default function Sales() {
 
   return (
     <div className="p-4 h-100">
-      <div className="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center mb-4 gap-3">
+      <div className="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center mb-4 gap-4">
         <div>
           <h2 className="page-title mb-1">Sales History</h2>
-          <p className="text-white mb-0">Review all completed transactions</p>
+          <p className="text-white opacity-75 mb-0">Review all completed transactions</p>
         </div>
 
-        <Form onSubmit={handleSearch} className="d-flex flex-wrap gap-2 align-items-end">
-          {/* Date Filters */}
-          <div className="d-flex flex-column">
-            <span className="tiny text-muted fw-bold mb-1 ms-1">FROM</span>
-            <div className="glass p-2 px-3 d-flex gap-2 align-items-center">
-              <Form.Control
-                type="date"
-                name="startDate"
-                className="bg-transparent border-0 text-white shadow-none small p-0"
-                style={{ width: '130px', fontSize: '0.85rem' }}
-                value={filters.startDate}
-                onChange={handleFilterChange}
-              />
+        <Form onSubmit={handleSearch} className="d-flex flex-wrap gap-3 align-items-center">
+          <div className="glass-bar d-flex flex-wrap align-items-center p-1 rounded-pill shadow-soft border border-white-10">
+            {/* Start Date */}
+            <div className="d-flex align-items-center px-3 border-end border-white-10 py-1">
+              <i className="bi bi-calendar-event text-primary me-2"></i>
+              <div className="d-flex flex-column">
+                <span className="x-small text-muted fw-bold">FROM</span>
+                <Form.Control
+                  type="date"
+                  name="startDate"
+                  className="bg-transparent border-0 text-white shadow-none p-0 x-small fw-bold"
+                  style={{ width: '110px' }}
+                  value={filters.startDate}
+                  onChange={handleFilterChange}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="d-flex flex-column">
-            <span className="tiny text-muted fw-bold mb-1 ms-1">TO</span>
-            <div className="glass p-2 px-3 d-flex gap-2 align-items-center">
-              <Form.Control
-                type="date"
-                name="endDate"
-                className="bg-transparent border-0 text-white shadow-none small p-0"
-                style={{ width: '130px', fontSize: '0.85rem' }}
-                value={filters.endDate}
-                onChange={handleFilterChange}
-              />
+            {/* End Date */}
+            <div className="d-flex align-items-center px-3 border-end border-white-10 py-1">
+              <i className="bi bi-calendar-check text-success me-2"></i>
+              <div className="d-flex flex-column">
+                <span className="x-small text-muted fw-bold">TO</span>
+                <Form.Control
+                  type="date"
+                  name="endDate"
+                  className="bg-transparent border-0 text-white shadow-none p-0 x-small fw-bold"
+                  style={{ width: '110px' }}
+                  value={filters.endDate}
+                  onChange={handleFilterChange}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Search Bar */}
-          <div className="d-flex flex-column">
-            <span className="tiny text-muted fw-bold mb-1 ms-1">SEARCH</span>
-            <div className="glass p-2 px-3 d-flex gap-2 align-items-center" style={{ minWidth: '250px' }}>
-              <i className="bi bi-search text-muted"></i>
+            {/* Search Input */}
+            <div className="d-flex align-items-center px-3 flex-grow-1" style={{ minWidth: '220px' }}>
+              <i className="bi bi-search text-muted me-2"></i>
               <Form.Control
                 type="text"
                 name="search"
-                placeholder="Customer name, ID..."
-                className="bg-transparent border-0 text-white shadow-none"
+                placeholder="Customer or Sale ID..."
+                className="bg-transparent border-0 text-white shadow-none x-small"
                 value={filters.search}
                 onChange={handleFilterChange}
               />
             </div>
+
+            {/* Submit Button inside the pill */}
+            <button type="submit" className="btn-gradient rounded-pill px-4 py-2 me-1 border-0 d-flex align-items-center gap-2 shadow-sm">
+              <i className="bi bi-funnel-fill small"></i>
+              <span className="small fw-bold">Filter</span>
+            </button>
           </div>
 
-          {/* Buttons */}
-          <div className="d-flex gap-2">
-            <button type="submit" className="btn btn-gradient px-4 py-2" style={{ borderRadius: '12px', height: '42px' }}>
-              Search
+          {/* Clear Button outside */}
+          {(filters.search || filters.startDate || filters.endDate) && (
+            <button
+              type="button"
+              className="btn btn-link text-muted text-decoration-none x-small fw-bold hover-white"
+              onClick={clearFilters}
+            >
+              <i className="bi bi-x-lg me-1"></i> Clear filters
             </button>
-            {(filters.search || filters.startDate || filters.endDate) && (
-              <button
-                type="button"
-                className="btn btn-soft p-2 px-3"
-                onClick={clearFilters}
-                style={{ height: '42px' }}
-                title="Clear Filters"
-              >
-                <i className="bi bi-arrow-clockwise"></i>
-              </button>
-            )}
-          </div>
+          )}
         </Form>
       </div>
 
-      <div className="table-darkx">
-        <table className="table table-borderless table-hover mb-0">
-          <thead>
-            <tr>
-              <th className="px-4 py-3">#</th>
-              <th className="px-4 py-3">DATE</th>
-              <th className="px-4 py-3">CUSTOMER</th>
-              <th className="px-4 py-3">TOTAL</th>
-              <th className="px-4 py-3 text-center">PAYMENT</th>
-              {!isCashierLike && <th className="px-4 py-3">CASHIER</th>}
-              <th className="px-4 py-3 text-end">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="7" className="text-center py-5">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                </td>
-              </tr>
-            ) : sales.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="text-center py-4 text-muted">No sales found</td>
-              </tr>
-            ) : (
-              sales.map((s, index) => (
-                <tr key={s.id}>
-                  <td className="px-4 py-3 align-middle">
-                    {pagination.total - ((pagination.page - 1) * pagination.limit) - index}
-                  </td>
-                  <td className="px-4 py-3 align-middle small text-muted">
-                    {new Date(s.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 align-middle">
-                    {s.customer_name || <span className="text-muted italic">Walk-in</span>}
-                  </td>
-                  <td className="px-4 py-3 align-middle fw-bold">
-                    {currencySymbol}{parseFloat(s.total).toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-center">
-                    <span className={`badge-soft ${s.payment_method === 'cash' ? 'text-success' : 'text-info'}`}>
-                      {s.payment_method.toUpperCase()}
-                    </span>
-                  </td>
-                  {!isCashierLike && <td className="px-4 py-3 align-middle small">{s.user_name}</td>}
-                  <td className="px-4 py-3 text-end align-middle">
-                    <button
-                      className="btn btn-sm btn-outline-light rounded-3 border-0"
-                      onClick={() => handleViewDetail(s.id)}
-                    >
-                      <i className="bi bi-eye text-primary"></i>
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <PaginationControl
+      <SaleTable
+        loading={loading}
+        sales={sales}
         pagination={pagination}
-        setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+        currencySymbol={currencySymbol}
+        isCashierLike={isCashierLike}
+        handleViewDetail={handleViewDetail}
       />
+
+      <div className="mt-4">
+        <PaginationControl
+          pagination={pagination}
+          setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+        />
+      </div>
 
       <SaleDetailsModal
         show={showModal}

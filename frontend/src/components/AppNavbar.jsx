@@ -4,12 +4,26 @@ import { useAuth } from "../auth/AuthContext";
 import { api } from "../api/client";
 import { useState, useEffect, useMemo } from "react";
 import { useSettings } from "../context/SettingsContext";
+import { useShift } from "../context/ShiftContext";
+import ShiftModal from "./Shifts/ShiftModal";
 
 export default function AppNavbar({ onMenu }) {
-  const { user, logout, token } = useAuth();
+  const { user, logout, token, hasPermission } = useAuth();
+  const { activeShift, loading: shiftLoading } = useShift();
+  const [showShiftModal, setShowShiftModal] = useState(false);
+  const [shiftType, setShiftType] = useState('start');
   const navigate = useNavigate();
   const [rawStockData, setRawStockData] = useState([]);
-  const { settings, updateSystemSetting, refreshSettings } = useSettings();
+  const { settings, updateSystemSetting, refreshSettings, currencySymbol } = useSettings();
+
+  const userRoles = useMemo(() => (user?.roles || []).map(r => (typeof r === 'string' ? r : r?.name || "").toLowerCase()), [user]);
+  const isAdmin = useMemo(() =>
+    userRoles.includes("super admin") ||
+    userRoles.includes("admin") ||
+    (typeof hasPermission === "function" && hasPermission("manage_users")),
+    [userRoles, hasPermission]);
+  const isCashier = useMemo(() => userRoles.includes("cashier"), [userRoles]);
+  const needsShift = isCashier;
 
   const dismissedAlerts = useMemo(() => settings?.dismissed_alerts || [], [settings?.dismissed_alerts]);
 
@@ -74,6 +88,11 @@ export default function AppNavbar({ onMenu }) {
     navigate("/");
   };
 
+  const handleShiftClick = () => {
+    setShiftType(activeShift ? 'end' : 'start');
+    setShowShiftModal(true);
+  };
+
   return (
     <Navbar className="glass shadow-soft app-navbar" sticky="top">
       <Container fluid className="px-3">
@@ -101,13 +120,35 @@ export default function AppNavbar({ onMenu }) {
           <div>
             <div className="fw-bold">{settings?.business?.storeName || "POS System"}</div>
             <div className="small" style={{ color: "var(--muted)", textTransform: "capitalize" }}>
-              {user?.roles?.length > 0 ? (user.roles[0]?.name || user.roles[0]) : "Console"}
+              {user?.roles?.length > 0 ? (typeof user.roles[0] === 'string' ? user.roles[0] : user.roles[0].name || "Staff") : "Console"}
             </div>
           </div>
         </div>
 
         <Nav className="ms-auto d-flex align-items-center gap-2">
-          <Nav.Link as={Link} to="/app/pos" className="btn btn-gradient">
+          {/* Shift Status Button */}
+          {!shiftLoading && needsShift && (
+            <div className="d-flex align-items-center gap-1 glass-bar p-1 rounded-pill">
+              <Button
+                variant={activeShift ? "danger" : "success"}
+                className={`border-0 d-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-none transition-all ${activeShift ? 'btn-danger bg-danger-soft text-danger' : 'btn-success bg-success-soft text-success'}`}
+                onClick={handleShiftClick}
+                style={{ fontSize: '0.85rem' }}
+              >
+                <i className={`bi bi-${activeShift ? 'lock-fill' : 'unlock-fill'}`}></i>
+                <span className="fw-bold d-none d-md-inline">
+                  {activeShift ? 'End Shift' : 'Start Shift'}
+                </span>
+                {activeShift && (
+                  <Badge bg="danger" className="ms-1 x-small opacity-75">
+                    {new Date(activeShift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Badge>
+                )}
+              </Button>
+            </div>
+          )}
+
+          <Nav.Link as={Link} to="/app/pos" className="btn btn-gradient rounded-pill px-4">
             <i className="bi bi-cart3 me-2" />
             Open POS
           </Nav.Link>
@@ -172,6 +213,13 @@ export default function AppNavbar({ onMenu }) {
             </Dropdown.Menu>
           </Dropdown>
         </Nav>
+
+        <ShiftModal
+          show={showShiftModal}
+          onHide={() => setShowShiftModal(false)}
+          type={shiftType}
+          currencySymbol={currencySymbol}
+        />
       </Container>
     </Navbar>
   );

@@ -12,13 +12,25 @@ import POSCategoryFilter from "../components/POS/POSCategoryFilter";
 import POSCustomerSearch from "../components/POS/POSCustomerSearch";
 import POSCartList from "../components/POS/POSCartList";
 import POSBillingSummary from "../components/POS/POSBillingSummary";
+import ShiftModal from "../components/Shifts/ShiftModal";
+import { useShift } from "../context/ShiftContext";
 
 // Styles
-import "./POS.css";
+import "../styles/POS.css";
 
 export default function POS() {
-  const { token } = useAuth();
+  const { token, hasPermission, user } = useAuth();
   const { settings, currencySymbol: currency } = useSettings();
+  const { activeShift, loading: shiftLoading } = useShift();
+
+  const userRoles = useMemo(() => (user?.roles || []).map(r => (typeof r === 'string' ? r : r.name || "").toLowerCase()), [user]);
+  const isAdmin = useMemo(() =>
+    userRoles.includes("super admin") ||
+    userRoles.includes("admin") ||
+    (typeof hasPermission === "function" && hasPermission("manage_users")),
+    [userRoles, hasPermission]);
+  const isCashier = useMemo(() => userRoles.includes("cashier"), [userRoles]);
+  const needsShift = isCashier;
 
   // State
   const [products, setProducts] = useState([]);
@@ -36,17 +48,20 @@ export default function POS() {
   const [paymentReference, setPaymentReference] = useState("");
   const [selectedDiscountId, setSelectedDiscountId] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showShiftModal, setShowShiftModal] = useState(false);
   const [lastSale, setLastSale] = useState(null);
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
 
   const itemsPerPage = 12;
 
   useEffect(() => {
-    fetchProducts();
-    fetchCustomers();
-    fetchDiscounts();
-    fetchCategories();
-  }, []);
+    if (token) {
+      fetchProducts();
+      fetchCustomers();
+      fetchDiscounts();
+      fetchCategories();
+    }
+  }, [token]);
 
   useEffect(() => {
     if (settings?.payment?.defaultMethod) {
@@ -285,7 +300,26 @@ export default function POS() {
   };
 
   return (
-    <div className="p-3 h-100 pos-container">
+    <div className="p-3 h-100 pos-container position-relative">
+      {!shiftLoading && needsShift && !activeShift && (
+        <div className="position-absolute top-0 start-0 w-100 h-100 z-3 d-flex align-items-center justify-content-center rounded-4" style={{ backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.6)' }}>
+          <div className="glass p-5 border-white-10 shadow-lg text-center" style={{ maxWidth: '400px' }}>
+            <div className="receipt-success-icon mb-4 border-danger bg-danger-soft">
+              <i className="bi bi-lock-fill text-danger"></i>
+            </div>
+            <h3 className="fw-bold mb-2">Shift Required</h3>
+            <p className="text-muted mb-4 small">You must start your shift and enter an opening balance before processing any sales.</p>
+            <Button
+              variant="primary"
+              className="rounded-pill px-5 py-2 fw-bold shadow-sm d-flex align-items-center gap-2 mx-auto"
+              onClick={() => setShowShiftModal(true)}
+            >
+              <i className="bi bi-clock-history"></i>
+              Start Shift
+            </Button>
+          </div>
+        </div>
+      )}
       <Row className="h-100 g-3">
         {/* Left Side: Product Discovery */}
         <Col lg={8} xl={8} className="d-flex flex-column h-100">
@@ -312,13 +346,38 @@ export default function POS() {
           />
 
           <div className="flex-grow-1 overflow-auto pe-2 pos-products-grid">
-            <Row className="g-3">
-              {paginatedProducts.map(p => (
-                <Col key={p.id} xs={6} sm={4} md={3}>
-                  <POSProductCard product={p} onAdd={addToCart} currency={currency} apiBaseUrl={api.defaults.baseURL} />
-                </Col>
-              ))}
-            </Row>
+            {products.length === 0 ? (
+              <div className="h-100 d-flex flex-column align-items-center justify-content-center text-center p-5 glass rounded-4 border-white-10 opacity-75">
+                <i className="bi bi-box-seam-fill fs-1 text-primary mb-3"></i>
+                <h4 className="fw-bold text-white">No Products Registered</h4>
+                <p className="text-muted small">Go to Products page to add items to your inventory.</p>
+                <Button variant="outline-primary" className="rounded-pill px-4 mt-2" onClick={() => (window.location.href = "/app/products")}>
+                  Go to Products
+                </Button>
+              </div>
+            ) : paginatedProducts.length === 0 ? (
+              <div className="h-100 d-flex flex-column align-items-center justify-content-center text-center p-5 glass rounded-4 border-white-10 opacity-75">
+                <i className="bi bi-search fs-1 text-muted mb-3"></i>
+                <h4 className="fw-bold text-white">No Match Found</h4>
+                <p className="text-muted small">Try adjusting your search or category filters.</p>
+                <Button variant="link" className="text-primary mt-2 p-0 text-decoration-none" onClick={() => { setSearchTerm(""); setSelectedCategoryId(""); }}>
+                  Clear all filters
+                </Button>
+              </div>
+            ) : (
+              <Row className="g-3 pb-3">
+                {paginatedProducts.map(p => (
+                  <Col key={p.id} xs={6} sm={4} md={3}>
+                    <POSProductCard
+                      product={p}
+                      onAdd={addToCart}
+                      currency={currency}
+                      apiBaseUrl={api.defaults.baseURL}
+                    />
+                  </Col>
+                ))}
+              </Row>
+            )}
           </div>
 
           {totalPosPages > 1 && (
@@ -395,10 +454,19 @@ export default function POS() {
       {showReceipt && lastSale && (
         <POSReceiptModal
           show={showReceipt}
-          handleClose={() => setShowReceipt(false)}
-          sale={lastSale}
+          onHide={() => setShowReceipt(false)}
+          lastSale={lastSale}
           currency={currency}
           settings={settings}
+        />
+      )}
+
+      {showShiftModal && (
+        <ShiftModal
+          show={showShiftModal}
+          onHide={() => setShowShiftModal(false)}
+          type="start"
+          currencySymbol={currency}
         />
       )}
     </div>
