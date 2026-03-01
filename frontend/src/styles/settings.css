@@ -1,0 +1,35 @@
+.settings-nav .nav-link {
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.3s ease;
+}
+
+.settings-nav .nav-link.active {
+    background: linear-gradient(135deg, rgba(109, 94, 252, .35), rgba(34, 197, 94, .18)) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, .12) !important;
+}
+
+.custom-switch .form-check-input {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    height: 1.5em;
+    width: 3em;
+    cursor: pointer;
+}
+
+.custom-switch .form-check-input:checked {
+    background-color: var(--primary2);
+    border-color: var(--primary2);
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(109, 94, 252, 0.25) !important;
+    color: #fff !important;
+}
+
+.form-check-label {
+    cursor: pointer;
+}
