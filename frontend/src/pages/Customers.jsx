@@ -150,11 +150,7 @@ export default function Customers() {
           <h2 className="page-title mb-1">{isCashierLike ? "Customers" : "Manage Customers"}</h2>
           <p className="text-white mb-0">{isCashierLike ? "View customer purchase history" : "Maintain your customer database and view history"}</p>
         </div>
-        {!isCashierLike && (
-          <button className="btn btn-gradient gap-2 d-flex align-items-center" onClick={handleOpenAdd}>
-            <i className="bi bi-person-plus"></i> Add Customer
-          </button>
-        )}
+
       </div>
 
       <div className="glass p-3 mb-4 d-flex gap-3 align-items-center">
