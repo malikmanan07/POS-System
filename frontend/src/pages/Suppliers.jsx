@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "react-bootstrap";
 import { toast } from "react-toastify";
+import { fetchSuppliersList, createSupplier, updateSupplier, deleteSupplier, fetchSupplierProducts } from "../api/customerSupplierApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import PaginationControl from "../components/PaginationControl";
@@ -39,9 +40,7 @@ export default function Suppliers() {
     const fetchSuppliers = async () => {
         setLoading(true);
         try {
-            const res = await api.get("/api/suppliers", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchSuppliersList(token);
             setSuppliers(res.data || []);
         } catch (err) {
             toast.error("Error loading suppliers");
@@ -114,14 +113,10 @@ export default function Suppliers() {
         setIsSaving(true);
         try {
             if (editingSupplier) {
-                await api.put(`/api/suppliers/${editingSupplier.id}`, formData, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await updateSupplier(editingSupplier.id, formData, token);
                 toast.success("Supplier updated successfully");
             } else {
-                await api.post("/api/suppliers", formData, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await createSupplier(formData, token);
                 toast.success("Supplier added successfully");
             }
             fetchSuppliers();
@@ -141,9 +136,7 @@ export default function Suppliers() {
         const id = confirmDialog.id;
         setConfirmDialog({ show: false, id: null, name: "" });
         try {
-            await api.delete(`/api/suppliers/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await deleteSupplier(id, token);
             toast.success("Supplier deleted successfully");
             fetchSuppliers();
         } catch (err) {
@@ -159,9 +152,7 @@ export default function Suppliers() {
         setLoadingProducts(true);
         setShowProductsModal(true);
         try {
-            const res = await api.get(`/api/suppliers/${supplier.id}/products`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchSupplierProducts(supplier.id, token);
             setProductsList(res.data || []);
         } catch (err) {
             toast.error("Error loading linked products");

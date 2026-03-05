@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
+import { fetchCustomersList, createCustomer, updateCustomer, deleteCustomer, fetchCustomerHistory } from "../api/customerSupplierApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Form } from "react-bootstrap";
@@ -38,9 +39,7 @@ export default function Customers() {
   const fetchCustomers = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/customers?limit=all`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchCustomersList(token);
       setCustomers(res.data || []);
     } catch (err) {
       toast.error("Failed to load customers");
@@ -78,10 +77,7 @@ export default function Customers() {
     setIsLoadingHistory(true);
     setHistory([]);
     try {
-      // Correct endpoint: /api/customers/:id/history
-      const res = await api.get(`/api/customers/${customer.id}/history`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchCustomerHistory(customer.id, token);
       setHistory(res.data);
     } catch (err) {
       toast.error("Failed to load purchase history");
@@ -112,9 +108,7 @@ export default function Customers() {
     const id = confirmDialog.id;
     setConfirmDialog({ show: false, id: null, name: "" });
     try {
-      await api.delete(`/api/customers/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await deleteCustomer(id, token);
       toast.success("Customer deleted successfully");
       fetchCustomers();
     } catch (err) {
@@ -126,14 +120,10 @@ export default function Customers() {
     e.preventDefault();
     try {
       if (editMode) {
-        await api.put(`/api/customers/${editId}`, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await updateCustomer(editId, formData, token);
         toast.success("Customer updated successfully");
       } else {
-        await api.post("/api/customers", formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await createCustomer(formData, token);
         toast.success("Customer added successfully");
       }
       setShowModal(false);
@@ -165,68 +155,72 @@ export default function Customers() {
       </div>
 
       <div className="table-darkx">
-        <table className="table table-borderless table-hover mb-0">
-          <thead>
-            <tr>
-              <th className="px-4 py-3">NAME</th>
-              <th className="px-4 py-3">PHONE</th>
-              <th className="px-4 py-3">EMAIL</th>
-              <th className="px-4 py-3">ADDRESS</th>
-              <th className="px-4 py-3 text-end">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan="5" className="text-center py-5">
-                  <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                </td>
+        <div className="table-responsive">
+          <table className="table table-borderless table-hover mb-0">
+            <thead>
+              <tr className="text-nowrap">
+                <th className="px-4 py-3">NAME</th>
+                <th className="px-4 py-3">PHONE</th>
+                <th className="px-4 py-3">EMAIL</th>
+                <th className="px-4 py-3">ADDRESS</th>
+                <th className="px-4 py-3 text-end">ACTIONS</th>
               </tr>
-            ) : paginatedCustomers.length > 0 ? (
-              paginatedCustomers.map(c => (
-                <tr key={c.id}>
-                  <td className="px-4 py-3 align-middle fw-bold text-white">{c.name}</td>
-                  <td className="px-4 py-3 align-middle text-white">{c.phone || "N/A"}</td>
-                  <td className="px-4 py-3 align-middle text-white">{c.email || "N/A"}</td>
-                  <td className="px-4 py-3 align-middle text-muted small">{c.address || "N/A"}</td>
-                  <td className="px-4 py-3 text-end align-middle">
-                    <button
-                      className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                      onClick={() => fetchHistory(c)}
-                      title="View History"
-                    >
-                      <i className="bi bi-eye text-info"></i>
-                    </button>
-                    {!isCashierLike && (
-                      <>
-                        <button
-                          className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                          onClick={() => handleOpenEdit(c)}
-                          title="Edit Customer"
-                        >
-                          <i className="bi bi-pencil-square text-primary"></i>
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-light rounded-3 border-0"
-                          onClick={() => askDelete(c)}
-                          title="Delete Customer"
-                        >
-                          <i className="bi bi-trash text-danger"></i>
-                        </button>
-                      </>
-                    )}
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="text-center py-5">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="5" className="text-center py-4 text-muted">No customers found</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ) : paginatedCustomers.length > 0 ? (
+                paginatedCustomers.map(c => (
+                  <tr key={c.id}>
+                    <td className="px-4 py-3 align-middle fw-bold text-white text-nowrap">{c.name}</td>
+                    <td className="px-4 py-3 align-middle text-white text-nowrap">{c.phone || "N/A"}</td>
+                    <td className="px-4 py-3 align-middle text-white text-nowrap">{c.email || "N/A"}</td>
+                    <td className="px-4 py-3 align-middle text-muted small">{c.address || "N/A"}</td>
+                    <td className="px-4 py-3 text-end align-middle">
+                      <div className="d-flex justify-content-end gap-1">
+                        <button
+                          className="btn btn-sm btn-outline-light rounded-3 border-0"
+                          onClick={() => fetchHistory(c)}
+                          title="View History"
+                        >
+                          <i className="bi bi-eye text-info"></i>
+                        </button>
+                        {!isCashierLike && (
+                          <>
+                            <button
+                              className="btn btn-sm btn-outline-light rounded-3 border-0"
+                              onClick={() => handleOpenEdit(c)}
+                              title="Edit Customer"
+                            >
+                              <i className="bi bi-pencil-square text-primary"></i>
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-light rounded-3 border-0"
+                              onClick={() => askDelete(c)}
+                              title="Delete Customer"
+                            >
+                              <i className="bi bi-trash text-danger"></i>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="text-center py-4 text-muted">No customers found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <PaginationControl

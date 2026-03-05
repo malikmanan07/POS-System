@@ -202,6 +202,60 @@
     background: rgba(0, 0, 0, 0.2) !important;
 }
 
-.italic {
-    font-style: italic;
+@media (max-width: 991.98px) {
+    .pos-container {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* Stack product grid and cart */
+    .pos-container>.row {
+        flex-direction: column;
+    }
+
+    .pos-container .col-lg-8,
+    .pos-container .col-lg-4 {
+        height: auto !important;
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    /* Cart shouldn't be fixed height on mobile when stacked */
+    .pos-container .col-lg-4 .glass {
+        height: min(80vh, 600px) !important;
+        margin-top: 20px;
+    }
+
+    .pos-product-grid {
+        height: auto !important;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .pos-product-card {
+        padding: 12px;
+    }
+
+    .pos-product-card .card-title {
+        font-size: 0.95rem;
+    }
+
+    .pos-cart-item {
+        padding: 10px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .pos-cart-item>.text-end {
+        width: 100%;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding-top: 5px;
+    }
+
+    .pos-cart-thumb {
+        width: 40px;
+        height: 40px;
+    }
 }

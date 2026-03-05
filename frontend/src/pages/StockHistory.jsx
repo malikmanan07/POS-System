@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
+import { fetchStockHistoryList } from "../api/stockApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Table, Spinner } from "react-bootstrap";
@@ -22,9 +23,11 @@ export default function StockHistory() {
     const fetchHistory = async () => {
         setLoading(true);
         try {
-            const res = await api.get(`${API_PATH}?limit=all`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchStockHistoryList({
+                page: 1, // Using limit=all in original, so we just fetch once
+                limit: 'all',
+                search: ''
+            }, token);
             setHistory(res.data || []);
         } catch (err) {
             toast.error("Failed to load history data");

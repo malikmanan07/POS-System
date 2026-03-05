@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
+import { fetchStockList } from "../api/stockApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Table, Badge } from "react-bootstrap";
@@ -21,9 +22,7 @@ export default function ManageStock() {
 
     const fetchStock = async () => {
         try {
-            const res = await api.get(API_PATH, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchStockList(token);
             setProducts(res.data);
         } catch (err) {
             toast.error("Failed to load stock data");
