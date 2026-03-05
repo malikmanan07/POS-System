@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, Button, Form, Spinner } from "react-bootstrap";
+import { useNavigate, Link } from "react-router-dom";
+import { Card, Button, Form, Spinner, InputGroup } from "react-bootstrap";
 import { toast } from "react-toastify";
 
 import { useAuth } from "../auth/AuthContext";
@@ -10,6 +10,7 @@ export default function Login() {
   const { login } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -34,7 +35,13 @@ export default function Login() {
       <Card className="glass shadow-soft border-0" style={{ width: 420, borderRadius: '24px' }}>
         <Card.Body className="p-4 p-md-5">
           <div className="text-center mb-4">
-            <h2 className="fw-bold text-white mb-4">Login Form</h2>
+            <div
+              className="mb-3 d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle bg-opacity-10 text-primary"
+              style={{ width: '72px', height: '72px', border: '1px solid rgba(99, 102, 241, 0.2)' }}
+            >
+              <i className="bi bi-person-lock fs-2"></i>
+            </div>
+            <h2 className="fw-bold text-white mb-2">Login Form</h2>
             <p className="text-muted small">Enter your credentials to access the POS System</p>
           </div>
 
@@ -54,15 +61,20 @@ export default function Login() {
 
             <Form.Group className="mb-4">
               <Form.Label className="text-muted small fw-bold">PASSWORD</Form.Label>
-              <Form.Control
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                placeholder="********"
-                className="bg-dark text-white border-secondary shadow-none py-2 px-3"
-                style={{ borderRadius: '10px' }}
-                required
-              />
+              <InputGroup className="password-input-group overflow-hidden">
+                <Form.Control
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder="********"
+                  required
+                />
+                <InputGroup.Text
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  <i className={`bi bi-eye${showPassword ? '-slash' : ''}`}></i>
+                </InputGroup.Text>
+              </InputGroup>
             </Form.Group>
 
             <Button
@@ -76,7 +88,12 @@ export default function Login() {
             </Button>
           </Form>
 
-
+          <div className="text-center mt-4">
+            <p className="text-muted small mb-0">
+              Don't have an account?{" "}
+              <Link to="/signup" className="text-primary fw-bold text-decoration-none">Register here</Link>
+            </p>
+          </div>
         </Card.Body>
       </Card>
     </div>

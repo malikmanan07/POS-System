@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { eq, sql, asc, desc } = require("drizzle-orm");
+const { eq, and, sql, asc, desc } = require("drizzle-orm");
 const { products, categories, stockMovements } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
@@ -8,6 +8,7 @@ const db = pool.db;
 // GET /api/stock
 exports.getStockStatus = async (req, res) => {
     try {
+        const businessId = req.businessId;
         const result = await db.select({
             id: products.id,
             name: products.name,
@@ -18,7 +19,11 @@ exports.getStockStatus = async (req, res) => {
             category_name: categories.name
         })
             .from(products)
-            .leftJoin(categories, eq(products.categoryId, categories.id))
+            .leftJoin(categories, and(
+                eq(products.categoryId, categories.id),
+                eq(categories.businessId, businessId)
+            ))
+            .where(eq(products.businessId, businessId))
             .orderBy(asc(products.stock));
 
         res.json(result);
@@ -40,7 +45,10 @@ exports.adjustStock = async (req, res) => {
             // 1. Get current stock
             const [prod] = await tx.select({ stock: products.stock })
                 .from(products)
-                .where(eq(products.id, product_id))
+                .where(and(
+                    eq(products.id, product_id),
+                    eq(products.businessId, req.businessId)
+                ))
                 .limit(1);
 
             if (!prod) {
@@ -63,10 +71,11 @@ exports.adjustStock = async (req, res) => {
             }
 
             // 2. Update product stock
-            await tx.update(products).set({ stock: newStock }).where(eq(products.id, product_id));
+            await tx.update(products).set({ stock: newStock }).where(and(eq(products.id, product_id), eq(products.businessId, req.businessId)));
 
             // 3. Record movement
             await tx.insert(stockMovements).values({
+                businessId: req.businessId,
                 productId: product_id,
                 type,
                 qty: movementQty,
@@ -78,11 +87,18 @@ exports.adjustStock = async (req, res) => {
         });
 
         // Fetch product name for logging
-        const [prodInfo] = await db.select({ name: products.name }).from(products).where(eq(products.id, product_id)).limit(1);
+        const [prodInfo] = await db.select({ name: products.name })
+            .from(products)
+            .where(and(
+                eq(products.id, product_id),
+                eq(products.businessId, req.businessId)
+            ))
+            .limit(1);
 
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'UPDATE',
@@ -117,7 +133,8 @@ exports.getMovementHistory = async (req, res) => {
             sku: products.sku
         })
             .from(stockMovements)
-            .innerJoin(products, eq(stockMovements.productId, products.id))
+            .innerJoin(products, and(eq(stockMovements.productId, products.id), eq(products.businessId, req.businessId)))
+            .where(eq(stockMovements.businessId, req.businessId))
             .orderBy(desc(stockMovements.createdAt));
 
         if (limit) {
@@ -131,7 +148,9 @@ exports.getMovementHistory = async (req, res) => {
         }
 
         // Get total count for pagination
-        const [totalCount] = await db.select({ count: sql`count(*)::int` }).from(stockMovements);
+        const [totalCount] = await db.select({ count: sql`count(*)::int` })
+            .from(stockMovements)
+            .where(eq(stockMovements.businessId, req.businessId));
 
         res.json({
             data: result,

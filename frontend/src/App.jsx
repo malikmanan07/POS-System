@@ -10,6 +10,7 @@ import PageShell from "./components/PageShell";
 import PermissionRoute from "./auth/PermissionRoute";
 
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Categories from "./pages/Categories";
@@ -43,6 +44,7 @@ export default function App() {
 
               {/* Public */}
               <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
 
               {/* Protected Layout */}
               <Route
