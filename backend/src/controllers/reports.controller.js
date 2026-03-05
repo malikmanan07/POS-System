@@ -6,13 +6,14 @@ const ReportsService = require("../services/reports.service");
 exports.getAnalytics = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
+        const businessId = req.businessId;
         const filters = { startDate, endDate };
 
         const [summary, chartData, topProducts, customerStats] = await Promise.all([
-            ReportsService.getSummary(filters),
-            ReportsService.getDailyRevenue(filters),
-            ReportsService.getTopProducts(filters),
-            ReportsService.getCustomerStats(filters)
+            ReportsService.getSummary(filters, businessId),
+            ReportsService.getDailyRevenue(filters, businessId),
+            ReportsService.getTopProducts(filters, businessId),
+            ReportsService.getCustomerStats(filters, businessId)
         ]);
 
         res.json({
@@ -34,7 +35,8 @@ exports.getAnalytics = async (req, res) => {
 exports.exportCsv = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
-        const topProducts = await ReportsService.getTopProducts({ startDate, endDate }, 50);
+        const businessId = req.businessId;
+        const topProducts = await ReportsService.getTopProducts({ startDate, endDate }, businessId, 50);
 
         let csv = "Product Name,Qty Sold,Total Revenue\n";
         topProducts.forEach(p => {

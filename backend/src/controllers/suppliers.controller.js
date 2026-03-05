@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { eq, asc, sql, count } = require("drizzle-orm");
+const { eq, and, asc, sql, count } = require("drizzle-orm");
 const { suppliers, products } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
@@ -8,6 +8,7 @@ const db = pool.db;
 // GET /api/suppliers
 exports.getAll = async (req, res) => {
     try {
+        const businessId = req.businessId;
         const result = await db.select({
             id: suppliers.id,
             name: suppliers.name,
@@ -18,7 +19,11 @@ exports.getAll = async (req, res) => {
             productCount: sql`count(${products.id})::int`
         })
             .from(suppliers)
-            .leftJoin(products, eq(suppliers.id, products.supplierId))
+            .leftJoin(products, and(
+                eq(suppliers.id, products.supplierId),
+                eq(products.businessId, businessId)
+            ))
+            .where(eq(suppliers.businessId, businessId))
             .groupBy(suppliers.id)
             .orderBy(asc(suppliers.name));
 
@@ -41,7 +46,10 @@ exports.getProducts = async (req, res) => {
             image: products.image
         })
             .from(products)
-            .where(eq(products.supplierId, parseInt(id)));
+            .where(and(
+                eq(products.supplierId, parseInt(id)),
+                eq(products.businessId, req.businessId)
+            ));
 
         res.json(result);
     } catch (err) {
@@ -56,12 +64,19 @@ exports.create = async (req, res) => {
         if (!name) return res.status(400).json({ error: "Name is required" });
 
         const [newSupplier] = await db.insert(suppliers)
-            .values({ name, phone, email, address })
+            .values({
+                businessId: req.businessId,
+                name,
+                phone: phone || null,
+                email: email || null,
+                address: address || null,
+            })
             .returning();
 
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'CREATE',
@@ -84,7 +99,10 @@ exports.update = async (req, res) => {
 
         const [updatedSupplier] = await db.update(suppliers)
             .set({ name, phone, email, address })
-            .where(eq(suppliers.id, parseInt(id)))
+            .where(and(
+                eq(suppliers.id, parseInt(id)),
+                eq(suppliers.businessId, req.businessId)
+            ))
             .returning();
 
         if (!updatedSupplier) {
@@ -94,6 +112,7 @@ exports.update = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'UPDATE',
@@ -118,7 +137,10 @@ exports.remove = async (req, res) => {
         // For now, let's allow it but nullify products (onDelete: "set null" handles this)
 
         const [deletedSupplier] = await db.delete(suppliers)
-            .where(eq(suppliers.id, supplierId))
+            .where(and(
+                eq(suppliers.id, supplierId),
+                eq(suppliers.businessId, req.businessId)
+            ))
             .returning();
 
         if (!deletedSupplier) {
@@ -128,6 +150,7 @@ exports.remove = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'DELETE',
