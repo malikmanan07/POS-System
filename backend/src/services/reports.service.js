@@ -9,8 +9,9 @@ const ReportsService = {
     /**
      * Gets summary metrics (total sales, revenue, average order value, unique customers)
      */
-    getSummary: async (filters) => {
-        const filter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+    getSummary: async (filters, businessId) => {
+        const dateFilter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+        const filter = and(dateFilter, eq(sales.businessId, businessId));
         const [summary] = await db.select({
             totalSales: sql`COUNT(${sales.id})::int`,
             totalRevenue: sql`COALESCE(SUM(${sales.total})::numeric, 0) - COALESCE(SUM(${sales.returnedAmount})::numeric, 0)`,
@@ -25,8 +26,9 @@ const ReportsService = {
     /**
      * Gets daily revenue data for charts
      */
-    getDailyRevenue: async (filters) => {
-        const filter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+    getDailyRevenue: async (filters, businessId) => {
+        const dateFilter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+        const filter = and(dateFilter, eq(sales.businessId, businessId));
         const dailyRevenue = await db.select({
             date: sql`DATE(${sales.createdAt})`,
             revenue: sql`SUM(${sales.total} - ${sales.returnedAmount})::numeric`
@@ -45,8 +47,9 @@ const ReportsService = {
     /**
      * Gets top 10 best selling products
      */
-    getTopProducts: async (filters, limit = 10) => {
-        const filter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+    getTopProducts: async (filters, businessId, limit = 10) => {
+        const dateFilter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+        const filter = and(dateFilter, eq(sales.businessId, businessId));
         return await db.select({
             id: products.id,
             name: products.name,
@@ -54,8 +57,8 @@ const ReportsService = {
             revenue: sql`SUM((${saleItems.qty} - ${saleItems.returnedQty}) * ${saleItems.price})::numeric`
         })
             .from(saleItems)
-            .innerJoin(sales, eq(saleItems.saleId, sales.id))
-            .innerJoin(products, eq(saleItems.productId, products.id))
+            .innerJoin(sales, and(eq(saleItems.saleId, sales.id), eq(sales.businessId, businessId)))
+            .innerJoin(products, and(eq(saleItems.productId, products.id), eq(products.businessId, businessId)))
             .where(filter)
             .groupBy(products.id, products.name)
             .orderBy(desc(sql`SUM(${saleItems.lineTotal})`))
@@ -65,8 +68,9 @@ const ReportsService = {
     /**
      * Hits customer spend stats
      */
-    getCustomerStats: async (filters, limit = 10) => {
-        const filter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+    getCustomerStats: async (filters, businessId, limit = 10) => {
+        const dateFilter = buildDateFilter(sales.createdAt, filters.startDate, filters.endDate);
+        const filter = and(dateFilter, eq(sales.businessId, businessId));
         return await db.select({
             id: customers.id,
             name: customers.name,
@@ -74,7 +78,7 @@ const ReportsService = {
             totalSpent: sql`SUM(${sales.total} - ${sales.returnedAmount})::numeric`
         })
             .from(sales)
-            .innerJoin(customers, eq(sales.customerId, customers.id))
+            .innerJoin(customers, and(eq(sales.customerId, customers.id), eq(customers.businessId, businessId)))
             .where(filter)
             .groupBy(customers.id, customers.name)
             .orderBy(desc(sql`SUM(${sales.total})`))

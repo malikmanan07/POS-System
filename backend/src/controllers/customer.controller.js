@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { eq, asc, desc, sql, or, ilike } = require("drizzle-orm");
+const { eq, and, asc, desc, sql, or, ilike } = require("drizzle-orm");
 const { customers, sales, saleItems, products } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
@@ -8,16 +8,20 @@ const db = pool.db;
 // GET /api/customers
 exports.getAll = async (req, res) => {
     try {
+        const businessId = req.businessId;
         const page = parseInt(req.query.page) || 1;
         const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
         const search = req.query.search || "";
         const offset = limit ? (page - 1) * limit : null;
 
-        let whereClause = undefined;
+        let whereClause = eq(customers.businessId, businessId);
         if (search) {
-            whereClause = or(
-                ilike(customers.name, `%${search}%`),
-                ilike(customers.phone, `%${search}%`)
+            whereClause = and(
+                whereClause,
+                or(
+                    ilike(customers.name, `%${search}%`),
+                    ilike(customers.phone, `%${search}%`)
+                )
             );
         }
 
@@ -33,11 +37,9 @@ exports.getAll = async (req, res) => {
         const result = await query;
 
         // Get total count for pagination with search filter
-        let countQuery = db.select({ count: sql`count(*)::int` }).from(customers);
-        if (whereClause) {
-            countQuery = countQuery.where(whereClause);
-        }
-        const [countResult] = await countQuery;
+        const [countResult] = await db.select({ count: sql`count(*)::int` })
+            .from(customers)
+            .where(whereClause);
         const total = countResult.count;
 
         if (limit) {
@@ -79,7 +81,10 @@ exports.getHistory = async (req, res) => {
             .from(sales)
             .innerJoin(saleItems, eq(sales.id, saleItems.saleId))
             .innerJoin(products, eq(saleItems.productId, products.id))
-            .where(eq(sales.customerId, customerId))
+            .where(and(
+                eq(sales.customerId, customerId),
+                eq(sales.businessId, req.businessId)
+            ))
             .orderBy(desc(sales.createdAt));
 
         // Group by sale ID
@@ -122,6 +127,7 @@ exports.create = async (req, res) => {
 
         const [newCustomer] = await db.insert(customers)
             .values({
+                businessId: req.businessId,
                 name,
                 phone: phone || null,
                 email: email || null,
@@ -132,6 +138,7 @@ exports.create = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'CREATE',
@@ -159,7 +166,10 @@ exports.update = async (req, res) => {
                 email: email || null,
                 address: address || null,
             })
-            .where(eq(customers.id, parseInt(id)))
+            .where(and(
+                eq(customers.id, parseInt(id)),
+                eq(customers.businessId, req.businessId)
+            ))
             .returning();
 
         if (!updatedCustomer) {
@@ -168,6 +178,7 @@ exports.update = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'UPDATE',
@@ -194,7 +205,10 @@ exports.remove = async (req, res) => {
         // Check if customer has sales
         const existingSales = await db.select({ id: sales.id })
             .from(sales)
-            .where(eq(sales.customerId, customerId))
+            .where(and(
+                eq(sales.customerId, customerId),
+                eq(sales.businessId, req.businessId)
+            ))
             .limit(1);
 
         if (existingSales.length > 0) {
@@ -202,7 +216,10 @@ exports.remove = async (req, res) => {
         }
 
         const [deletedCustomer] = await db.delete(customers)
-            .where(eq(customers.id, customerId))
+            .where(and(
+                eq(customers.id, customerId),
+                eq(customers.businessId, req.businessId)
+            ))
             .returning();
 
         if (!deletedCustomer) {
@@ -211,6 +228,7 @@ exports.remove = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'DELETE',

@@ -19,17 +19,25 @@ exports.getStats = async (req, res) => {
     const [productStats] = await db.select({
       total: sql`count(*)::int`,
       low_stock: sql`count(*) FILTER (WHERE ${products.stock} <= ${products.alertQuantity})::int`
-    }).from(products);
+    }).from(products)
+      .where(eq(products.businessId, req.businessId));
 
     // 2. Today's Revenue
     const todayRevenueQuery = db.select({
       revenue: sql`COALESCE(SUM(${sales.total}), 0) - COALESCE(SUM(${sales.returnedAmount}), 0)`
     })
       .from(sales)
-      .where(gte(sales.createdAt, sql`CURRENT_DATE`));
+      .where(and(
+        gte(sales.createdAt, sql`CURRENT_DATE`),
+        eq(sales.businessId, req.businessId)
+      ));
 
     if (isCashier) {
-      todayRevenueQuery.where(and(gte(sales.createdAt, sql`CURRENT_DATE`), eq(sales.userId, userId)));
+      todayRevenueQuery.where(and(
+        gte(sales.createdAt, sql`CURRENT_DATE`),
+        eq(sales.userId, userId),
+        eq(sales.businessId, req.businessId)
+      ));
     } else if (isInventoryManager) {
       // Inventory managers don't usually see revenue stats
       todayRevenueQuery.where(sql`1=0`);
@@ -39,7 +47,9 @@ exports.getStats = async (req, res) => {
     // 3. Total Customers
     let customerStatsRes = { total: 0 };
     if (!isInventoryManager) {
-      const [res] = await db.select({ total: sql`count(*)::int` }).from(customers);
+      const [res] = await db.select({ total: sql`count(*)::int` })
+        .from(customers)
+        .where(eq(customers.businessId, req.businessId));
       customerStatsRes = res;
     }
 
@@ -55,7 +65,7 @@ exports.getStats = async (req, res) => {
               SELECT CURRENT_DATE - i as d
               FROM generate_series(0, 6) i
             ) dates
-            LEFT JOIN sales s ON DATE(s.created_at) = dates.d AND s.user_id = ${userId}
+            LEFT JOIN sales s ON DATE(s.created_at) = dates.d AND s.user_id = ${userId} AND s.business_id = ${req.businessId}
             GROUP BY d
             ORDER BY d ASC
           `
@@ -67,7 +77,7 @@ exports.getStats = async (req, res) => {
               SELECT CURRENT_DATE - i as d
               FROM generate_series(0, 6) i
             ) dates
-            LEFT JOIN sales s ON DATE(s.created_at) = dates.d
+            LEFT JOIN sales s ON DATE(s.created_at) = dates.d AND s.business_id = ${req.businessId}
             GROUP BY d
             ORDER BY d ASC
           `;
@@ -84,7 +94,7 @@ exports.getStats = async (req, res) => {
             FROM sale_items si
             JOIN products p ON si.product_id = p.id
             JOIN sales s ON si.sale_id = s.id
-            WHERE s.user_id = ${userId}
+            WHERE s.user_id = ${userId} AND s.business_id = ${req.businessId} AND si.business_id = ${req.businessId}
             GROUP BY p.name
             ORDER BY sales DESC
             LIMIT 5
@@ -93,6 +103,7 @@ exports.getStats = async (req, res) => {
             SELECT p.name, SUM(si.qty) as sales
             FROM sale_items si
             JOIN products p ON si.product_id = p.id
+            WHERE p.business_id = ${req.businessId} AND si.business_id = ${req.businessId}
             GROUP BY p.name
             ORDER BY sales DESC
             LIMIT 5

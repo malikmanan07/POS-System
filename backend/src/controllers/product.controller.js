@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { eq, desc, sql } = require("drizzle-orm");
+const { eq, and, desc, sql } = require("drizzle-orm");
 const { products, categories, suppliers, stockMovements, saleItems } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
@@ -8,6 +8,7 @@ const db = pool.db;
 // GET /api/products
 exports.getAll = async (req, res) => {
   try {
+    const businessId = req.businessId;
     const page = parseInt(req.query.page) || 1;
     const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
     const offset = limit ? (page - 1) * limit : null;
@@ -30,6 +31,7 @@ exports.getAll = async (req, res) => {
       })
       .from(products)
       .leftJoin(categories, eq(products.categoryId, categories.id))
+      .where(eq(products.businessId, businessId))
       .orderBy(desc(products.id));
 
     if (limit) {
@@ -39,7 +41,9 @@ exports.getAll = async (req, res) => {
     const result = await query;
 
     // Get total count
-    const [countResult] = await db.select({ count: sql`count(*)::int` }).from(products);
+    const [countResult] = await db.select({ count: sql`count(*)::int` })
+      .from(products)
+      .where(eq(products.businessId, businessId));
     const total = countResult.count;
 
     if (limit) {
@@ -69,6 +73,7 @@ exports.create = async (req, res) => {
 
     const [product] = await db.insert(products)
       .values({
+        businessId: req.businessId,
         name,
         sku: sku || null,
         categoryId: category_id || null,
@@ -86,6 +91,7 @@ exports.create = async (req, res) => {
     if (product.stock > 0) {
       await db.insert(stockMovements)
         .values({
+          businessId: req.businessId,
           productId: product.id,
           type: 'increase',
           qty: product.stock,
@@ -97,6 +103,7 @@ exports.create = async (req, res) => {
     // Activity Log
     await logActivity({
       userId: req.user?.id,
+      businessId: req.businessId,
       userName: req.user?.name,
       userRole: req.user?.roles,
       action: 'CREATE',
@@ -136,7 +143,10 @@ exports.update = async (req, res) => {
 
     const [updatedProduct] = await db.update(products)
       .set(updateData)
-      .where(eq(products.id, parseInt(id)))
+      .where(and(
+        eq(products.id, parseInt(id)),
+        eq(products.businessId, req.businessId)
+      ))
       .returning();
 
     if (!updatedProduct)
@@ -145,6 +155,7 @@ exports.update = async (req, res) => {
     // Activity Log
     await logActivity({
       userId: req.user?.id,
+      businessId: req.businessId,
       userName: req.user?.name,
       userRole: req.user?.roles,
       action: 'UPDATE',
@@ -168,7 +179,10 @@ exports.remove = async (req, res) => {
     // 1. Check if product is used in sales (We keep this as a safety check)
     const existingSales = await db.select({ id: saleItems.id })
       .from(saleItems)
-      .where(eq(saleItems.productId, productId))
+      .where(and(
+        eq(saleItems.productId, productId),
+        eq(saleItems.businessId, req.businessId)
+      ))
       .limit(1);
 
     if (existingSales.length > 0) {
@@ -177,11 +191,17 @@ exports.remove = async (req, res) => {
 
     // 2. Delete related stock movements first (to avoid foreign key constraint error)
     await db.delete(stockMovements)
-      .where(eq(stockMovements.productId, productId));
+      .where(and(
+        eq(stockMovements.productId, productId),
+        eq(stockMovements.businessId, req.businessId)
+      ));
 
     // 3. Delete the product
     const [deletedProduct] = await db.delete(products)
-      .where(eq(products.id, productId))
+      .where(and(
+        eq(products.id, productId),
+        eq(products.businessId, req.businessId)
+      ))
       .returning();
 
     if (!deletedProduct)
@@ -190,6 +210,7 @@ exports.remove = async (req, res) => {
     // Activity Log
     await logActivity({
       userId: req.user?.id,
+      businessId: req.businessId,
       userName: req.user?.name,
       userRole: req.user?.roles,
       action: 'DELETE',
@@ -211,8 +232,8 @@ exports.bulkImport = async (req, res) => {
     if (!Array.isArray(items)) return res.status(400).json({ error: "Invalid data format" });
 
     // Fetch all categories and suppliers for matching
-    const allCats = await db.select().from(categories);
-    const allSups = await db.select().from(suppliers);
+    const allCats = await db.select().from(categories).where(eq(categories.businessId, req.businessId));
+    const allSups = await db.select().from(suppliers).where(eq(suppliers.businessId, req.businessId));
 
     let successCount = 0;
     let skipCount = 0;
@@ -242,6 +263,7 @@ exports.bulkImport = async (req, res) => {
 
         const [product] = await db.insert(products)
           .values({
+            businessId: req.businessId,
             name: item.name,
             sku: String(item.sku || "").trim() || null,
             categoryId: categoryId || null,
@@ -258,6 +280,7 @@ exports.bulkImport = async (req, res) => {
         if (product.stock > 0) {
           await db.insert(stockMovements)
             .values({
+              businessId: req.businessId,
               productId: product.id,
               type: 'increase',
               qty: product.stock,
@@ -274,6 +297,7 @@ exports.bulkImport = async (req, res) => {
 
     await logActivity({
       userId: req.user?.id,
+      businessId: req.businessId,
       userName: req.user?.name,
       userRole: req.user?.roles,
       action: 'BULK_IMPORT',
