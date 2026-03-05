@@ -14,19 +14,24 @@ exports.requireAuth = async (req, res, next) => {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!payload.name) {
-      const [u] = await pool.db.select({ name: users.name })
+    if (!payload.name || !payload.businessId) {
+      const [u] = await pool.db.select({ name: users.name, businessId: users.businessId })
         .from(users)
         .where(eq(users.id, payload.id))
         .limit(1);
-      if (u) payload.name = u.name;
+      if (u) {
+        payload.name = u.name;
+        payload.businessId = u.businessId;
+      }
     }
 
     req.user = {
       id: payload.id,
+      businessId: payload.businessId,
       name: payload.name,
       roles: payload.roles || []
     };
+    req.businessId = payload.businessId; // Convenience attachment
     next();
   } catch (err) {
     return res.status(401).json({ error: "Invalid token" });
@@ -49,8 +54,14 @@ exports.requirePermission = (permission) => async (req, res, next) => {
     const [hasIt] = await pool.db
       .select({ name: permissions.name })
       .from(rolePermissions)
-      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-      .innerJoin(rolesTable, eq(rolePermissions.roleId, rolesTable.id))
+      .innerJoin(permissions, and(
+        eq(rolePermissions.permissionId, permissions.id),
+        eq(permissions.businessId, req.businessId)
+      ))
+      .innerJoin(rolesTable, and(
+        eq(rolePermissions.roleId, rolesTable.id),
+        eq(rolesTable.businessId, req.businessId)
+      ))
       .where(and(
         eq(permissions.name, permission),
         inArray(rolesTable.name, userRoles)

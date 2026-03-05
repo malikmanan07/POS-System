@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
-const { eq, sql, desc, notInArray } = require("drizzle-orm");
+const { eq, sql, desc, notInArray, and } = require("drizzle-orm");
 const { users, userRoles, roles } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
@@ -10,6 +10,7 @@ const db = pool.db;
 exports.getAllUsers = async (req, res) => {
     try {
         const result = await db.query.users.findMany({
+            where: eq(users.businessId, req.businessId),
             with: {
                 roles: {
                     with: {
@@ -48,7 +49,12 @@ exports.createUser = async (req, res) => {
 
         const [newUser] = await db.transaction(async (tx) => {
             const [createdUser] = await tx.insert(users)
-                .values({ name, email, passwordHash: hash })
+                .values({
+                    businessId: req.businessId,
+                    name,
+                    email,
+                    passwordHash: hash
+                })
                 .returning();
 
             if (role_ids && Array.isArray(role_ids) && role_ids.length > 0) {
@@ -64,13 +70,17 @@ exports.createUser = async (req, res) => {
         if (role_ids && role_ids.length > 0) {
             const selectedRoles = await db.select({ name: roles.name })
                 .from(roles)
-                .where(sql`${roles.id} IN (${sql.join(role_ids, sql`, `)})`);
+                .where(and(
+                    sql`${roles.id} IN (${sql.join(role_ids, sql`, `)})`,
+                    eq(roles.businessId, req.businessId)
+                ));
             roleNames = selectedRoles.map(r => r.name).join(', ');
         }
 
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'CREATE',
@@ -112,7 +122,10 @@ exports.updateUser = async (req, res) => {
 
             const [resUser] = await tx.update(users)
                 .set(updateData)
-                .where(eq(users.id, id))
+                .where(and(
+                    eq(users.id, id),
+                    eq(users.businessId, req.businessId)
+                ))
                 .returning();
 
             if (!resUser) {
@@ -133,6 +146,7 @@ exports.updateUser = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'UPDATE',
@@ -154,7 +168,10 @@ exports.deleteUser = async (req, res) => {
 
         // 1. Fetch victim with roles before deletion for detailed logging
         const victim = await db.query.users.findFirst({
-            where: eq(users.id, targetId),
+            where: and(
+                eq(users.id, targetId),
+                eq(users.businessId, req.businessId)
+            ),
             with: {
                 roles: {
                     with: {
@@ -170,11 +187,15 @@ exports.deleteUser = async (req, res) => {
         const victimRole = victim.roles?.map(r => r.role.name).join(', ') || 'No Role';
 
         // 2. Perform deletion
-        await db.delete(users).where(eq(users.id, targetId));
+        await db.delete(users).where(and(
+            eq(users.id, targetId),
+            eq(users.businessId, req.businessId)
+        ));
 
         // 3. Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'DELETE',

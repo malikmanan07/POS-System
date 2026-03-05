@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { eq, asc, sql } = require("drizzle-orm");
+const { eq, and, asc, sql } = require("drizzle-orm");
 const { alias } = require("drizzle-orm/pg-core");
 const { categories, products } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
@@ -9,6 +9,7 @@ const db = pool.db;
 // GET /api/categories
 exports.getAll = async (req, res) => {
   try {
+    const businessId = req.businessId;
     const page = parseInt(req.query.page) || 1;
     const limit = req.query.limit === 'all' ? null : (parseInt(req.query.limit) || 10);
     const offset = limit ? (page - 1) * limit : null;
@@ -25,6 +26,7 @@ exports.getAll = async (req, res) => {
       })
       .from(categories)
       .leftJoin(parentAlias, eq(categories.parentId, parentAlias.id))
+      .where(eq(categories.businessId, businessId))
       .orderBy(asc(categories.name));
 
     if (limit) {
@@ -34,7 +36,9 @@ exports.getAll = async (req, res) => {
     const result = await query;
 
     // Get total count
-    const [countResult] = await db.select({ count: sql`count(*)::int` }).from(categories);
+    const [countResult] = await db.select({ count: sql`count(*)::int` })
+      .from(categories)
+      .where(eq(categories.businessId, businessId));
     const total = countResult.count;
 
     if (limit) {
@@ -62,12 +66,14 @@ exports.create = async (req, res) => {
     if (!name) return res.status(400).json({ error: "Name is required" });
 
     const [result] = await db.insert(categories).values({
+      businessId: req.businessId,
       name,
       parentId: parentId ? parseInt(parentId) : null
     }).returning();
     // Activity Log
     await logActivity({
       userId: req.user?.id,
+      businessId: req.businessId,
       userName: req.user?.name,
       userRole: req.user?.roles,
       action: 'CREATE',
@@ -100,7 +106,10 @@ exports.update = async (req, res) => {
         parentId: parentId ? parseInt(parentId) : null,
         updatedAt: new Date()
       })
-      .where(eq(categories.id, id))
+      .where(and(
+        eq(categories.id, id),
+        eq(categories.businessId, req.businessId)
+      ))
       .returning();
 
     if (!result) {
@@ -110,6 +119,7 @@ exports.update = async (req, res) => {
     // Activity Log
     await logActivity({
       userId: req.user?.id,
+      businessId: req.businessId,
       userName: req.user?.name,
       userRole: req.user?.roles,
       action: 'UPDATE',
@@ -133,7 +143,10 @@ exports.remove = async (req, res) => {
     const [productCount] = await db
       .select({ count: sql`count(*)::int` })
       .from(products)
-      .where(eq(products.categoryId, id));
+      .where(and(
+        eq(products.categoryId, id),
+        eq(products.businessId, req.businessId)
+      ));
 
     if (productCount.count > 0) {
       return res.status(400).json({ error: "Cannot delete category with associated products" });
@@ -143,19 +156,28 @@ exports.remove = async (req, res) => {
     const [subCatCount] = await db
       .select({ count: sql`count(*)::int` })
       .from(categories)
-      .where(eq(categories.parentId, id));
+      .where(and(
+        eq(categories.parentId, id),
+        eq(categories.businessId, req.businessId)
+      ));
 
     if (subCatCount.count > 0) {
       return res.status(400).json({ error: "Cannot delete category that has sub-categories" });
     }
 
-    const [result] = await db.delete(categories).where(eq(categories.id, id)).returning();
+    const [result] = await db.delete(categories)
+      .where(and(
+        eq(categories.id, id),
+        eq(categories.businessId, req.businessId)
+      ))
+      .returning();
     if (!result) {
       return res.status(404).json({ error: "Category not found" });
     }
     // Activity Log
     await logActivity({
       userId: req.user?.id,
+      businessId: req.businessId,
       userName: req.user?.name,
       userRole: req.user?.roles,
       action: 'DELETE',

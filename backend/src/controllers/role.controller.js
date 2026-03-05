@@ -8,7 +8,10 @@ const db = pool.db;
 // Get all roles
 exports.getAllRoles = async (req, res) => {
     try {
-        const result = await db.select().from(roles).orderBy(asc(roles.id));
+        const result = await db.select()
+            .from(roles)
+            .where(eq(roles.businessId, req.businessId))
+            .orderBy(asc(roles.id));
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -21,17 +24,27 @@ exports.createRole = async (req, res) => {
         const { name } = req.body;
         if (!name) return res.status(400).json({ error: "Role name is required" });
 
-        // Ensure role doesn't exist
-        const [exists] = await db.select({ id: roles.id }).from(roles).where(eq(roles.name, name)).limit(1);
+        // Ensure role doesn't exist within the same business
+        const [exists] = await db.select({ id: roles.id })
+            .from(roles)
+            .where(and(
+                eq(roles.name, name),
+                eq(roles.businessId, req.businessId)
+            ))
+            .limit(1);
         if (exists) {
             return res.status(400).json({ error: "Role already exists" });
         }
 
-        const [created] = await db.insert(roles).values({ name }).returning();
+        const [created] = await db.insert(roles).values({
+            name,
+            businessId: req.businessId
+        }).returning();
 
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'CREATE',
@@ -57,7 +70,11 @@ exports.updateRole = async (req, res) => {
         // Ensure it's not conflicting with another role's name
         const [exists] = await db.select({ id: roles.id })
             .from(roles)
-            .where(and(eq(roles.name, name), ne(roles.id, id)))
+            .where(and(
+                eq(roles.name, name),
+                ne(roles.id, id),
+                eq(roles.businessId, req.businessId)
+            ))
             .limit(1);
 
         if (exists) {
@@ -66,7 +83,10 @@ exports.updateRole = async (req, res) => {
 
         const [updated] = await db.update(roles)
             .set({ name, updatedAt: new Date() })
-            .where(eq(roles.id, id))
+            .where(and(
+                eq(roles.id, id),
+                eq(roles.businessId, req.businessId)
+            ))
             .returning();
 
         if (!updated) {
@@ -76,6 +96,7 @@ exports.updateRole = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'UPDATE',
@@ -109,6 +130,7 @@ exports.deleteRole = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'DELETE',
@@ -126,7 +148,10 @@ exports.deleteRole = async (req, res) => {
 // Get all available system permissions
 exports.getAllPermissions = async (req, res) => {
     try {
-        const result = await db.select().from(permissions).orderBy(asc(permissions.id));
+        const result = await db.select()
+            .from(permissions)
+            .where(eq(permissions.businessId, req.businessId))
+            .orderBy(asc(permissions.id));
         res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -139,7 +164,11 @@ exports.getRolePermissions = async (req, res) => {
         const { id } = req.params;
         const result = await db.select({ permissionId: rolePermissions.permissionId })
             .from(rolePermissions)
-            .where(eq(rolePermissions.roleId, id));
+            .innerJoin(roles, eq(rolePermissions.roleId, roles.id))
+            .where(and(
+                eq(rolePermissions.roleId, id),
+                eq(roles.businessId, req.businessId)
+            ));
 
         const permIds = result.map(r => r.permissionId);
         res.json(permIds);
@@ -155,21 +184,42 @@ exports.updateRolePermissions = async (req, res) => {
         const { permissions: permIds } = req.body; // Array of permission IDs
 
         await db.transaction(async (tx) => {
+            // Ensure the role belongs to this business
+            const [role] = await tx.select().from(roles).where(and(eq(roles.id, id), eq(roles.businessId, req.businessId))).limit(1);
+            if (!role) throw new Error("Role not found");
+
             await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, id));
 
             if (permIds && Array.isArray(permIds) && permIds.length > 0) {
-                await tx.insert(rolePermissions).values(
-                    permIds.map(pid => ({ roleId: id, permissionId: pid }))
-                );
+                // Also ensure those permissions belong to this business
+                const validPerms = await tx.select({ id: permissions.id })
+                    .from(permissions)
+                    .where(and(
+                        sql`${permissions.id} IN (${sql.join(permIds, sql`, `)})`,
+                        eq(permissions.businessId, req.businessId)
+                    ));
+                const validIds = validPerms.map(p => p.id);
+
+                if (validIds.length > 0) {
+                    await tx.insert(rolePermissions).values(
+                        validIds.map(pid => ({ roleId: id, permissionId: pid }))
+                    );
+                }
             }
         });
 
-        // Fetch role name for better log details
-        const [roleObj] = await db.select({ name: roles.name }).from(roles).where(eq(roles.id, id)).limit(1);
+        const [roleObj] = await db.select({ name: roles.name })
+            .from(roles)
+            .where(and(
+                eq(roles.id, id),
+                eq(roles.businessId, req.businessId)
+            ))
+            .limit(1);
 
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'UPDATE',
