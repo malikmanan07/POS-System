@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { fetchSalesList, fetchSaleDetails } from "../api/saleApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -36,9 +37,13 @@ export default function Sales() {
     setLoading(true);
     try {
       const { search, startDate, endDate } = filters;
-      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}&search=${search}&startDate=${startDate}&endDate=${endDate}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchSalesList({
+        page,
+        limit: pagination.limit,
+        search,
+        startDate,
+        endDate
+      }, token);
       setSales(res.data.data);
       setPagination(prev => ({
         ...prev,
@@ -75,9 +80,7 @@ export default function Sales() {
 
   const handleViewDetail = async (id) => {
     try {
-      const res = await api.get(`${API_PATH}/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchSaleDetails(id, token);
       setSelectedSale(res.data);
       setShowModal(true);
     } catch (err) {

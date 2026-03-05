@@ -22,7 +22,7 @@ export default function POSCartList({ cart, products, currency, updateQty, apiBa
 
     return (
         <div className="flex-grow-1 d-flex flex-column overflow-hidden pos-cart-list-container">
-            <div className="flex-grow-1 overflow-auto p-4 pos-cart-list">
+            <div className="flex-grow-1 overflow-auto p-3 pos-cart-list">
                 <div className="d-flex justify-content-end mb-2">
                     <button className="btn btn-sm btn-outline-danger border-0 p-0" onClick={onClearCart} title="Clear Cart">
                         <i className="bi bi-trash3"></i>

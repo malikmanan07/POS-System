@@ -38,7 +38,7 @@ export default function POSProductGrid({
                 ) : (
                     <Row className="g-3 pb-3">
                         {paginatedProducts.map(p => (
-                            <Col key={p.id} xs={6} sm={4} md={3}>
+                            <Col key={p.id} xs={6} sm={6} md={4} lg={4}>
                                 <POSProductCard
                                     product={p}
                                     onAdd={onAdd}

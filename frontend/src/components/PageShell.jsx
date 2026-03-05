@@ -37,25 +37,6 @@ export default function PageShell() {
 
         {/* Content Area */}
         <main className="app-content">
-          {/* Mobile quick bar */}
-          <div className="d-lg-none mb-3 d-flex justify-content-between align-items-center">
-            <Button
-              className="btn btn-soft"
-              onClick={() => setShow(true)}
-            >
-              <i className="bi bi-list me-2" />
-              Menu
-            </Button>
-
-            <Button
-              className="btn btn-gradient"
-              onClick={() => (window.location.href = "/app/pos")}
-            >
-              <i className="bi bi-cart3 me-2" />
-              POS
-            </Button>
-          </div>
-
           {/* Nested route content renders here */}
           <div className="glass p-4 shadow-soft">
             <Outlet />
