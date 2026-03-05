@@ -8,19 +8,21 @@ export default function POSCartItem({ item, pInfo, currency, updateQty, apiBaseU
                     <div className="thumb-placeholder">{item.name.charAt(0)}</div>
                 )}
             </div>
-            <div className="flex-grow-1 min-w-0 mx-2">
-                <div className="fw-bold text-white text-truncate small">{item.name}</div>
-                <div className="text-primary small fw-bold">
-                    {currency}{item.price.toFixed(2)}
+            <div className="flex-grow-1 min-w-0 mx-2 d-flex flex-column" style={{ overflow: 'hidden' }}>
+                <div className="fw-bold text-white text-truncate small" title={item.name}>{item.name}</div>
+                <div className="text-primary x-small fw-bold">
+                    {currency}{item.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
             </div>
-            <div className="d-flex align-items-center gap-2 px-1">
+            <div className="d-flex align-items-center gap-1 flex-shrink-0">
                 <button className="btn-qty" onClick={() => updateQty(item.id, -1)}>-</button>
-                <span className="fw-bold text-white small" style={{ minWidth: '15px', textAlign: 'center' }}>{item.qty}</span>
+                <span className="fw-bold text-white x-small" style={{ minWidth: '18px', textAlign: 'center' }}>{item.qty}</span>
                 <button className="btn-qty" onClick={() => updateQty(item.id, 1)}>+</button>
             </div>
-            <div className="text-end" style={{ minWidth: '60px' }}>
-                <div className="fw-bold text-white small">{currency}{item.line_total.toFixed(2)}</div>
+            <div className="text-end flex-shrink-0" style={{ minWidth: '70px' }}>
+                <div className="fw-bold text-white x-small" style={{ whiteSpace: 'nowrap' }}>
+                    {currency}{item.line_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
             </div>
         </div>
     );

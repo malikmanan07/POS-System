@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Modal, Button, Table, Alert, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
 import Papa from "papaparse";
+import { importProductsBulk } from "../../api/productApi";
 import { api } from "../../api/client";
 
 export default function ImportProductsModal({ show, onHide, onSuccess, token }) {
@@ -44,10 +45,7 @@ export default function ImportProductsModal({ show, onHide, onSuccess, token }) 
         if (previewData.length === 0) return;
         setIsImporting(true);
         try {
-            const res = await api.post("/api/products/bulk",
-                { products: previewData },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await importProductsBulk(previewData, token);
             setSummary(res.data.summary);
             if (res.data.summary.success > 0) {
                 toast.success(`Imported ${res.data.summary.success} products!`);

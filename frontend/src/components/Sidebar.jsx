@@ -1,114 +1,120 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }) {
   const { hasPermission } = useAuth();
+
+  const handleLinkClick = () => {
+    if (typeof onNavigate === "function") {
+      onNavigate();
+    }
+  };
 
   return (
     <div className="sidebar glass p-3">
 
       {hasPermission("view_dashboard") && (
-        <NavLink to="/app" className="nav-itemx" end>
+        <NavLink to="/app" className="nav-itemx" end onClick={handleLinkClick}>
           <i className="bi bi-speedometer2"></i> Dashboard
         </NavLink>
       )}
 
       {hasPermission("manage_products") && (
-        <NavLink to="/app/products" className="nav-itemx">
+        <NavLink to="/app/products" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-box-seam"></i> Products
         </NavLink>
       )}
 
       {hasPermission("manage_categories") && (
-        <NavLink to="/app/categories" className="nav-itemx">
+        <NavLink to="/app/categories" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-tags"></i> Categories
         </NavLink>
       )}
 
       {hasPermission("manage_customers") && (
-        <NavLink to="/app/customers" className="nav-itemx">
+        <NavLink to="/app/customers" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-person-badge"></i> Customers
         </NavLink>
       )}
 
       {hasPermission("view_sales") && (
-        <NavLink to="/app/sales" className="nav-itemx">
+        <NavLink to="/app/sales" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-receipt"></i> Sales
         </NavLink>
       )}
 
       {hasPermission("manage_roles") && (
-        <NavLink to="/app/roles" className="nav-itemx">
+        <NavLink to="/app/roles" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-shield-lock"></i> Roles
         </NavLink>
       )}
 
       {hasPermission("manage_users") && (
-        <NavLink to="/app/users" className="nav-itemx">
+        <NavLink to="/app/users" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-people"></i> Users
         </NavLink>
       )}
 
       {hasPermission("manage_roles") && (
-        <NavLink to="/app/access" className="nav-itemx">
+        <NavLink to="/app/access" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-key"></i> Access
         </NavLink>
       )}
 
       {hasPermission("view_activity_logs") && (
-        <NavLink to="/app/activity" className="nav-itemx">
+        <NavLink to="/app/activity" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-journal-text"></i> Activity Log
         </NavLink>
       )}
 
       {hasPermission("view_reports") && (
-        <NavLink to="/app/reports" className="nav-itemx">
+        <NavLink to="/app/reports" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-graph-up-arrow"></i> Reports & Analytics
         </NavLink>
       )}
 
       {hasPermission("manage_inventory") && (
         <>
-          <NavLink to="/app/inventory" className="nav-itemx" end>
+          <NavLink to="/app/inventory" className="nav-itemx" end onClick={handleLinkClick}>
             <i className="bi bi-boxes"></i> Manage Stock
           </NavLink>
 
-          <NavLink to="/app/inventory/low-stock" className="nav-itemx">
+          <NavLink to="/app/inventory/low-stock" className="nav-itemx" onClick={handleLinkClick}>
             <i className="bi bi-exclamation-triangle"></i> Low Stock Alerts
           </NavLink>
 
-          <NavLink to="/app/inventory/history" className="nav-itemx">
+          <NavLink to="/app/inventory/history" className="nav-itemx" onClick={handleLinkClick}>
             <i className="bi bi-clock-history"></i> Stock History
           </NavLink>
         </>
       )}
 
       {hasPermission("manage_suppliers") && (
-        <NavLink to="/app/suppliers" className="nav-itemx">
+        <NavLink to="/app/suppliers" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-truck"></i> Suppliers
         </NavLink>
       )}
 
       {hasPermission("manage_discounts") && (
-        <NavLink to="/app/discounts" className="nav-itemx">
+        <NavLink to="/app/discounts" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-percent"></i> Discounts
         </NavLink>
       )}
 
       {hasPermission("manage_shifts") && (
-        <NavLink to="/app/shifts" className="nav-itemx">
+        <NavLink to="/app/shifts" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-clock"></i> Shifts
         </NavLink>
       )}
 
       {hasPermission("create_sale") && (
-        <NavLink to="/app/pos" className="nav-itemx">
+        <NavLink to="/app/pos" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-cart3"></i> POS
         </NavLink>
       )}
 
       {hasPermission("system_settings") && (
-        <NavLink to="/app/settings" className="nav-itemx">
+        <NavLink to="/app/settings" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-gear"></i> Settings
         </NavLink>
       )}
