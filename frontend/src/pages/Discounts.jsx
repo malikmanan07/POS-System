@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { Form, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
+import { fetchDiscountsList, createDiscount, updateDiscount, deleteDiscount } from "../api/discountApi";
+import { fetchProducts as getProducts, fetchCategoriesFlat } from "../api/productApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import PaginationControl from "../components/PaginationControl";
@@ -41,8 +43,8 @@ export default function Discounts() {
         setLoading(true);
         try {
             const [disRes, catRes] = await Promise.all([
-                api.get("/api/discounts", { headers: { Authorization: `Bearer ${token}` } }),
-                api.get("/api/categories?limit=all", { headers: { Authorization: `Bearer ${token}` } })
+                fetchDiscountsList(token),
+                fetchCategoriesFlat(token)
             ]);
             setDiscounts(disRes.data || []);
             setCategories(catRes.data || []);
@@ -56,7 +58,7 @@ export default function Discounts() {
     const fetchAllProducts = async () => {
         if (products.length > 0) return; // Already fetched
         try {
-            const res = await api.get("/api/products?limit=all", { headers: { Authorization: `Bearer ${token}` } });
+            const res = await getProducts(token);
             setProducts(res.data || []);
         } catch (err) {
             toast.error("Error loading products");
@@ -92,10 +94,10 @@ export default function Discounts() {
         setIsSaving(true);
         try {
             if (editingItem) {
-                await api.put(`/api/discounts/${editingItem.id}`, formData, { headers: { Authorization: `Bearer ${token}` } });
+                await updateDiscount(editingItem.id, formData, token);
                 toast.success("Discount updated");
             } else {
-                await api.post("/api/discounts", formData, { headers: { Authorization: `Bearer ${token}` } });
+                await createDiscount(formData, token);
                 toast.success("Discount created");
             }
             setShowModal(false);
@@ -109,7 +111,7 @@ export default function Discounts() {
 
     const handleDelete = async () => {
         try {
-            await api.delete(`/api/discounts/${confirmDialog.id}`, { headers: { Authorization: `Bearer ${token}` } });
+            await deleteDiscount(confirmDialog.id, token);
             toast.success("Discount deleted");
             fetchInitialData();
         } catch (err) {

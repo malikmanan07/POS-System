@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { fetchSettingsList, saveSettingsSection } from "../api/settingsApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -46,9 +47,7 @@ export default function useSettingsLogic() {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const res = await api.get("/api/settings", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchSettingsList(token);
             const fetched = res.data;
             if (fetched.payment?.acceptedMethods) {
                 fetched.payment.acceptedMethods = fetched.payment.acceptedMethods.filter(m => m !== "Wallet");
@@ -93,20 +92,13 @@ export default function useSettingsLogic() {
                 formData.append("currency", settings.business.currency);
                 formData.append("email", user?.email || settings.business.email);
 
-                await api.post(`/api/settings/business`, formData, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "multipart/form-data"
-                    }
-                });
+                await saveSettingsSection("business", formData, token);
             } else {
                 const sectionData = { ...settings[activeTab] };
                 if (activeTab === "business") {
                     sectionData.email = user?.email || sectionData.email;
                 }
-                await api.post(`/api/settings/${activeTab}`, sectionData, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await saveSettingsSection(activeTab, sectionData, token);
             }
 
             await refreshSettings();

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { fetchRolesList, fetchPermissionsAll, fetchRolePermissions, updateRolePermissions } from "../api/roleApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Form, Button, Card, Row, Col, Spinner } from "react-bootstrap";
@@ -24,10 +25,8 @@ export default function Access() {
     try {
       setLoading(true);
       const [rolesRes, permsRes] = await Promise.all([
-        api.get(API_PATH, { headers: { Authorization: `Bearer ${token}` } }),
-        api.get(`${API_PATH}/permissions`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        fetchRolesList(token),
+        fetchPermissionsAll(token)
       ]);
       setRoles(rolesRes.data);
       setPermissions(permsRes.data);
@@ -48,9 +47,7 @@ export default function Access() {
     }
 
     try {
-      const res = await api.get(`${API_PATH}/${roleId}/permissions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetchRolePermissions(roleId, token);
       setRolePermissions(res.data);
     } catch (err) {
       toast.error("Failed to fetch role permissions");
@@ -85,11 +82,7 @@ export default function Access() {
 
     try {
       setSaving(true);
-      await api.put(
-        `${API_PATH}/${selectedRoleId}/permissions`,
-        { permissions: rolePermissions },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+      await updateRolePermissions(selectedRoleId, rolePermissions, token);
       toast.success("Successfully updated permissions for role");
     } catch (err) {
       toast.error("Failed to update permissions");
@@ -100,11 +93,13 @@ export default function Access() {
 
   return (
     <div className="p-4 h-100">
-      <div className="mb-4">
-        <h2 className="page-title mb-1">Access Control</h2>
-        <p className="text-white mb-0">
-          Manage permissions for different user roles
-        </p>
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+          <h2 className="page-title mb-1">Access Control</h2>
+          <p className="text-white opacity-75 mb-0">
+            Manage permissions for different user roles
+          </p>
+        </div>
       </div>
 
       {loading ? (

@@ -1,6 +1,7 @@
 import { Container, Nav, Navbar, Button, Dropdown, Badge } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { fetchStockList } from "../api/stockApi";
 import { api } from "../api/client";
 import { useState, useEffect, useMemo } from "react";
 import { useSettings } from "../context/SettingsContext";
@@ -61,9 +62,7 @@ export default function AppNavbar({ onMenu }) {
 
   const fetchLowStock = async () => {
     try {
-      const res = await api.get("/api/stock", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchStockList(token);
       const data = res.data || [];
       setRawStockData(data);
 

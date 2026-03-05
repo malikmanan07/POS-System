@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
+import { adjustStock } from "../api/stockApi";
 import { api } from "../api/client";
 import { toast } from "react-toastify";
 import { useAuth } from "../auth/AuthContext";
@@ -31,12 +32,10 @@ export default function StockAdjustmentModal({ show, onHide, product, onSuccess 
         }
 
         try {
-            await api.post(`/api/stock/adjust`, {
+            await adjustStock({
                 product_id: product.id,
                 ...formData
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            }, token);
 
             toast.success("Stock updated successfully");
             onHide();

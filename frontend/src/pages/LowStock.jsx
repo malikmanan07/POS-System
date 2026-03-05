@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
+import { fetchStockList } from "../api/stockApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Table, Badge, Button } from "react-bootstrap";
@@ -21,9 +22,7 @@ export default function LowStock() {
 
     const fetchStock = async () => {
         try {
-            const res = await api.get(API_PATH, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchStockList(token);
             // Filter products where stock <= alert_quantity
             setProducts(res.data.filter(p => p.stock <= (p.alert_quantity || 5)));
         } catch (err) {

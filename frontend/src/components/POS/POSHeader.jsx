@@ -1,6 +1,12 @@
 import { Form } from "react-bootstrap";
 
-export default function POSHeader({ searchTerm, setSearchTerm, totalProducts, currentPage, totalPages }) {
+export default function POSHeader({ searchTerm, setSearchTerm, totalProducts, currentPage, totalPages, onSearchEnter }) {
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && searchTerm.trim()) {
+            onSearchEnter();
+        }
+    };
+
     return (
         <div className="glass p-4 mb-3 d-flex flex-column flex-md-row gap-3 align-items-center justify-content-between shadow-soft border-0">
             <div className="d-flex align-items-center gap-3 w-100" style={{ maxWidth: '400px' }}>
@@ -11,6 +17,7 @@ export default function POSHeader({ searchTerm, setSearchTerm, totalProducts, cu
                     className="pos-search-input"
                     value={searchTerm}
                     onChange={e => setSearchTerm(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     autoFocus
                 />
             </div>

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Col, Row, Button, Spinner } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import { fetchDashboardStats } from "../api/dashboardApi";
 import { useAuth } from "../auth/AuthContext";
-import { api } from "../api/client";
 import { toast } from "react-toastify";
 import { useSettings } from "../context/SettingsContext";
 
@@ -83,9 +83,7 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const res = await api.get("/api/dashboard/stats", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchDashboardStats(token);
       const stats = {
         ...res.data,
         revenueData: (res.data.revenueData || []).map(row => ({ ...row, revenue: parseFloat(row.revenue) || 0 })),
@@ -109,15 +107,15 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+      <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
         <div>
-          <h2 className="page-title text-white">{getDashboardTitle()}</h2>
-          <div style={{ color: "var(--muted)", textTransform: "capitalize" }}>
+          <h2 className="page-title text-white mb-1">{getDashboardTitle()}</h2>
+          <div className="text-muted" style={{ textTransform: "capitalize" }}>
             Welcome back, {user?.name} — {isCashier ? "Ready to start your shift?" : "Here's the current business status."}
           </div>
         </div>
         {hasPermission("create_sale") && (
-          <Button onClick={() => navigate("/app/pos")} className="btn btn-gradient gap-2 d-flex align-items-center">
+          <Button onClick={() => navigate("/app/pos")} className="btn btn-gradient gap-2 d-flex align-items-center justify-content-center">
             <i className="bi bi-cart3"></i> Open POS
           </Button>
         )}

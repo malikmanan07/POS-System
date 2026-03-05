@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { fetchSettingsList, updateSetting } from "../api/settingsApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
@@ -17,9 +18,7 @@ export function SettingsProvider({ children }) {
     const fetchSettings = useCallback(async () => {
         if (!token) return;
         try {
-            const res = await api.get("/api/settings", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchSettingsList(token);
             setSettings(prev => ({ ...prev, ...res.data }));
         } catch (err) {
             console.error("Failed to load settings in Context");
@@ -52,9 +51,7 @@ export function SettingsProvider({ children }) {
         setSettings(prev => ({ ...prev, [key]: value }));
 
         try {
-            await api.put(`/api/settings/${key}`, value, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await updateSetting(key, value, token);
             // Optional: refresh from server to ensure sync, but not strictly necessary if PUT was successful
             // await fetchSettings(); 
             return true;

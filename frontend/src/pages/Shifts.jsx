@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { fetchShiftsList } from "../api/shiftApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -22,9 +23,7 @@ export default function Shifts() {
     const fetchShifts = async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/api/shifts?page=${page}&limit=10`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchShiftsList(page, 10, token);
             setShifts(res.data.data);
             setPagination(res.data.pagination);
         } catch (err) {

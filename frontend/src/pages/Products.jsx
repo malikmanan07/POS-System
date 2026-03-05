@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
+import { fetchProducts as getProducts, createProduct, updateProduct, deleteProduct, fetchCategoriesFlat, fetchSuppliersList } from "../api/productApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -49,9 +50,7 @@ export default function Products() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`${API_PATH}?limit=all`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await getProducts(token);
       setProducts(res.data || []);
     } catch (err) {
       toast.error("Failed to load products");
@@ -85,9 +84,7 @@ export default function Products() {
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get("/api/categories?limit=all", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchCategoriesFlat(token);
       const data = res.data || [];
 
       const getCategoryInfo = (catId, cats, level = 0) => {
@@ -132,9 +129,7 @@ export default function Products() {
 
   const fetchSuppliers = async () => {
     try {
-      const res = await api.get("/api/suppliers", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchSuppliersList(token);
       setSuppliers(res.data || []);
     } catch (err) {
       toast.error("Failed to load suppliers");
@@ -189,9 +184,7 @@ export default function Products() {
     const id = confirmDialog.id;
     setConfirmDialog({ show: false, id: null, name: "" });
     try {
-      await api.delete(`${API_PATH}/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await deleteProduct(id, token);
       toast.success("Product deleted successfully");
       fetchProducts();
     } catch (err) {
@@ -233,18 +226,11 @@ export default function Products() {
         data.append("remove_image", "true");
       }
 
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data"
-        }
-      };
-
       if (editMode) {
-        await api.put(`${API_PATH}/${editId}`, data, config);
+        await updateProduct(editId, data, token);
         toast.success("Product updated successfully");
       } else {
-        await api.post(API_PATH, data, config);
+        await createProduct(data, token);
         toast.success("Product created successfully");
       }
 

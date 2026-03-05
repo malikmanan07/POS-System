@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Container, Row, Col, Card, Button, Spinner } from "react-bootstrap";
+import { fetchAnalyticsReport, exportSalesReportCsv } from "../api/reportApi";
 import { api } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { toast } from "react-toastify";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -15,6 +17,7 @@ import BestSellersTable from "../components/Reports/BestSellersTable";
 import CustomerBreakdownTable from "../components/Reports/CustomerBreakdownTable";
 
 export default function Reports() {
+    const { token } = useAuth();
     const { currencySymbol } = useSettings();
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
@@ -33,8 +36,7 @@ export default function Reports() {
     const fetchAnalytics = async () => {
         setLoading(true);
         try {
-            const queryParams = new URLSearchParams(filters).toString();
-            const res = await api.get(`/api/reports/analytics?${queryParams}`);
+            const res = await fetchAnalyticsReport(filters, token);
             setData(res.data);
         } catch (err) {
             toast.error("Failed to load analytics");
@@ -54,10 +56,7 @@ export default function Reports() {
     const handleExportCsv = async () => {
         setExporting(true);
         try {
-            const queryParams = new URLSearchParams(filters).toString();
-            const response = await api.get(`/api/reports/export-csv?${queryParams}`, {
-                responseType: 'blob'
-            });
+            const response = await exportSalesReportCsv(filters, token);
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
