@@ -1,37 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetchShiftsList } from "../api/shiftApi";
-import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
-import { Table, Badge, Button, Form } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import ShiftTable from "../components/Shifts/ShiftTable";
 import PaginationControl from "../components/PaginationControl";
 
 export default function Shifts() {
-    const [shifts, setShifts] = useState([]);
-    const [pagination, setPagination] = useState(null);
     const [page, setPage] = useState(1);
-    const [loading, setLoading] = useState(false);
     const { token, hasPermission } = useAuth();
     const { currencySymbol } = useSettings();
+    const queryClient = useQueryClient();
 
-    useEffect(() => {
-        fetchShifts();
-    }, [page]);
-
-    const fetchShifts = async () => {
-        setLoading(true);
-        try {
+    const { data: shiftsData, isLoading: loading } = useQuery({
+        queryKey: ["shifts", page],
+        queryFn: async () => {
             const res = await fetchShiftsList(page, 10, token);
-            setShifts(res.data.data);
-            setPagination(res.data.pagination);
-        } catch (err) {
-            toast.error("Failed to load shift history");
-        } finally {
-            setLoading(false);
-        }
-    };
+            return res.data;
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
+
+    const shifts = shiftsData?.data || [];
+    const pagination = shiftsData?.pagination || { page, pages: 1, total: 0, limit: 10 };
 
     return (
         <div className="p-4 h-100">
@@ -43,7 +37,7 @@ export default function Shifts() {
                 <Button
                     variant="soft"
                     className="d-flex align-items-center gap-2"
-                    onClick={() => page === 1 ? fetchShifts() : setPage(1)}
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ["shifts"] })}
                 >
                     <i className="bi bi-arrow-clockwise"></i>
                     Refresh

@@ -1,59 +1,49 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { Container, Row, Col, Card, Form, Button, Badge, Spinner } from "react-bootstrap";
 import PaginationControl from "../components/PaginationControl";
 import { fetchActivityModules, fetchActivityLogs, exportActivityLogs } from "../api/activityApi";
 import { useAuth } from "../auth/AuthContext";
 import { toast } from "react-toastify";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import Skeleton from "../components/Skeleton";
 
 export default function ActivityLog() {
     const { token } = useAuth();
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [exporting, setExporting] = useState(false);
     const [filters, setFilters] = useState({
         module: "",
         userName: "",
         startDate: "",
         endDate: ""
     });
-    const [pagination, setPagination] = useState({
-        page: 1,
-        pages: 1,
-        total: 0,
-        limit: 12
-    });
-    const [availableModules, setAvailableModules] = useState([]);
+    const [page, setPage] = useState(1);
+    const [exporting, setExporting] = useState(false);
 
-    const fetchModules = async () => {
-        try {
+    const { data: modulesData } = useQuery({
+        queryKey: ["activityModules"],
+        queryFn: async () => {
             const res = await fetchActivityModules(token);
-            setAvailableModules(res.data);
-        } catch (err) {
-            console.error("Failed to fetch modules", err);
-        }
-    };
+            return res.data || [];
+        },
+        enabled: !!token
+    });
 
-    const fetchLogs = async (page = 1, overriddenFilters = null) => {
-        setLoading(true);
-        try {
+    const { data: logsData, isLoading: loading } = useQuery({
+        queryKey: ["activityLogs", page, filters],
+        queryFn: async () => {
             const res = await fetchActivityLogs({
                 page,
                 limit: 12,
-                ...(overriddenFilters || filters)
+                ...filters
             }, token);
-            setLogs(res.data.data);
-            setPagination(res.data.pagination);
-        } catch (err) {
-            toast.error("Failed to fetch activity logs");
-        } finally {
-            setLoading(false);
-        }
-    };
+            return res.data;
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
 
-    useEffect(() => {
-        fetchLogs(1);
-        fetchModules();
-    }, []);
+    const logs = logsData?.data || [];
+    const pagination = logsData?.pagination || { page: 1, pages: 1, total: 0, limit: 12 };
+    const availableModules = modulesData || [];
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -62,21 +52,18 @@ export default function ActivityLog() {
 
     const handleSearch = (e) => {
         e.preventDefault();
-        fetchLogs(1);
+        setPage(1);
     };
 
     const resetFilters = () => {
-        const emptyFilters = { module: "", userName: "", startDate: "", endDate: "" };
-        setFilters(emptyFilters);
-        setPagination(prev => ({ ...prev, page: 1 }));
-        fetchLogs(1, emptyFilters);
+        setFilters({ module: "", userName: "", startDate: "", endDate: "" });
+        setPage(1);
     };
 
     const handleExport = async () => {
         setExporting(true);
         try {
             const response = await exportActivityLogs(filters, token);
-
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -135,7 +122,6 @@ export default function ActivityLog() {
                 </Button>
             </div>
 
-            {/* Filters */}
             <Card className="glass shadow-soft border-0 mb-4 p-3">
                 <Form onSubmit={handleSearch}>
                     <Row className="g-3 align-items-end">
@@ -200,7 +186,6 @@ export default function ActivityLog() {
                 </Form>
             </Card>
 
-            {/* Table */}
             <div className="table-darkx">
                 <div className="table-responsive">
                     <table className="table table-borderless table-hover mb-0">
@@ -216,12 +201,18 @@ export default function ActivityLog() {
                             </tr>
                         </thead>
                         <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="7" className="text-center py-5">
-                                        <Spinner animation="border" variant="primary" />
-                                    </td>
-                                </tr>
+                            {loading && logs.length === 0 ? (
+                                [...Array(8)].map((_, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-3"><Skeleton width="120px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="220px" /></td>
+                                        <td className="px-4 py-3 text-end"><Skeleton width="100px" className="ms-auto" /></td>
+                                    </tr>
+                                ))
                             ) : logs.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="text-center py-5 text-muted">No logs found</td>
@@ -257,7 +248,7 @@ export default function ActivityLog() {
 
             <PaginationControl
                 pagination={pagination}
-                setPage={(p) => fetchLogs(p)}
+                setPage={setPage}
             />
         </Container>
     );

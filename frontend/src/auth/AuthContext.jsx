@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { loginUser } from "../api/authApi";
 import { api } from "../api/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 const AuthContext = createContext(null);
 
@@ -40,19 +41,31 @@ export function AuthProvider({ children }) {
     return u;
   };
 
+  const queryClient = useQueryClient();
   const logout = () => {
     setUser(null);
     setPermissions([]);
     setToken(null);
     localStorage.clear();
+    queryClient.clear();
     delete api.defaults.headers.common.Authorization;
+  };
+
+  const setAuthData = (u, t, perms = []) => {
+    setUser(u);
+    setToken(t);
+    setPermissions(perms);
+    localStorage.setItem("token", t);
+    localStorage.setItem("user", JSON.stringify(u));
+    localStorage.setItem("permissions", JSON.stringify(perms));
+    api.defaults.headers.common.Authorization = `Bearer ${t}`;
   };
 
   const hasPermission = (perm) => permissions.includes(perm);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, permissions, login, logout, hasPermission }}
+      value={{ user, token, permissions, login, logout, hasPermission, setAuthData }}
     >
       {children}
     </AuthContext.Provider>

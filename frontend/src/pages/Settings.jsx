@@ -12,14 +12,6 @@ export default function Settings() {
         setLogoFile, setLogoPreview, handleChange, handleSave, handleRemoveLogo
     } = useSettingsLogic();
 
-    if (loading) {
-        return (
-            <div className="d-flex justify-content-center align-items-center h-100">
-                <Spinner animation="border" variant="primary" />
-            </div>
-        );
-    }
-
     return (
         <div className="p-4 h-100">
             <div className="mb-4">
@@ -31,70 +23,95 @@ export default function Settings() {
                 <Row className="g-4">
                     <Col lg={3}>
                         <div className="glass p-3 h-100 shadow-soft">
-                            <Nav variant="pills" className="flex-column gap-2 settings-nav">
-                                <Nav.Item>
-                                    <Nav.Link eventKey="business" className="nav-itemx border-0 text-start w-100">
-                                        <i className="bi bi-building me-2"></i> Business Settings
-                                    </Nav.Link>
-                                </Nav.Item>
-                                <Nav.Item>
-                                    <Nav.Link eventKey="tax" className="nav-itemx border-0 text-start w-100">
-                                        <i className="bi bi-percent me-2"></i> Tax Configuration
-                                    </Nav.Link>
-                                </Nav.Item>
-                                <Nav.Item>
-                                    <Nav.Link eventKey="invoice" className="nav-itemx border-0 text-start w-100">
-                                        <i className="bi bi-receipt me-2"></i> Invoice Settings
-                                    </Nav.Link>
-                                </Nav.Item>
-                                <Nav.Item>
-                                    <Nav.Link eventKey="payment" className="nav-itemx border-0 text-start w-100">
-                                        <i className="bi bi-credit-card me-2"></i> Payment Methods
-                                    </Nav.Link>
-                                </Nav.Item>
-                            </Nav>
+                            {loading ? (
+                                <div className="d-flex flex-column gap-3">
+                                    <Skeleton height="45px" width="100%" />
+                                    <Skeleton height="45px" width="100%" />
+                                    <Skeleton height="45px" width="100%" />
+                                    <Skeleton height="45px" width="100%" />
+                                </div>
+                            ) : (
+                                <Nav variant="pills" className="flex-column gap-2 settings-nav">
+                                    <Nav.Item>
+                                        <Nav.Link eventKey="business" className="nav-itemx border-0 text-start w-100">
+                                            <i className="bi bi-building me-2"></i> Business Settings
+                                        </Nav.Link>
+                                    </Nav.Item>
+                                    <Nav.Item>
+                                        <Nav.Link eventKey="tax" className="nav-itemx border-0 text-start w-100">
+                                            <i className="bi bi-percent me-2"></i> Tax Configuration
+                                        </Nav.Link>
+                                    </Nav.Item>
+                                    <Nav.Item>
+                                        <Nav.Link eventKey="invoice" className="nav-itemx border-0 text-start w-100">
+                                            <i className="bi bi-receipt me-2"></i> Invoice Settings
+                                        </Nav.Link>
+                                    </Nav.Item>
+                                    <Nav.Item>
+                                        <Nav.Link eventKey="payment" className="nav-itemx border-0 text-start w-100">
+                                            <i className="bi bi-credit-card me-2"></i> Payment Methods
+                                        </Nav.Link>
+                                    </Nav.Item>
+                                </Nav>
+                            )}
                         </div>
                     </Col>
 
                     <Col lg={9}>
                         <div className="glass p-4 h-100 shadow-soft">
-                            <Tab.Content>
-                                <Tab.Pane eventKey="business">
-                                    <BusinessSettings
-                                        settings={settings.business}
-                                        handleChange={handleChange}
-                                        handleSave={handleSave}
-                                        logoPreview={logoPreview}
-                                        setLogoFile={setLogoFile}
-                                        setLogoPreview={setLogoPreview}
-                                        handleRemoveLogo={handleRemoveLogo}
-                                    />
-                                </Tab.Pane>
+                            {loading ? (
+                                <div className="d-flex flex-column gap-4">
+                                    <Skeleton height="30px" width="200px" />
+                                    <Row>
+                                        <Col md={6} className="mb-3"><Skeleton height="40px" width="100%" /></Col>
+                                        <Col md={6} className="mb-3"><Skeleton height="40px" width="100%" /></Col>
+                                        <Col md={6} className="mb-3"><Skeleton height="40px" width="100%" /></Col>
+                                        <Col md={6} className="mb-3"><Skeleton height="40px" width="100%" /></Col>
+                                    </Row>
+                                    <Skeleton height="150px" width="100%" />
+                                    <div className="d-flex justify-content-end">
+                                        <Skeleton height="40px" width="120px" />
+                                    </div>
+                                </div>
+                            ) : (
+                                <Tab.Content>
+                                    <Tab.Pane eventKey="business">
+                                        <BusinessSettings
+                                            settings={settings.business}
+                                            handleChange={handleChange}
+                                            handleSave={handleSave}
+                                            logoPreview={logoPreview}
+                                            setLogoFile={setLogoFile}
+                                            setLogoPreview={setLogoPreview}
+                                            handleRemoveLogo={handleRemoveLogo}
+                                        />
+                                    </Tab.Pane>
 
-                                <Tab.Pane eventKey="tax">
-                                    <TaxSettings
-                                        settings={settings.tax}
-                                        handleChange={handleChange}
-                                        handleSave={handleSave}
-                                    />
-                                </Tab.Pane>
+                                    <Tab.Pane eventKey="tax">
+                                        <TaxSettings
+                                            settings={settings.tax}
+                                            handleChange={handleChange}
+                                            handleSave={handleSave}
+                                        />
+                                    </Tab.Pane>
 
-                                <Tab.Pane eventKey="invoice">
-                                    <InvoiceSettings
-                                        settings={settings.invoice}
-                                        handleChange={handleChange}
-                                        handleSave={handleSave}
-                                    />
-                                </Tab.Pane>
+                                    <Tab.Pane eventKey="invoice">
+                                        <InvoiceSettings
+                                            settings={settings.invoice}
+                                            handleChange={handleChange}
+                                            handleSave={handleSave}
+                                        />
+                                    </Tab.Pane>
 
-                                <Tab.Pane eventKey="payment">
-                                    <PaymentSettings
-                                        settings={settings.payment}
-                                        handleChange={handleChange}
-                                        handleSave={handleSave}
-                                    />
-                                </Tab.Pane>
-                            </Tab.Content>
+                                    <Tab.Pane eventKey="payment">
+                                        <PaymentSettings
+                                            settings={settings.payment}
+                                            handleChange={handleChange}
+                                            handleSave={handleSave}
+                                        />
+                                    </Tab.Pane>
+                                </Tab.Content>
+                            )}
                         </div>
                     </Col>
                 </Row>
