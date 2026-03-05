@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
-import { Col, Row, Button, Spinner } from "react-bootstrap";
+import { useState } from "react";
+import { Col, Row, Button } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fetchDashboardStats } from "../api/dashboardApi";
 import { useAuth } from "../auth/AuthContext";
-import { toast } from "react-toastify";
 import { useSettings } from "../context/SettingsContext";
+import Skeleton from "../components/Skeleton";
 
 // Components
 import DashboardStats from "../components/Dashboard/DashboardStats";
@@ -15,7 +16,6 @@ export default function Dashboard() {
   const { hasPermission, user, token } = useAuth();
   const { currencySymbol } = useSettings();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
 
   const roles = (user?.roles || []).map(r => r.toLowerCase());
   const isBranchManager = roles.some(r => r === "branch manager" || r === "manager");
@@ -71,39 +71,25 @@ export default function Dashboard() {
 
   const quickActions = getQuickActions();
 
-  const [data, setData] = useState({
-    kpis: { totalProducts: 0, lowStock: 0, todayRevenue: 0, totalCustomers: 0 },
-    revenueData: [],
-    topProducts: []
-  });
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
+  const { data: dashboardStats, isLoading: loading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: async () => {
       const res = await fetchDashboardStats(token);
-      const stats = {
+      return {
         ...res.data,
         revenueData: (res.data.revenueData || []).map(row => ({ ...row, revenue: parseFloat(row.revenue) || 0 })),
         topProducts: (res.data.topProducts || []).map(row => ({ ...row, sales: parseInt(row.sales) || 0 }))
       };
-      setData(stats);
-    } catch (err) {
-      toast.error("Failed to load dashboard data");
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    enabled: !!token,
+    placeholderData: keepPreviousData
+  });
 
-  if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center h-100">
-        <Spinner animation="border" variant="primary" />
-      </div>
-    );
-  }
+  const data = dashboardStats || {
+    kpis: { totalProducts: 0, lowStock: 0, todayRevenue: 0, totalCustomers: 0 },
+    revenueData: [],
+    topProducts: []
+  };
 
   return (
     <>
@@ -128,18 +114,19 @@ export default function Dashboard() {
         data={data}
         currencySymbol={currencySymbol}
         isCashier={isCashier}
+        loading={loading}
       />
 
       {(showRevenueChart || showTopProductsChart) && (
         <Row className="g-3">
           {showRevenueChart && (
             <Col lg={showTopProductsChart ? 8 : 12}>
-              <RevenueChart data={data} currencySymbol={currencySymbol} />
+              <RevenueChart data={data} currencySymbol={currencySymbol} loading={loading} />
             </Col>
           )}
           {showTopProductsChart && (
             <Col lg={showRevenueChart ? 4 : 12}>
-              <TopProductsChart data={data} />
+              <TopProductsChart data={data} loading={loading} />
             </Col>
           )}
         </Row>

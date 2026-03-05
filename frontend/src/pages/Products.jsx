@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetchProducts as getProducts, createProduct, updateProduct, deleteProduct, fetchCategoriesFlat, fetchSuppliersList } from "../api/productApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -9,20 +10,18 @@ import PaginationControl from "../components/PaginationControl";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ProductTable from "../components/Products/ProductTable";
 import ImportProductsModal from "../components/Products/ImportProductsModal";
+import Skeleton from "../components/Skeleton";
 
 export default function Products() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [suppliers, setSuppliers] = useState([]); // <-- Supplier list
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({ page: 1, limit: 12 }); // 12 per page for grid/table consistency
+  const [pagination, setPagination] = useState({ page: 1, limit: 12 });
   const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
   const [showImportModal, setShowImportModal] = useState(false);
-  const { token } = useAuth();
   const { currencySymbol } = useSettings();
   const API_PATH = "/api/products";
 
@@ -41,23 +40,59 @@ export default function Products() {
   const [imagePreview, setImagePreview] = useState(null);
   const [removeImageFlag, setRemoveImageFlag] = useState(false);
 
-  useEffect(() => {
-    fetchProducts();
-    fetchCategories();
-    fetchSuppliers(); // <-- Fetch suppliers
-  }, []);
-
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
+  const { data: productsData, isLoading: productsLoading } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
       const res = await getProducts(token);
-      setProducts(res.data || []);
-    } catch (err) {
-      toast.error("Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  };
+      return res.data || [];
+    },
+    enabled: !!token,
+    placeholderData: keepPreviousData
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories-flat"],
+    queryFn: async () => {
+      const res = await fetchCategoriesFlat(token);
+      const data = res.data || [];
+
+      const getLevel = (catId, cats) => {
+        const cat = cats.find(c => c.id === catId);
+        if (!cat || !cat.parentId) return 0;
+        return 1 + getLevel(cat.parentId, cats);
+      };
+
+      const flattenTree = (parentId = null, cats) => {
+        const levelItems = cats
+          .filter(c => c.parentId === parentId)
+          .sort((a, b) => a.name.localeCompare(b.name));
+
+        let flat = [];
+        levelItems.forEach(item => {
+          const level = getLevel(item.id, cats);
+          flat.push({ ...item, level });
+          const children = flattenTree(item.id, cats);
+          flat = [...flat, ...children];
+        });
+        return flat;
+      };
+
+      return flattenTree(null, data);
+    },
+    enabled: !!token
+  });
+
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-list"],
+    queryFn: async () => {
+      const res = await fetchSuppliersList(token);
+      return res.data || [];
+    },
+    enabled: !!token
+  });
+
+  const products = productsData || [];
+  const loading = productsLoading;
 
   // Instant Search & Pagination logic
   const filteredProducts = useMemo(() => {
@@ -76,65 +111,8 @@ export default function Products() {
     return filteredProducts.slice(start, start + pagination.limit);
   }, [filteredProducts, pagination.page]);
 
-  // Reset page on search
-  useEffect(() => {
-    setPagination(prev => ({ ...prev, page: 1 }));
-  }, [searchTerm]);
 
 
-  const fetchCategories = async () => {
-    try {
-      const res = await fetchCategoriesFlat(token);
-      const data = res.data || [];
-
-      const getCategoryInfo = (catId, cats, level = 0) => {
-        const cat = cats.find(c => c.id === catId);
-        if (!cat) return { path: "", level: 0 };
-        if (!cat.parentId) return { path: cat.name, level };
-        const parent = getCategoryInfo(cat.parentId, cats, level + 1);
-        return {
-          path: parent.path ? `${parent.path} > ${cat.name}` : cat.name,
-          level: parent.level
-        };
-      };
-
-      const getLevel = (catId, cats) => {
-        const cat = cats.find(c => c.id === catId);
-        if (!cat || !cat.parentId) return 0;
-        return 1 + getLevel(cat.parentId, cats);
-      };
-
-      // Recursive function to flatten the tree in order: Parent -> Child -> Grandchild
-      const flattenTree = (parentId = null, cats) => {
-        const levelItems = cats
-          .filter(c => c.parentId === parentId)
-          .sort((a, b) => a.name.localeCompare(b.name));
-
-        let flat = [];
-        levelItems.forEach(item => {
-          const level = getLevel(item.id, cats);
-          flat.push({ ...item, level });
-          const children = flattenTree(item.id, cats);
-          flat = [...flat, ...children];
-        });
-        return flat;
-      };
-
-      const processed = flattenTree(null, data);
-      setCategories(processed);
-    } catch (err) {
-      toast.error("Failed to load categories");
-    }
-  };
-
-  const fetchSuppliers = async () => {
-    try {
-      const res = await fetchSuppliersList(token);
-      setSuppliers(res.data || []);
-    } catch (err) {
-      toast.error("Failed to load suppliers");
-    }
-  };
 
   const handleOpenAdd = () => {
     setEditMode(false);
@@ -186,7 +164,8 @@ export default function Products() {
     try {
       await deleteProduct(id, token);
       toast.success("Product deleted successfully");
-      fetchProducts();
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-pos"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting product");
     }
@@ -235,7 +214,10 @@ export default function Products() {
       }
 
       setShowModal(false);
-      fetchProducts();
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+      queryClient.invalidateQueries({ queryKey: ["stock"] });
+      queryClient.invalidateQueries({ queryKey: ["lowStock"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving product");
     }
@@ -314,7 +296,12 @@ export default function Products() {
         show={showImportModal}
         onHide={() => setShowImportModal(false)}
         token={token}
-        onSuccess={fetchProducts}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["products"] });
+          queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+          queryClient.invalidateQueries({ queryKey: ["stock"] });
+          queryClient.invalidateQueries({ queryKey: ["lowStock"] });
+        }}
       />
       <ConfirmDialog
         show={confirmDialog.show}

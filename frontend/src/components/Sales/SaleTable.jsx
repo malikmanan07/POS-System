@@ -1,3 +1,5 @@
+import Skeleton from "../Skeleton";
+
 export default function SaleTable({
     loading,
     sales,
@@ -23,14 +25,18 @@ export default function SaleTable({
                         </tr>
                     </thead>
                     <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan="7" className="text-center py-5">
-                                    <div className="spinner-border text-primary" role="status">
-                                        <span className="visually-hidden">Loading...</span>
-                                    </div>
-                                </td>
-                            </tr>
+                        {loading && sales.length === 0 ? (
+                            [...Array(6)].map((_, i) => (
+                                <tr key={i} className="align-middle border-bottom border-white-5">
+                                    <td className="px-4 py-3"><Skeleton width="20px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="120px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="140px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                    <td className="px-4 py-3 text-center"><Skeleton width="70px" className="mx-auto" /></td>
+                                    {!isCashierLike && <td className="px-4 py-3"><Skeleton width="100px" /></td>}
+                                    <td className="px-4 py-3 text-end"><Skeleton width="60px" className="ms-auto" /></td>
+                                </tr>
+                            ))
                         ) : sales.length === 0 ? (
                             <tr>
                                 <td colSpan="7" className="text-center py-5 opacity-50 italic">

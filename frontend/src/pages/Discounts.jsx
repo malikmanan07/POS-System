@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
-import { Form, Spinner } from "react-bootstrap";
+import { useState, useMemo } from "react";
+import { Form } from "react-bootstrap";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetchDiscountsList, createDiscount, updateDiscount, deleteDiscount } from "../api/discountApi";
 import { fetchProducts as getProducts, fetchCategoriesFlat } from "../api/productApi";
 import { api } from "../api/client";
@@ -17,10 +18,38 @@ import "../styles/Discounts.css";
 
 export default function Discounts() {
     const { token, hasPermission } = useAuth();
-    const [discounts, setDiscounts] = useState([]);
-    const [products, setProducts] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: discountsData, isLoading: loading } = useQuery({
+        queryKey: ["discounts"],
+        queryFn: async () => {
+            const res = await fetchDiscountsList(token);
+            return res.data || [];
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
+
+    const { data: categoriesData } = useQuery({
+        queryKey: ["categoriesFlat"],
+        queryFn: async () => {
+            const res = await fetchCategoriesFlat(token);
+            return res.data || [];
+        },
+        enabled: !!token
+    });
+
+    const { data: productsData, refetch: refetchProductsData } = useQuery({
+        queryKey: ["allProductsFlat"],
+        queryFn: async () => {
+            const res = await getProducts(token);
+            return res.data || [];
+        },
+        enabled: false // Fetch only when modal opens
+    });
+
+    const discounts = discountsData || [];
+    const categories = categoriesData || [];
+    const products = productsData || [];
 
     const [showModal, setShowModal] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
@@ -36,34 +65,6 @@ export default function Discounts() {
 
     const [isSaving, setIsSaving] = useState(false);
     const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
-
-    useEffect(() => { fetchInitialData(); }, []);
-
-    const fetchInitialData = async () => {
-        setLoading(true);
-        try {
-            const [disRes, catRes] = await Promise.all([
-                fetchDiscountsList(token),
-                fetchCategoriesFlat(token)
-            ]);
-            setDiscounts(disRes.data || []);
-            setCategories(catRes.data || []);
-        } catch (err) {
-            toast.error("Error loading initial data");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchAllProducts = async () => {
-        if (products.length > 0) return; // Already fetched
-        try {
-            const res = await getProducts(token);
-            setProducts(res.data || []);
-        } catch (err) {
-            toast.error("Error loading products");
-        }
-    };
 
     const filteredItems = useMemo(() => {
         if (!searchTerm) return discounts;
@@ -101,7 +102,8 @@ export default function Discounts() {
                 toast.success("Discount created");
             }
             setShowModal(false);
-            fetchInitialData();
+            queryClient.invalidateQueries({ queryKey: ["discounts"] });
+            queryClient.invalidateQueries({ queryKey: ["discounts-pos"] });
         } catch (err) {
             toast.error(err.response?.data?.error || "Error saving discount");
         } finally {
@@ -113,7 +115,8 @@ export default function Discounts() {
         try {
             await deleteDiscount(confirmDialog.id, token);
             toast.success("Discount deleted");
-            fetchInitialData();
+            queryClient.invalidateQueries({ queryKey: ["discounts"] });
+            queryClient.invalidateQueries({ queryKey: ["discounts-pos"] });
         } catch (err) {
             toast.error("Delete failed");
         }
@@ -121,7 +124,7 @@ export default function Discounts() {
     };
 
     const openModal = async (item = null) => {
-        fetchAllProducts(); // Start fetching product list needed for modal
+        if (products.length === 0) refetchProductsData();
         if (item) {
             setEditingItem(item);
             setFormData({
@@ -145,7 +148,6 @@ export default function Discounts() {
         setShowModal(true);
     };
 
-    if (loading) return <div className="text-center py-5"><Spinner animation="border" variant="primary" /></div>;
 
     return (
         <div className="p-4 h-100">
@@ -180,6 +182,7 @@ export default function Discounts() {
                 openModal={openModal}
                 setConfirmDialog={setConfirmDialog}
                 discounts={discounts}
+                loading={loading}
             />
 
             <PaginationControl

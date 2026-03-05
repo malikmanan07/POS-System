@@ -1,8 +1,11 @@
+import Skeleton from "../Skeleton";
+
 export default function DiscountTable({
     paginatedItems,
     openModal,
     setConfirmDialog,
-    discounts
+    discounts,
+    loading
 }) {
     return (
         <div className="table-darkx shadow-soft">
@@ -19,7 +22,18 @@ export default function DiscountTable({
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedItems.map(d => (
+                        {loading && discounts.length === 0 ? (
+                            [...Array(5)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-4 py-3"><Skeleton width="180px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="150px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                    <td className="px-4 py-3 text-end"><Skeleton width="80px" className="ms-auto" /></td>
+                                </tr>
+                            ))
+                        ) : paginatedItems.map(d => (
                             <tr key={d.id} className="border-bottom border-white-5">
                                 <td className="px-4 py-3 align-middle fw-bold text-nowrap">{d.name}</td>
                                 <td className="px-4 py-3 align-middle text-nowrap">

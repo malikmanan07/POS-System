@@ -1,21 +1,21 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetchUsersList, createUser, updateUser, deleteUser } from "../api/userApi";
 import { fetchRolesList } from "../api/roleApi";
-import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
 import ConfirmDialog from "../components/ConfirmDialog";
 import PaginationControl from "../components/PaginationControl";
+import Skeleton from "../components/Skeleton";
 
 export default function Users() {
-    const [users, setUsers] = useState([]);
-    const [roles, setRoles] = useState([]);
+    const { token } = useAuth();
+    const queryClient = useQueryClient();
+
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [editId, setEditId] = useState(null);
-    const { token } = useAuth();
-    const API_PATH = "/api/users";
     const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
     const [pagination, setPagination] = useState({ page: 1, limit: 10 });
 
@@ -23,23 +23,30 @@ export default function Users() {
         name: "",
         email: "",
         password: "",
-        role_ids: [] // Store as array to match backend expectations
+        role_ids: []
     });
 
-    useEffect(() => {
-        fetchUsers();
-        fetchRoles();
-    }, []);
-
-    const fetchUsers = async () => {
-        try {
+    const { data: usersData, isLoading: loadingUsers } = useQuery({
+        queryKey: ["users"],
+        queryFn: async () => {
             const res = await fetchUsersList(token);
-            setUsers(res.data);
-            setPagination(prev => ({ ...prev, page: 1 }));
-        } catch (err) {
-            toast.error("Failed to load users");
-        }
-    };
+            return res.data || [];
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
+
+    const { data: rolesData } = useQuery({
+        queryKey: ["roles"],
+        queryFn: async () => {
+            const res = await fetchRolesList(token);
+            return res.data || [];
+        },
+        enabled: !!token
+    });
+
+    const users = usersData || [];
+    const roles = rolesData || [];
 
     const paginatedUsers = useMemo(() => {
         const start = (pagination.page - 1) * pagination.limit;
@@ -47,15 +54,6 @@ export default function Users() {
     }, [users, pagination.page, pagination.limit]);
 
     const totalPages = Math.ceil(users.length / pagination.limit);
-
-    const fetchRoles = async () => {
-        try {
-            const res = await fetchRolesList(token);
-            setRoles(res.data);
-        } catch (err) {
-            toast.error("Failed to load roles");
-        }
-    };
 
     const handleOpenAdd = () => {
         setEditMode(false);
@@ -86,7 +84,7 @@ export default function Users() {
         try {
             await deleteUser(id, token);
             toast.success("User deleted successfully");
-            fetchUsers();
+            queryClient.invalidateQueries({ queryKey: ["users"] });
         } catch (err) {
             toast.error(err.response?.data?.error || "Error deleting user");
         }
@@ -94,7 +92,6 @@ export default function Users() {
 
     const handleRoleChange = (e) => {
         const value = e.target.value;
-        // Convert to array of a single ID if a value is selected, otherwise empty array
         setFormData({
             ...formData,
             role_ids: value ? [Number(value)] : []
@@ -111,16 +108,14 @@ export default function Users() {
             if (editMode) {
                 const updateData = { ...formData };
                 if (!updateData.password) delete updateData.password;
-
                 await updateUser(editId, updateData, token);
                 toast.success("User updated successfully");
             } else {
                 await createUser(formData, token);
                 toast.success("User created successfully");
             }
-
             setShowModal(false);
-            fetchUsers();
+            queryClient.invalidateQueries({ queryKey: ["users"] });
         } catch (err) {
             toast.error(err.response?.data?.error || "Error saving user");
         }
@@ -153,35 +148,46 @@ export default function Users() {
                             </tr>
                         </thead>
                         <tbody>
-                            {paginatedUsers.map(u => (
-                                <tr key={u.id}>
-                                    <td className="px-4 py-3 align-middle fw-bold text-white text-nowrap">{u.name}</td>
-                                    <td className="px-4 py-3 align-middle text-white text-nowrap">{u.email}</td>
-                                    <td className="px-4 py-3 align-middle text-nowrap">
-                                        {u.roles && u.roles.length > 0 ? u.roles.map(r => (
-                                            <span key={r.id} className="badge-soft me-1" style={{ fontSize: '10px', textTransform: 'capitalize' }}>
-                                                {r.name}
-                                            </span>
-                                        )) : <span className="text-muted small">No roles</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-end align-middle">
-                                        <div className="d-flex justify-content-end gap-1">
-                                            <button
-                                                className="btn btn-sm btn-outline-light rounded-3 border-0"
-                                                onClick={() => handleOpenEdit(u)}
-                                            >
-                                                <i className="bi bi-pencil-square text-primary"></i>
-                                            </button>
-                                            <button
-                                                className="btn btn-sm btn-outline-light rounded-3 border-0"
-                                                onClick={() => askDelete(u)}
-                                            >
-                                                <i className="bi bi-trash text-danger"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            {loadingUsers && users.length === 0 ? (
+                                [...Array(5)].map((_, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-3"><Skeleton width="150px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="180px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                        <td className="px-4 py-3 text-end"><Skeleton width="80px" className="ms-auto" /></td>
+                                    </tr>
+                                ))
+                            ) : (
+                                paginatedUsers.map(u => (
+                                    <tr key={u.id}>
+                                        <td className="px-4 py-3 align-middle fw-bold text-white text-nowrap">{u.name}</td>
+                                        <td className="px-4 py-3 align-middle text-white text-nowrap">{u.email}</td>
+                                        <td className="px-4 py-3 align-middle text-nowrap">
+                                            {u.roles && u.roles.length > 0 ? u.roles.map(r => (
+                                                <span key={r.id} className="badge-soft me-1" style={{ fontSize: '10px', textTransform: 'capitalize' }}>
+                                                    {r.name}
+                                                </span>
+                                            )) : <span className="text-muted small">No roles</span>}
+                                        </td>
+                                        <td className="px-4 py-3 text-end align-middle">
+                                            <div className="d-flex justify-content-end gap-1">
+                                                <button
+                                                    className="btn btn-sm btn-outline-light rounded-3 border-0"
+                                                    onClick={() => handleOpenEdit(u)}
+                                                >
+                                                    <i className="bi bi-pencil-square text-primary"></i>
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-outline-light rounded-3 border-0"
+                                                    onClick={() => askDelete(u)}
+                                                >
+                                                    <i className="bi bi-trash text-danger"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
                         </tbody>
                     </table>
                 </div>

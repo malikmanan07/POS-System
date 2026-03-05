@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetchCustomersList, createCustomer, updateCustomer, deleteCustomer, fetchCustomerHistory } from "../api/customerSupplierApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
@@ -10,17 +11,18 @@ import CustomerHistoryModal from "../components/CustomerHistoryModal";
 import CustomerFormModal from "../components/CustomerFormModal";
 import PaginationControl from "../components/PaginationControl";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Skeleton from "../components/Skeleton";
 
 export default function Customers() {
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({ name: "", phone: "", email: "", address: "" });
   const [editId, setEditId] = useState(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 12 });
+  const { page, limit } = pagination;
   const { token, hasPermission } = useAuth();
+  const queryClient = useQueryClient();
   const { currencySymbol, settings } = useSettings();
   const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
 
@@ -32,21 +34,17 @@ export default function Customers() {
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
-    setLoading(true);
-    try {
+  const { data: customersData, isLoading: loading } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
       const res = await fetchCustomersList(token);
-      setCustomers(res.data || []);
-    } catch (err) {
-      toast.error("Failed to load customers");
-    } finally {
-      setLoading(false);
-    }
-  };
+      return res.data || [];
+    },
+    enabled: !!token,
+    placeholderData: keepPreviousData
+  });
+
+  const customers = customersData || [];
 
   // Instant Search & Pagination logic
   const filteredCustomers = useMemo(() => {
@@ -66,10 +64,6 @@ export default function Customers() {
     return filteredCustomers.slice(start, start + pagination.limit);
   }, [filteredCustomers, pagination.page]);
 
-  // Reset page when search term changes
-  useEffect(() => {
-    setPagination(prev => ({ ...prev, page: 1 }));
-  }, [searchTerm]);
 
   const fetchHistory = async (customer) => {
     setSelectedCustomer(customer);
@@ -110,7 +104,8 @@ export default function Customers() {
     try {
       await deleteCustomer(id, token);
       toast.success("Customer deleted successfully");
-      fetchCustomers();
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-list"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting customer");
     }
@@ -127,7 +122,8 @@ export default function Customers() {
         toast.success("Customer added successfully");
       }
       setShowModal(false);
-      fetchCustomers();
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customers-list"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving customer");
     }
@@ -167,14 +163,16 @@ export default function Customers() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="5" className="text-center py-5">
-                    <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Loading...</span>
-                    </div>
-                  </td>
-                </tr>
+              {loading && paginatedCustomers.length === 0 ? (
+                [...Array(6)].map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3"><Skeleton width="120px" /></td>
+                    <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                    <td className="px-4 py-3"><Skeleton width="150px" /></td>
+                    <td className="px-4 py-3"><Skeleton width="180px" /></td>
+                    <td className="px-4 py-3 text-end"><Skeleton width="80px" className="ms-auto" /></td>
+                  </tr>
+                ))
               ) : paginatedCustomers.length > 0 ? (
                 paginatedCustomers.map(c => (
                   <tr key={c.id}>

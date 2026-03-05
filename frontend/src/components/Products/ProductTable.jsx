@@ -1,3 +1,5 @@
+import Skeleton from "../Skeleton";
+
 export default function ProductTable({
     loading,
     paginatedProducts,
@@ -23,14 +25,23 @@ export default function ProductTable({
                         </tr>
                     </thead>
                     <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan="7" className="text-center py-5">
-                                    <div className="spinner-border text-primary" role="status">
-                                        <span className="visually-hidden">Loading...</span>
-                                    </div>
-                                </td>
-                            </tr>
+                        {loading && paginatedProducts.length === 0 ? (
+                            [...Array(8)].map((_, i) => (
+                                <tr key={i} className="border-bottom border-white-5">
+                                    <td className="px-4 py-3 align-middle">
+                                        <div className="d-flex align-items-center gap-3">
+                                            <Skeleton width="45px" height="45px" borderRadius="8px" />
+                                            <Skeleton width="120px" />
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 align-middle"><Skeleton width="60px" /></td>
+                                    <td className="px-4 py-3 align-middle"><Skeleton width="100px" /></td>
+                                    <td className="px-4 py-3 align-middle"><Skeleton width="70px" /></td>
+                                    <td className="px-4 py-3 align-middle"><Skeleton width="40px" /></td>
+                                    <td className="px-4 py-3 align-middle"><Skeleton width="70px" /></td>
+                                    <td className="px-4 py-3 text-end align-middle"><Skeleton width="60px" className="ms-auto" /></td>
+                                </tr>
+                            ))
                         ) : (
                             <>
                                 {paginatedProducts.map(p => (

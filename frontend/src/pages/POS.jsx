@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchProducts as getProducts, fetchCategoriesFlat } from "../api/productApi";
 import { fetchCustomersList, createCustomer } from "../api/customerSupplierApi";
 import { fetchDiscountsList } from "../api/discountApi";
@@ -8,6 +9,7 @@ import { createSale } from "../api/saleApi";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { Row, Col, Form, Button } from "react-bootstrap";
+import Skeleton from "../components/Skeleton";
 
 // Components
 import POSProductCard from "../components/POSProductCard";
@@ -29,6 +31,7 @@ export default function POS() {
   const { token, hasPermission, user } = useAuth();
   const { settings, currencySymbol: currency } = useSettings();
   const { activeShift, loading: shiftLoading } = useShift();
+  const queryClient = useQueryClient();
 
   const userRoles = useMemo(() => (user?.roles || []).map(r => (typeof r === 'string' ? r : r.name || "").toLowerCase()), [user]);
   const isAdmin = useMemo(() =>
@@ -40,10 +43,53 @@ export default function POS() {
   const needsShift = isCashier;
 
   // State
-  const [products, setProducts] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [discounts, setDiscounts] = useState([]);
+  // React Query Fetching
+  const { data: productsData, isLoading: loadingProducts } = useQuery({
+    queryKey: ["products-pos"],
+    queryFn: async () => {
+      const res = await getProducts(token);
+      return res.data?.filter(p => p.is_active) || [];
+    },
+    enabled: !!token
+  });
+
+  const { data: customersData } = useQuery({
+    queryKey: ["customers-list"],
+    queryFn: async () => {
+      const res = await fetchCustomersList(token);
+      return Array.isArray(res.data) ? res.data : (res.data.data || []);
+    },
+    enabled: !!token
+  });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories-flat"],
+    queryFn: async () => {
+      const res = await fetchCategoriesFlat(token);
+      return res.data || [];
+    },
+    enabled: !!token
+  });
+
+  const { data: discountsData } = useQuery({
+    queryKey: ["discounts-pos"],
+    queryFn: async () => {
+      const res = await fetchDiscountsList(token);
+      const now = new Date();
+      return res.data?.filter(d => {
+        if (!d.isActive) return false;
+        if (d.startDate && new Date(d.startDate) > now) return false;
+        if (d.endDate && new Date(d.endDate) < now) return false;
+        return true;
+      }) || [];
+    },
+    enabled: !!token
+  });
+
+  const products = productsData || [];
+  const customers = customersData || [];
+  const categories = categoriesData || [];
+  const discounts = discountsData || [];
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
@@ -129,63 +175,10 @@ export default function POS() {
   }, [products, showReceipt, showShiftModal, searchTerm, filteredProducts]);
 
   useEffect(() => {
-    if (token) {
-      fetchProducts();
-      fetchCustomers();
-      fetchDiscounts();
-      fetchCategories();
-    }
-  }, [token]);
-
-  useEffect(() => {
     if (settings?.payment?.defaultMethod) {
       setPaymentMethod(settings.payment.defaultMethod);
     }
   }, [settings]);
-
-  const fetchDiscounts = async () => {
-    try {
-      const res = await fetchDiscountsList(token);
-      const now = new Date();
-      const active = res.data.filter(d => {
-        if (!d.isActive) return false;
-        if (d.startDate && new Date(d.startDate) > now) return false;
-        if (d.endDate && new Date(d.endDate) < now) return false;
-        return true;
-      });
-      setDiscounts(active);
-    } catch (err) {
-      console.error("Error loading discounts");
-    }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      const res = await getProducts(token);
-      setProducts(res.data.filter(p => p.is_active));
-    } catch (err) {
-      toast.error("Error loading products");
-    }
-  };
-
-  const fetchCustomers = async () => {
-    try {
-      const res = await fetchCustomersList(token);
-      const customerData = Array.isArray(res.data) ? res.data : (res.data.data || []);
-      setCustomers(customerData);
-    } catch (err) {
-      toast.error("Error loading customers");
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const res = await fetchCategoriesFlat(token);
-      setCategories(res.data || []);
-    } catch (err) {
-      console.error("Error loading categories");
-    }
-  };
 
 
   const totalPosPages = Math.ceil(filteredProducts.length / itemsPerPage);
@@ -335,7 +328,9 @@ export default function POS() {
       window.dispatchEvent(new CustomEvent("saleCompleted"));
       setCart([]); setPaidAmount(""); setPaymentReference(""); setSelectedCustomer("");
       setSelectedDiscountId(""); setShowReceipt(true);
-      fetchProducts();
+      queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+      queryClient.invalidateQueries({ queryKey: ["stock"] });
+      queryClient.invalidateQueries({ queryKey: ["lowStock"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Checkout failed");
     }
@@ -346,8 +341,8 @@ export default function POS() {
     try {
       const res = await createCustomer(newCust, token);
       toast.success("Customer added");
-      await fetchCustomers();
       setSelectedCustomer(res.data.id);
+      queryClient.invalidateQueries({ queryKey: ["customers-list"] });
       return true;
     } catch (err) {
       toast.error(err.response?.data?.error || "Error adding customer");

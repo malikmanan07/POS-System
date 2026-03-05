@@ -7,9 +7,8 @@ import { useSettings } from "../context/SettingsContext";
 
 export default function useSettingsLogic() {
     const [activeTab, setActiveTab] = useState("business");
-    const [loading, setLoading] = useState(true);
     const { token, user } = useAuth();
-    const { refreshSettings } = useSettings();
+    const { settings: globalSettings, loading, refreshSettings } = useSettings();
 
     const [settings, setSettings] = useState({
         business: {
@@ -41,14 +40,8 @@ export default function useSettingsLogic() {
     const [logoPreview, setLogoPreview] = useState(null);
 
     useEffect(() => {
-        if (token) fetchSettings();
-    }, [token]);
-
-    const fetchSettings = async () => {
-        try {
-            setLoading(true);
-            const res = await fetchSettingsList(token);
-            const fetched = res.data;
+        if (!loading && globalSettings) {
+            const fetched = { ...globalSettings };
             if (fetched.payment?.acceptedMethods) {
                 fetched.payment.acceptedMethods = fetched.payment.acceptedMethods.filter(m => m !== "Wallet");
             }
@@ -66,12 +59,8 @@ export default function useSettingsLogic() {
                 if (updated.business.logo) setLogoPreview(updated.business.logo);
                 return updated;
             });
-        } catch (err) {
-            toast.error("Failed to load settings");
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [globalSettings, loading, user]);
 
     const handleChange = (section, field, value) => {
         setSettings(prev => ({
