@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { getDevDashboardStats, impersonateBusiness } from "../api/devApi";
+import { getDevDashboardStats, impersonateBusiness, exportDevDashboardStats } from "../api/devApi";
 import { toast } from "react-toastify";
 import {
     FiUsers,
@@ -18,7 +18,8 @@ import {
     FiChevronLeft,
     FiChevronRight,
     FiActivity,
-    FiClock
+    FiClock,
+    FiDownload
 } from "react-icons/fi";
 import {
     AreaChart,
@@ -39,6 +40,8 @@ export default function DevDashboard() {
     const [searchTerm, setSearchTerm] = useState("");
     const [sortBy, setSortBy] = useState("revenue");
     const [currentPage, setCurrentPage] = useState(1);
+    const [dateRange, setDateRange] = useState("7days");
+    const [exporting, setExporting] = useState(false);
     const itemsPerPage = 3;
 
     const navigate = useNavigate();
@@ -48,7 +51,7 @@ export default function DevDashboard() {
     const devToken = localStorage.getItem("dev_token");
 
     const { data: dashboardData, isLoading: loading } = useQuery({
-        queryKey: ["dev-dashboard", searchTerm, sortBy, currentPage],
+        queryKey: ["dev-dashboard", searchTerm, sortBy, currentPage, dateRange],
         queryFn: async () => {
             if (devToken) {
                 api.defaults.headers.common.Authorization = `Bearer ${devToken}`;
@@ -57,7 +60,8 @@ export default function DevDashboard() {
                 search: searchTerm,
                 sortBy: sortBy,
                 page: currentPage,
-                limit: itemsPerPage
+                limit: itemsPerPage,
+                dateRange: dateRange
             });
             return res.data;
         },
@@ -68,6 +72,8 @@ export default function DevDashboard() {
     });
 
     const businesses = dashboardData?.businesses || [];
+    const topPerformingBusinesses = dashboardData?.topPerformingBusinesses || [];
+    const networkRevenueBreakdown = dashboardData?.networkRevenueBreakdown || [];
     const totalPages = dashboardData?.totalPages || 1;
     const totalItems = dashboardData?.totalItems || 0;
 
@@ -96,30 +102,66 @@ export default function DevDashboard() {
         }
     };
 
+    const handleExport = async () => {
+        try {
+            setExporting(true);
+            const res = await exportDevDashboardStats({ dateRange });
+            const data = res.data;
+
+            const headers = ["Business Name", "Admin Email", "Users", "Sales", "Revenue", "Currency", "Last Sale Date"];
+            const csvRows = [
+                headers.join(","),
+                ...data.map(b => [
+                    `"${b.name.replace(/"/g, '""')}"`,
+                    `"${(b.adminEmail || '').replace(/"/g, '""')}"`,
+                    b.usersCount,
+                    b.salesCount,
+                    b.revenue,
+                    b.currency,
+                    b.lastSaleAt ? `"${new Date(b.lastSaleAt).toLocaleString()}"` : '"Never"'
+                ].join(","))
+            ];
+
+            const blob = new Blob([csvRows.join("\n")], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Dev_Export_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.success("CSV Report downloaded!");
+        } catch (err) {
+            toast.error("Export failed");
+        } finally {
+            setExporting(false);
+        }
+    };
+
     // No longer needed due to server-side logic
     const currentItems = businesses;
 
     // Global Performance Chart Data (Aggregated Time Series for Top 5)
     const performanceDataTrend = useMemo(() => {
-        if (businesses.length === 0) return [];
+        if (topPerformingBusinesses.length === 0) return [];
 
-        const topBusinesses = [...businesses].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
-        if (topBusinesses.length === 0) return [];
-
-        const dayLabels = topBusinesses[0]?.chartData?.map(d => d.name) || [];
+        const dayLabels = topPerformingBusinesses[0]?.chartData?.map(d => d.name) || [];
 
         return dayLabels.map((day, i) => {
             const point = { name: day };
-            topBusinesses.forEach(b => {
+            topPerformingBusinesses.forEach(b => {
                 point[b.name] = b.chartData[i]?.revenue || 0;
             });
             return point;
         });
-    }, [businesses]);
+    }, [topPerformingBusinesses]);
 
     const topBusinessesNames = useMemo(() => {
-        return [...businesses].sort((a, b) => b.revenue - a.revenue).slice(0, 5).map(b => b.name);
-    }, [businesses]);
+        return topPerformingBusinesses.map(b => b.name);
+    }, [topPerformingBusinesses]);
+
+    const chartColors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#ef4444', '#06b6d4', '#f43f5e', '#84cc16', '#eab308'];
+    const getChartColor = (i) => chartColors[i % chartColors.length];
 
     const getCurrencySymbol = (currency) => {
         if (currency === 'PKR') return 'Rs';
@@ -213,20 +255,27 @@ export default function DevDashboard() {
                     <div className="glass shadow-soft p-4" style={{ borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div className="d-flex justify-content-between align-items-center mb-4">
                             <div>
-                                <h3 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Top Performers Growth Matrix</h3>
-                                <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>7-Day revenue comparison of top 5 businesses</p>
+                                <h3 style={{ fontSize: '20px', fontWeight: '800', margin: 0 }}>Network Performance Growth Matrix</h3>
+                                <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>
+                                    {dateRange === 'today' ? 'Today\'s performance' :
+                                        dateRange === '30days' ? 'Last 30 days revenue trend' :
+                                            dateRange === 'thisMonth' ? 'Current month performance' :
+                                                '7-Day revenue comparison of all businesses'}
+                                </p>
                             </div>
-                            <div className="d-flex gap-4">
-                                <div className="text-center">
+                            <div className="d-flex flex-wrap gap-4 align-items-center">
+                                <div className="text-center px-3 border-end border-secondary border-opacity-25">
                                     <p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Total Stores</p>
-                                    <p style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>{businesses.length}</p>
+                                    <p style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>{totalItems}</p>
                                 </div>
-                                <div className="text-center">
-                                    <p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Network Revenue</p>
-                                    <p style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: '#10b981' }}>
-                                        {businesses.reduce((acc, b) => acc + parseFloat(b.revenue), 0).toLocaleString()}
-                                    </p>
-                                </div>
+                                {networkRevenueBreakdown.map((item, idx) => (
+                                    <div key={idx} className="text-center px-3">
+                                        <p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Total {item.currency}</p>
+                                        <p style={{ fontSize: '18px', fontWeight: '800', margin: 0, color: '#10b981' }}>
+                                            {parseFloat(item.revenue).toLocaleString()}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                         <div style={{ width: '100%', height: '350px' }}>
@@ -235,8 +284,8 @@ export default function DevDashboard() {
                                     <defs>
                                         {topBusinessesNames.map((name, i) => (
                                             <linearGradient key={`grad-${i}`} id={`grad-top-${i}`} x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor={['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'][i]} stopOpacity={0.15} />
-                                                <stop offset="95%" stopColor={['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'][i]} stopOpacity={0} />
+                                                <stop offset="5%" stopColor={getChartColor(i)} stopOpacity={0.15} />
+                                                <stop offset="95%" stopColor={getChartColor(i)} stopOpacity={0} />
                                             </linearGradient>
                                         ))}
                                     </defs>
@@ -264,7 +313,7 @@ export default function DevDashboard() {
                                             key={name}
                                             type="monotone"
                                             dataKey={name}
-                                            stroke={['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'][i]}
+                                            stroke={getChartColor(i)}
                                             fillOpacity={1}
                                             fill={`url(#grad-top-${i})`}
                                             strokeWidth={3}
@@ -277,7 +326,7 @@ export default function DevDashboard() {
                         <div className="d-flex justify-content-center flex-wrap gap-4 mt-3">
                             {topBusinessesNames.map((name, i) => (
                                 <div key={name} className="d-flex align-items-center gap-2">
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'][i] }}></div>
+                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getChartColor(i) }}></div>
                                     <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>{name}</span>
                                 </div>
                             ))}
@@ -329,6 +378,54 @@ export default function DevDashboard() {
                                 <option value="date">Sort: Newest First</option>
                             </select>
                         </div>
+
+                        <div className="d-flex align-items-center gap-2">
+                            <FiClock style={{ color: '#64748b' }} />
+                            <select
+                                className="glass"
+                                style={{
+                                    borderRadius: '12px',
+                                    padding: '10px 15px',
+                                    background: 'rgba(30, 41, 59, 0.5)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'white',
+                                    outline: 'none',
+                                    fontSize: '14px'
+                                }}
+                                value={dateRange}
+                                onChange={(e) => { setDateRange(e.target.value); setCurrentPage(1); }}
+                            >
+                                <option value="today">Period: Today</option>
+                                <option value="7days">Period: Last 7 Days</option>
+                                <option value="30days">Period: Last 30 Days</option>
+                                <option value="thisMonth">Period: This Month</option>
+                            </select>
+                        </div>
+
+                        <button
+                            onClick={handleExport}
+                            disabled={exporting}
+                            className="glass"
+                            style={{
+                                padding: '10px 20px',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                color: '#10b981',
+                                fontWeight: '700',
+                                fontSize: '14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {exporting ? (
+                                <div className="spinner-border spinner-border-sm" role="status"></div>
+                            ) : (
+                                <FiDownload />
+                            )}
+                            Export CSV
+                        </button>
                     </div>
                 </div>
 
@@ -377,10 +474,38 @@ export default function DevDashboard() {
                                                 <div className="col-lg-4 mb-4 mb-lg-0">
                                                     <div className="mb-4">
                                                         <h2 style={{ fontSize: '32px', fontWeight: '800', color: 'white', marginBottom: '8px' }}>{business.name}</h2>
-                                                        <div style={{ color: '#94a3b8', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <FiCalendar /> Joined: {new Date(business.createdAt).toLocaleDateString()}
+                                                        <div className="d-flex flex-wrap gap-3" style={{ color: '#94a3b8', fontSize: '14px' }}>
+                                                            <div className="d-flex align-items-center gap-2">
+                                                                <FiCalendar /> Joined: {new Date(business.createdAt).toLocaleDateString()}
+                                                            </div>
+                                                            {business.lastSaleAt ? (
+                                                                <div className="d-flex align-items-center gap-2" style={{ color: (new Date() - new Date(business.lastSaleAt)) > 24 * 60 * 60 * 1000 ? '#ef4444' : '#10b981' }}>
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'currentColor', boxShadow: '0 0 10px currentColor' }}></div>
+                                                                    Last Sale: {new Date(business.lastSaleAt).toLocaleString()}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="d-flex align-items-center gap-2" style={{ color: '#ef4444' }}>
+                                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'currentColor' }}></div>
+                                                                    No Sales Recorded
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
+
+                                                    {/* Inactive Badge */}
+                                                    {(!business.lastSaleAt || (new Date() - new Date(business.lastSaleAt)) > 24 * 60 * 60 * 1000) && (
+                                                        <div className="mb-4 d-inline-block" style={{
+                                                            padding: '4px 12px',
+                                                            borderRadius: '8px',
+                                                            background: 'rgba(239, 68, 68, 0.1)',
+                                                            color: '#ef4444',
+                                                            fontSize: '12px',
+                                                            fontWeight: '700',
+                                                            border: '1px solid rgba(239, 68, 68, 0.2)'
+                                                        }}>
+                                                            INACTIVE (No sale in 24h)
+                                                        </div>
+                                                    )}
 
                                                     <div style={{
                                                         background: 'rgba(0,0,0,0.2)',
@@ -425,7 +550,7 @@ export default function DevDashboard() {
                                                         />
                                                         <StatItem
                                                             icon={<FiDollarSign />}
-                                                            label="Total Revenue"
+                                                            label={`Revenue (${business.currency})`}
                                                             value={`${getCurrencySymbol(business.currency)}${parseFloat(business.revenue).toLocaleString()}`}
                                                             color="#f59e0b"
                                                             isWide={true}
