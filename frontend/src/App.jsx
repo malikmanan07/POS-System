@@ -32,8 +32,8 @@ const Reports = lazy(() => import("./pages/Reports"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Discounts = lazy(() => import("./pages/Discounts"));
 const Shifts = lazy(() => import("./pages/Shifts"));
-const DevLogin = lazy(() => import("./pages/DevLogin"));
-const DevDashboard = lazy(() => import("./pages/DevDashboard"));
+const DevLogin = lazy(() => import("./pages/DevPanel/DevLogin"));
+const DevDashboard = lazy(() => import("./pages/DevPanel/DevDashboard"));
 
 // Global fallback skeleton/spinner for lazy loading
 const PageLoader = () => (
