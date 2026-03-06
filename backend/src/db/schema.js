@@ -18,6 +18,7 @@ const businesses = pgTable("businesses", {
     id: serial("id").primaryKey(),
     name: varchar("name", { length: 150 }).notNull(),
     logo: text("logo"),
+    isSuspended: boolean("is_suspended").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow(),
 });
 

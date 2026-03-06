@@ -26,6 +26,9 @@ const requireDev = (req, res, next) => {
 
 router.post("/login", devController.login);
 router.get("/dashboard-stats", requireDev, devController.getDashboardStats);
+router.get("/export-stats", requireDev, devController.exportDashboardStats);
+router.get("/business/:id", requireDev, devController.getBusinessDetails);
 router.post("/impersonate", requireDev, devController.impersonateBusiness);
+router.patch("/business/:id/toggle-status", requireDev, devController.toggleBusinessStatus);
 
 module.exports = router;
