@@ -209,6 +209,7 @@ const stockMovements = pgTable("stock_movements", {
         .references(() => products.id),
     type: varchar("type", { length: 10 }).notNull(),
     qty: integer("qty").notNull(),
+    purchaseCost: numeric("purchase_cost", { precision: 10, scale: 2 }).default("0"),
     reference: varchar("reference", { length: 50 }),
     note: text("note"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -278,6 +279,25 @@ const discountCategories = pgTable("discount_categories", {
     categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }),
 });
 
+// 19️⃣ PRODUCT_BATCHES (Lot Tracking)
+const productBatches = pgTable("product_batches", {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
+    productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+    supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    batchNumber: varchar("batch_number", { length: 50 }), // Auto or Manual
+    purchasePrice: numeric("purchase_price", { precision: 10, scale: 2 }).notNull().default("0"),
+    originalQty: integer("original_qty").notNull().default(0),
+    remainingQty: integer("remaining_qty").notNull().default(0),
+    expiryDate: timestamp("expiry_date"),
+    createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+    return {
+        batchProductIdx: index("batch_product_idx").on(table.productId),
+        batchBusinessIdx: index("batch_business_idx").on(table.businessId),
+    }
+});
+
 // --- RELATIONS ---
 
 const shiftsRelations = relations(shifts, ({ one, many }) => ({
@@ -335,6 +355,7 @@ const productsRelations = relations(products, ({ one, many }) => ({
     }),
     saleItems: many(saleItems),
     stockMovements: many(stockMovements),
+    productBatches: many(productBatches),
 }));
 
 const customersRelations = relations(customers, ({ many }) => ({
@@ -392,6 +413,11 @@ const discountCategoriesRelations = relations(discountCategories, ({ one }) => (
     category: one(categories, { fields: [discountCategories.categoryId], references: [categories.id] }),
 }));
 
+const productBatchesRelations = relations(productBatches, ({ one }) => ({
+    product: one(products, { fields: [productBatches.productId], references: [products.id] }),
+    supplier: one(suppliers, { fields: [productBatches.supplierId], references: [suppliers.id] }),
+}));
+
 module.exports = {
     users,
     businesses,
@@ -412,6 +438,7 @@ module.exports = {
     discountProducts,
     discountCategories,
     shifts,
+    productBatches,
     // Relations
     usersRelations,
     rolesRelations,
@@ -430,4 +457,5 @@ module.exports = {
     discountProductsRelations,
     discountCategoriesRelations,
     shiftsRelations,
+    productBatchesRelations,
 };

@@ -1,6 +1,6 @@
 const pool = require("../config/db");
-const { eq, and, asc, sql, count } = require("drizzle-orm");
-const { suppliers, products } = require("../db/schema");
+const { eq, and, asc, desc, sql, count } = require("drizzle-orm");
+const { suppliers, products, stockMovements, productBatches } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
@@ -37,21 +37,72 @@ exports.getAll = async (req, res) => {
 exports.getProducts = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await db.select({
-            id: products.id,
-            name: products.name,
-            sku: products.sku,
-            price: products.price,
-            stock: products.stock,
-            image: products.image
-        })
-            .from(products)
-            .where(and(
-                eq(products.supplierId, parseInt(id)),
+        const supplierId = parseInt(id);
+
+        const result = await db.query.products.findMany({
+            where: and(
+                eq(products.supplierId, supplierId),
                 eq(products.businessId, req.businessId)
-            ));
+            ),
+            with: {
+                productBatches: {
+                    where: and(
+                        eq(productBatches.businessId, req.businessId),
+                        sql`${productBatches.remainingQty} > 0`
+                    ),
+                    orderBy: [desc(productBatches.createdAt)]
+                }
+            }
+        });
 
         res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// GET /api/suppliers/:id/history
+exports.getHistory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const supplierId = parseInt(id);
+
+        const history = await db.select({
+            id: stockMovements.id,
+            productName: products.name,
+            sku: products.sku,
+            qty: stockMovements.qty,
+            purchasePrice: stockMovements.purchaseCost,
+            totalCost: sql`${stockMovements.qty} * ${stockMovements.purchaseCost}`,
+            date: stockMovements.createdAt,
+            reference: stockMovements.reference,
+            note: stockMovements.note
+        })
+            .from(stockMovements)
+            .innerJoin(products, eq(stockMovements.productId, products.id))
+            .where(and(
+                eq(products.supplierId, supplierId),
+                eq(products.businessId, req.businessId),
+                eq(stockMovements.type, 'increase')
+            ))
+            .orderBy(desc(stockMovements.createdAt));
+
+        // Calculate grand total from this supplier
+        const [summary] = await db.select({
+            totalPurchased: sql`COALESCE(SUM(${stockMovements.qty} * ${stockMovements.purchaseCost}), 0)::numeric`
+        })
+            .from(stockMovements)
+            .innerJoin(products, eq(stockMovements.productId, products.id))
+            .where(and(
+                eq(products.supplierId, supplierId),
+                eq(products.businessId, req.businessId),
+                eq(stockMovements.type, 'increase')
+            ));
+
+        res.json({
+            history,
+            totalPurchased: summary?.totalPurchased || 0
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
