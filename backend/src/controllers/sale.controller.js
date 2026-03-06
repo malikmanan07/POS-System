@@ -58,7 +58,7 @@ exports.create = async (req, res) => {
                     total: String(total),
                     paymentMethod: method,
                     paidAmount: String(paid_amount),
-                    change_amount: String(change_amount),
+                    changeAmount: String(change_amount),
                     paymentReference: payment_reference || null,
                     discountId: discount_id || null,
                     shiftId: activeShift ? activeShift.id : null, // <-- Link active shift
