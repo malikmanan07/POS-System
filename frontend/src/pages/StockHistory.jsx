@@ -9,9 +9,11 @@ import { Table } from "react-bootstrap";
 import StockMovementBadge from "../components/StockMovementBadge";
 import PaginationControl from "../components/PaginationControl";
 import Skeleton from "../components/Skeleton";
+import { useSettings } from "../context/SettingsContext";
 
 export default function StockHistory() {
     const { token } = useAuth();
+    const { currencySymbol: currency } = useSettings();
     const [searchTerm, setSearchTerm] = useState("");
     const [pagination, setPagination] = useState({ page: 1, limit: 10 });
 
@@ -77,6 +79,7 @@ export default function StockHistory() {
                             <th className="px-4 py-3">PRODUCT</th>
                             <th className="px-4 py-3">TYPE</th>
                             <th className="px-4 py-3 text-center">QTY</th>
+                            <th className="px-4 py-3 text-center">COST (UNIT / TOTAL)</th>
                             <th className="px-4 py-3">REFERENCE</th>
                             <th className="px-4 py-3">NOTE</th>
                         </tr>
@@ -90,13 +93,14 @@ export default function StockHistory() {
                                     <td className="px-4 py-3"><Skeleton width="180px" /></td>
                                     <td className="px-4 py-3"><Skeleton width="80px" /></td>
                                     <td className="px-4 py-3 text-center"><Skeleton width="40px" className="mx-auto" /></td>
+                                    <td className="px-4 py-3 text-center"><Skeleton width="80px" className="mx-auto" /></td>
                                     <td className="px-4 py-3"><Skeleton width="100px" /></td>
                                     <td className="px-4 py-3"><Skeleton width="100px" /></td>
                                 </tr>
                             ))
                         ) : history.length === 0 ? (
                             <tr>
-                                <td colSpan="7" className="text-center py-4 text-muted">No history records found</td>
+                                <td colSpan="8" className="text-center py-4 text-muted">No history records found</td>
                             </tr>
                         ) : (
                             paginatedHistory.map((h, index) => (
@@ -116,6 +120,20 @@ export default function StockHistory() {
                                     </td>
                                     <td className="px-4 py-3 align-middle text-center fw-bold">
                                         {h.qty > 0 ? `+${h.qty}` : h.qty}
+                                    </td>
+                                    <td className="px-4 py-3 align-middle text-center">
+                                        {h.type === 'increase' || h.type === 'return' ? (
+                                            <div>
+                                                <div className="text-emerald fw-bold">
+                                                    {currency} {parseFloat(h.purchaseCost || 0).toLocaleString()} <small className="text-muted">(Unit)</small>
+                                                </div>
+                                                <div className="text-primary x-small fw-800" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '2px', paddingTop: '2px' }}>
+                                                    {currency} {(Math.abs(h.qty) * parseFloat(h.purchaseCost || 0)).toLocaleString()} <small className="opacity-75">(Total)</small>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-muted opacity-50">—</span>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3 align-middle">{h.reference}</td>
                                     <td className="px-4 py-3 align-middle small text-muted">{h.note}</td>

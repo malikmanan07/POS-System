@@ -61,3 +61,9 @@ export const fetchSupplierProducts = (id, token) => {
         headers: { Authorization: `Bearer ${token}` }
     });
 };
+
+export const fetchSupplierHistory = (id, token) => {
+    return api.get(`/api/suppliers/${id}/history`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+};

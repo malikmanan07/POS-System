@@ -5,6 +5,7 @@ const { requireAuth, requirePermission } = require("../middleware/auth");
 
 router.get("/", requireAuth, supplierController.getAll);
 router.get("/:id/products", requireAuth, supplierController.getProducts); // <-- Get linked products
+router.get("/:id/history", requireAuth, supplierController.getHistory); // <-- Get purchase history
 router.post("/", requireAuth, requirePermission("manage_suppliers"), supplierController.create);
 router.put("/:id", requireAuth, requirePermission("manage_suppliers"), supplierController.update);
 router.delete("/:id", requireAuth, requirePermission("manage_suppliers"), supplierController.remove);
