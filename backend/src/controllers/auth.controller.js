@@ -53,13 +53,19 @@ exports.login = async (req, res) => {
         name: users.name,
         email: users.email,
         passwordHash: users.passwordHash,
+        isSuspended: businesses.isSuspended,
       })
       .from(users)
+      .innerJoin(businesses, eq(users.businessId, businesses.id))
       .where(eq(users.email, email))
       .limit(1);
 
     if (!user)
       return res.status(401).json({ error: "Invalid credentials" });
+
+    if (user.isSuspended) {
+      return res.status(403).json({ error: "Your account has been suspended. Please contact support." });
+    }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) return res.status(401).json({ error: "Invalid credentials" });

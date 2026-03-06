@@ -1,0 +1,387 @@
+/* Dev Dashboard Premium Styles */
+
+/* 1. Global / Layout */
+.dev-dashboard-root {
+    height: 100vh;
+    overflow-y: auto;
+    background: #020617;
+    color: #e2e8f0;
+    padding-bottom: 50px;
+}
+
+/* 2. Confirmation Modal */
+.confirmation-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.3s ease;
+}
+
+.confirmation-backdrop.show {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.confirmation-card {
+    max-width: 400px;
+    width: 90%;
+    padding: 40px;
+    border-radius: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transform: scale(0.9) translateY(20px);
+    transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.confirmation-card.show {
+    transform: scale(1) translateY(0);
+}
+
+/* 3. Business Card */
+.business-card-root {
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.business-card-root:hover {
+    transform: translateY(-5px);
+}
+
+.suspended-card {
+    border-color: rgba(239, 68, 68, 0.3) !important;
+    background: rgba(239, 68, 68, 0.05) !important;
+    filter: grayscale(0.8) opacity(0.8);
+}
+
+.ranking-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 8px 25px;
+    border-bottom-left-radius: 20px;
+    font-weight: 800;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+}
+
+.suspended-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 8px 25px;
+    border-bottom-left-radius: 20px;
+    font-weight: 900;
+    font-size: 12px;
+    background: #ef4444;
+    color: white;
+    z-index: 10;
+    letter-spacing: 2px;
+}
+
+.admin-info-box {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 25px;
+}
+
+.chart-container-box {
+    background: rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    border-radius: 20px;
+    height: 240px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.chart-live-badge {
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: #10b98115;
+    color: #10b981;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* 4. Filters & Search */
+.dev-search-input {
+    border-radius: 14px;
+    padding: 12px 15px 12px 45px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    outline: none;
+    width: 100%;
+}
+
+.dev-select {
+    border-radius: 12px;
+    padding: 10px 15px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 14px;
+    outline: none;
+}
+
+.btn-export {
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.3s;
+}
+
+.btn-export:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+/* 5. Pagination */
+.pagination-btn {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+    background: rgba(255, 255, 255, 0.05);
+    transition: 0.3s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* 6. Modal Styles */
+.dev-modal-content {
+    background: #0f172a !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 28px !important;
+    overflow: hidden;
+}
+
+.business-avatar {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    box-shadow: 0 10px 20px rgba(99, 102, 241, 0.4);
+}
+
+.modal-title-text {
+    font-size: 24px;
+    color: white;
+    letter-spacing: -0.5px;
+}
+
+.modal-subtitle-text {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.custom-dev-tabs .nav-link {
+    color: #94a3b8;
+    border: none;
+    background: transparent;
+    padding: 12px 24px;
+    font-weight: 700;
+    border-radius: 12px;
+    margin-right: 8px;
+    transition: 0.2s;
+    text-transform: uppercase;
+    font-size: 13px;
+}
+
+.custom-dev-tabs .nav-link:hover {
+    color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.custom-dev-tabs .nav-link.active {
+    background: rgba(99, 102, 241, 0.1) !important;
+    color: #818cf8 !important;
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.2);
+}
+
+.glass-table-container {
+    background: rgba(30, 41, 59, 0.3);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.custom-glass-table {
+    background: transparent !important;
+}
+
+.custom-glass-table th {
+    background: rgba(15, 23, 42, 0.8) !important;
+    color: #64748b !important;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    font-weight: 900;
+    padding: 20px !important;
+    border: none !important;
+}
+
+.custom-glass-table td {
+    padding: 18px 20px !important;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+    color: #cbd5e1 !important;
+    font-weight: 500;
+    font-size: 14px;
+    background: transparent !important;
+}
+
+.status-badge {
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.product-stat-card {
+    border-radius: 20px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    background: rgba(30, 41, 59, 0.3);
+}
+
+.product-stat-card:hover {
+    background: rgba(99, 102, 241, 0.05);
+    transform: translateY(-8px);
+    border-color: rgba(99, 102, 241, 0.2);
+}
+
+.staff-card {
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: 0.3s;
+    background: rgba(30, 41, 59, 0.3);
+}
+
+.staff-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-3px);
+}
+
+.staff-icon {
+    width: 52px;
+    height: 52px;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.role-badge {
+    background: rgba(99, 102, 241, 0.1);
+    color: #818cf8;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.pulse-green {
+    background: #10b981;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+
+@keyframes pulse-bg {
+    0% {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    50% {
+        background: rgba(255, 255, 255, 0.07);
+    }
+
+    100% {
+        background: rgba(255, 255, 255, 0.03);
+    }
+}
+
+.skeleton-row {
+    animation: pulse-bg 1.5s infinite;
+}
+
+.shadow-glow {
+    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+}
+
+.text-emerald {
+    color: #10b981 !important;
+}
+
+.text-indigo {
+    color: #818cf8 !important;
+}
+
+.success-soft {
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.indigo-soft {
+    background: rgba(99, 102, 241, 0.1);
+}

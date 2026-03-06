@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { devLogin } from "../api/devApi";
+import { devLogin } from "../../api/devApi";
 import { toast } from "react-toastify";
 import { FiLock, FiMail, FiTerminal } from "react-icons/fi";
-import { api } from "../api/client";
+import { api } from "../../api/client";
 
 export default function DevLogin() {
     const [email, setEmail] = useState("");
@@ -31,7 +31,7 @@ export default function DevLogin() {
     return (
         <div style={{
             minHeight: '100vh',
-            background: '#0f172a',
+            background: '#020617',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -42,30 +42,30 @@ export default function DevLogin() {
                 width: '100%',
                 padding: '40px',
                 borderRadius: '24px',
-                background: 'rgba(30, 41, 59, 0.7)',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
+                background: 'rgba(30, 41, 59, 0.4)',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
             }}>
                 <div style={{ textAlign: 'center', marginBottom: '35px' }}>
                     <div style={{
                         width: '64px',
                         height: '64px',
-                        background: 'rgba(99, 102, 241, 0.15)',
+                        background: 'rgba(99, 102, 241, 0.1)',
                         borderRadius: '16px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         margin: '0 auto 20px',
-                        border: '1px solid rgba(99, 102, 241, 0.3)'
+                        border: '1px solid rgba(99, 102, 241, 0.2)'
                     }}>
                         <FiTerminal style={{ fontSize: '30px', color: '#6366f1' }} />
                     </div>
-                    <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'white', marginBottom: '8px' }}>Master Panel</h1>
-                    <p style={{ color: '#94a3b8', fontSize: '14px' }}>Authorized Personnel Only</p>
+                    <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'white', marginBottom: '8px', letterSpacing: '-0.5px' }}>Master Panel</h1>
+                    <p style={{ color: '#64748b', fontSize: '14px' }}>Authorized Personnel Only</p>
                 </div>
 
                 <form onSubmit={handleLogin}>
                     <div className="mb-4">
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#cbd5e1', marginBottom: '8px', marginLeft: '4px' }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#94a3b8', marginBottom: '8px', marginLeft: '4px' }}>
                             Developer Email
                         </label>
                         <div style={{ position: 'relative' }}>
@@ -98,7 +98,7 @@ export default function DevLogin() {
                     </div>
 
                     <div className="mb-4">
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#cbd5e1', marginBottom: '8px', marginLeft: '4px' }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#94a3b8', marginBottom: '8px', marginLeft: '4px' }}>
                             Access Key
                         </label>
                         <div style={{ position: 'relative' }}>
