@@ -58,9 +58,14 @@ export default function Access() {
     }
   };
 
-  const isSuperAdmin = user?.roles?.some(r => r.toLowerCase() === "super admin");
-  const selectedRole = roles.find(r => r.id.toString() === selectedRoleId.toString());
-  const isSelectedRoleSuperAdmin = selectedRole?.name?.toLowerCase() === "super admin";
+  const isSuperAdmin = user?.roles?.some(
+    (r) => r.toLowerCase() === "super admin",
+  );
+  const selectedRole = roles.find(
+    (r) => r.id.toString() === selectedRoleId.toString(),
+  );
+  const isSelectedRoleSuperAdmin =
+    selectedRole?.name?.toLowerCase() === "super admin";
 
   const isPermissionDisabled = (permName) => {
     // If the selected role is super admin, disable modification
@@ -127,7 +132,11 @@ export default function Access() {
                   >
                     <option value="">-- Choose Role --</option>
                     {roles
-                      .filter(r => isSuperAdmin || r.name.toLowerCase() !== "super admin")
+                      .filter(
+                        (r) =>
+                          isSuperAdmin ||
+                          r.name.toLowerCase() !== "super admin",
+                      )
                       .map((r) => (
                         <option
                           key={r.id}
@@ -162,7 +171,8 @@ export default function Access() {
                     </Button>
                     {isSelectedRoleSuperAdmin && (
                       <div className="mt-2 text-warning small text-center">
-                        Super Admin permissions are locked and cannot be modified.
+                        Super Admin permissions are locked and cannot be
+                        modified.
                       </div>
                     )}
                   </div>
@@ -187,7 +197,7 @@ export default function Access() {
                     {permissions.map((p) => (
                       <Col sm={6} md={6} lg={4} key={p.id}>
                         <div
-                          className={`p-3 border rounded-3 d-flex align-items-center ${isPermissionDisabled(p.name) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          className={`p-3 border rounded-3 d-flex align-items-center ${isPermissionDisabled(p.name) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                           style={{
                             borderColor: "rgba(255,255,255,0.1)",
                             background: rolePermissions.includes(p.id)
@@ -202,7 +212,7 @@ export default function Access() {
                             id={`perm-${p.id}`}
                             checked={rolePermissions.includes(p.id)}
                             disabled={isPermissionDisabled(p.name)}
-                            onChange={() => { }} // Controlled by parent div click
+                            onChange={() => {}} // Controlled by parent div click
                             className="mb-0 me-3"
                             style={{ pointerEvents: "none" }}
                           />
@@ -229,8 +239,7 @@ export default function Access() {
             </Card>
           </Col>
         </Row>
-      )
-      }
-    </div >
+      )}
+    </div>
   );
 }
