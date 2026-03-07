@@ -1,37 +1,37 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { fetchStockHistoryList } from "../api/stockApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Table, Spinner } from "react-bootstrap";
+import { Table } from "react-bootstrap";
 
 import StockMovementBadge from "../components/StockMovementBadge";
 import PaginationControl from "../components/PaginationControl";
+import Skeleton from "../components/Skeleton";
+import { useSettings } from "../context/SettingsContext";
 
 export default function StockHistory() {
-    const [history, setHistory] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const { token } = useAuth();
+    const { currencySymbol: currency } = useSettings();
     const [searchTerm, setSearchTerm] = useState("");
     const [pagination, setPagination] = useState({ page: 1, limit: 10 });
-    const { token } = useAuth();
-    const API_PATH = "/api/stock/history";
 
-    useEffect(() => {
-        fetchHistory();
-    }, []);
+    const { data: stockHistoryData, isLoading: loading } = useQuery({
+        queryKey: ["stockHistory"],
+        queryFn: async () => {
+            const res = await fetchStockHistoryList({
+                page: 1,
+                limit: 'all',
+                search: ''
+            }, token);
+            return res.data || [];
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
 
-    const fetchHistory = async () => {
-        setLoading(true);
-        try {
-            const res = await api.get(`${API_PATH}?limit=all`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setHistory(res.data || []);
-        } catch (err) {
-            toast.error("Failed to load history data");
-        } finally {
-            setLoading(false);
-        }
-    };
+    const history = stockHistoryData || [];
 
     // Instant Search & filtering logic
     const filteredHistory = useMemo(() => {
@@ -43,11 +43,6 @@ export default function StockHistory() {
             (h.reference && h.reference.toLowerCase().includes(s))
         );
     }, [history, searchTerm]);
-
-    // Reset page on search
-    useEffect(() => {
-        setPagination(prev => ({ ...prev, page: 1 }));
-    }, [searchTerm]);
 
     const totalPages = Math.ceil(filteredHistory.length / pagination.limit);
 
@@ -84,21 +79,28 @@ export default function StockHistory() {
                             <th className="px-4 py-3">PRODUCT</th>
                             <th className="px-4 py-3">TYPE</th>
                             <th className="px-4 py-3 text-center">QTY</th>
+                            <th className="px-4 py-3 text-center">COST (UNIT / TOTAL)</th>
                             <th className="px-4 py-3">REFERENCE</th>
                             <th className="px-4 py-3">NOTE</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan="7" className="text-center py-5">
-                                    <Spinner animation="border" variant="primary" size="sm" className="me-2" />
-                                    <span className="text-muted">Loading history...</span>
-                                </td>
-                            </tr>
+                        {loading && history.length === 0 ? (
+                            [...Array(6)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-4 py-3"><Skeleton width="20px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="120px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="180px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                    <td className="px-4 py-3 text-center"><Skeleton width="40px" className="mx-auto" /></td>
+                                    <td className="px-4 py-3 text-center"><Skeleton width="80px" className="mx-auto" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                </tr>
+                            ))
                         ) : history.length === 0 ? (
                             <tr>
-                                <td colSpan="7" className="text-center py-4 text-muted">No history records found</td>
+                                <td colSpan="8" className="text-center py-4 text-muted">No history records found</td>
                             </tr>
                         ) : (
                             paginatedHistory.map((h, index) => (
@@ -118,6 +120,20 @@ export default function StockHistory() {
                                     </td>
                                     <td className="px-4 py-3 align-middle text-center fw-bold">
                                         {h.qty > 0 ? `+${h.qty}` : h.qty}
+                                    </td>
+                                    <td className="px-4 py-3 align-middle text-center">
+                                        {h.type === 'increase' || h.type === 'return' ? (
+                                            <div>
+                                                <div className="text-emerald fw-bold">
+                                                    {currency} {parseFloat(h.purchaseCost || 0).toLocaleString()} <small className="text-muted">(Unit)</small>
+                                                </div>
+                                                <div className="text-primary x-small fw-800" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '2px', paddingTop: '2px' }}>
+                                                    {currency} {(Math.abs(h.qty) * parseFloat(h.purchaseCost || 0)).toLocaleString()} <small className="opacity-75">(Total)</small>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-muted opacity-50">—</span>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3 align-middle">{h.reference}</td>
                                     <td className="px-4 py-3 align-middle small text-muted">{h.note}</td>

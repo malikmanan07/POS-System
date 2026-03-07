@@ -93,6 +93,7 @@ export default function POSBillingSummary({
                             className="bg-dark text-white border-secondary-subtle small shadow-none h-100"
                             value={paidAmount}
                             onChange={(e) => setPaidAmount(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && onCheckout()}
                         />
                     </Col>
                 </Row>
@@ -106,6 +107,7 @@ export default function POSBillingSummary({
                             className="bg-dark text-white border-primary-soft small shadow-none"
                             value={paymentReference}
                             onChange={(e) => setPaymentReference(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && onCheckout()}
                         />
                     </div>
                 )}

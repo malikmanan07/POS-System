@@ -169,7 +169,7 @@ a {
 }
 
 .page-title {
-  font-size: 34px;
+  font-size: clamp(24px, 5vw, 34px);
   font-weight: 800;
   letter-spacing: .2px;
 }
@@ -209,6 +209,7 @@ a {
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, .10);
+  width: 100%;
 }
 
 .table-darkx table {
@@ -255,11 +256,31 @@ a {
 @media (max-width: 991.98px) {
   .app-main {
     grid-template-columns: 1fr;
-    /* sidebar hidden, content full */
+    padding: 10px;
+    gap: 10px;
   }
 
   .app-sidebar {
     display: none;
+  }
+
+  .page-title {
+    margin-bottom: 0.5rem !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .p-4 {
+    padding: 1rem !important;
+  }
+
+  .glass {
+    padding: 1rem !important;
+    border-radius: 12px;
+  }
+
+  .app-content {
+    padding-bottom: 5rem !important;
   }
 }
 
@@ -775,4 +796,30 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 .transition-all {
   transition: all 0.2s ease-in-out;
+}
+
+.glass {
+  background: rgba(255, 255, 255, .05);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+
+.glass-dark {
+  background: rgba(255, 255, 255, .03);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, .05);
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.glass-dark:hover {
+  background: rgba(255, 255, 255, .06);
+  color: white !important;
+}
+
+.glass-active {
+  background: var(--primary) !important;
+  box-shadow: 0 4px 15px rgba(109, 94, 252, 0.4);
+  color: white !important;
 }

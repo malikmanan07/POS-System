@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { fetchCurrentShift, startShift as apiStartShift, endShift as apiEndShift } from "../api/shiftApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { toast } from "react-toastify";
@@ -21,9 +22,7 @@ export const ShiftProvider = ({ children }) => {
     const fetchActiveShift = async () => {
         setLoading(true);
         try {
-            const res = await api.get("/api/shifts/current", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchCurrentShift(token);
             setActiveShift(res.data);
         } catch (err) {
             console.error("Error fetching shift:", err);
@@ -34,9 +33,7 @@ export const ShiftProvider = ({ children }) => {
 
     const startShift = async (openingBalance) => {
         try {
-            const res = await api.post("/api/shifts/start", { openingBalance }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await apiStartShift({ openingBalance }, token);
             setActiveShift(res.data);
             toast.success("Shift started successfully");
             return true;
@@ -48,9 +45,7 @@ export const ShiftProvider = ({ children }) => {
 
     const endShift = async (closingBalance, note) => {
         try {
-            const res = await api.post("/api/shifts/end", { closingBalance, note }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await apiEndShift({ closingBalance, note }, token);
             setActiveShift(null);
             toast.success("Shift ended successfully");
             return res.data;

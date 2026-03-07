@@ -1,34 +1,28 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { fetchStockList } from "../api/stockApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Table, Badge } from "react-bootstrap";
 import StockAdjustmentModal from "../components/StockAdjustmentModal";
 import PaginationControl from "../components/PaginationControl";
+import Skeleton from "../components/Skeleton";
 
 export default function ManageStock() {
-    const [products, setProducts] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [selectedProduct, setSelectedProduct] = useState(null);
-    const [searchTerm, setSearchTerm] = useState("");
     const { token } = useAuth();
-    const API_PATH = "/api/stock";
-    const [pagination, setPagination] = useState({ page: 1, limit: 10 });
-
-    useEffect(() => {
-        fetchStock();
-    }, []);
-
-    const fetchStock = async () => {
-        try {
-            const res = await api.get(API_PATH, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setProducts(res.data);
-        } catch (err) {
-            toast.error("Failed to load stock data");
-        }
-    };
+    const queryClient = useQueryClient();
+    const { data: stockData, isLoading: loading } = useQuery({
+        queryKey: ["stock"],
+        queryFn: async () => {
+            const res = await fetchStockList(token);
+            return res.data || [];
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
+    const [searchTerm, setSearchTerm] = useState("");
+    const products = stockData || [];
 
     // Instant Search logic
     const filteredProducts = useMemo(() => {
@@ -40,10 +34,9 @@ export default function ManageStock() {
         );
     }, [products, searchTerm]);
 
-    // Reset page on search
-    useEffect(() => {
-        setPagination(prev => ({ ...prev, page: 1 }));
-    }, [searchTerm]);
+    const [showModal, setShowModal] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [pagination, setPagination] = useState({ page: 1, limit: 10 });
 
     const paginatedProducts = useMemo(() => {
         const start = (pagination.page - 1) * pagination.limit;
@@ -91,43 +84,55 @@ export default function ManageStock() {
                         </tr>
                     </thead>
                     <tbody>
-                        {paginatedProducts.map((p, index) => (
-                            <tr key={p.id}>
-                                <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${p.id}`}>
-                                    {(pagination.page - 1) * pagination.limit + index + 1}
-                                </td>
-                                <td className="px-4 py-3 align-middle">
-                                    <div className="fw-bold">{p.name}</div>
-                                </td>
-                                <td className="px-4 py-3 align-middle text-muted">{p.sku || "N/A"}</td>
-                                <td className="px-4 py-3 align-middle">
-                                    <span className="badge-soft">{p.category_name || "Uncategorized"}</span>
-                                </td>
-                                <td className="px-4 py-3 align-middle text-center">
-                                    <h5 className="mb-0">
-                                        <Badge
-                                            bg={p.stock <= (p.alert_quantity || 5) ? "danger" : p.stock <= ((p.alert_quantity || 5) * 2) ? "warning" : "success"}
-                                            className="px-3 py-2"
+                        {loading && products.length === 0 ? (
+                            [...Array(6)].map((_, i) => (
+                                <tr key={i}>
+                                    <td className="px-4 py-3"><Skeleton width="20px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="180px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                    <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                    <td className="px-4 py-3 text-center"><Skeleton width="40px" className="mx-auto" /></td>
+                                    <td className="px-4 py-3 text-end"><Skeleton width="80px" className="ms-auto" /></td>
+                                </tr>
+                            ))
+                        ) : paginatedProducts.length > 0 ? (
+                            paginatedProducts.map((p, index) => (
+                                <tr key={p.id}>
+                                    <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${p.id}`}>
+                                        {(pagination.page - 1) * pagination.limit + index + 1}
+                                    </td>
+                                    <td className="px-4 py-3 align-middle">
+                                        <div className="fw-bold">{p.name}</div>
+                                    </td>
+                                    <td className="px-4 py-3 align-middle text-muted">{p.sku || "N/A"}</td>
+                                    <td className="px-4 py-3 align-middle">
+                                        <span className="badge-soft">{p.category_name || "Uncategorized"}</span>
+                                    </td>
+                                    <td className="px-4 py-3 align-middle text-center">
+                                        <h5 className="mb-0">
+                                            <Badge
+                                                bg={p.stock <= (p.alert_quantity || 5) ? "danger" : p.stock <= ((p.alert_quantity || 5) * 2) ? "warning" : "success"}
+                                                className="px-3 py-2"
+                                            >
+                                                {p.stock}
+                                            </Badge>
+                                        </h5>
+                                    </td>
+                                    <td className="px-4 py-3 text-end align-middle">
+                                        <Button
+                                            variant="outline-info"
+                                            size="sm"
+                                            className="rounded-3 border-0"
+                                            onClick={() => handleOpenAdjust(p)}
                                         >
-                                            {p.stock}
-                                        </Badge>
-                                    </h5>
-                                </td>
-                                <td className="px-4 py-3 text-end align-middle">
-                                    <Button
-                                        variant="outline-info"
-                                        size="sm"
-                                        className="rounded-3 border-0"
-                                        onClick={() => handleOpenAdjust(p)}
-                                    >
-                                        <i className="bi bi-box-arrow-in-down me-1"></i> Adjust Stock
-                                    </Button>
-                                </td>
-                            </tr>
-                        ))}
-                        {products.length === 0 && (
+                                            <i className="bi bi-box-arrow-in-down me-1"></i> Adjust Stock
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
                             <tr>
-                                <td colSpan="5" className="text-center py-4 text-muted">No products found</td>
+                                <td colSpan="6" className="text-center py-4 text-muted">No products found</td>
                             </tr>
                         )}
                     </tbody>
@@ -147,7 +152,12 @@ export default function ManageStock() {
                 show={showModal}
                 onHide={() => setShowModal(false)}
                 product={selectedProduct}
-                onSuccess={fetchStock}
+                onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ["stock"] });
+                    queryClient.invalidateQueries({ queryKey: ["products"] });
+                    queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+                    queryClient.invalidateQueries({ queryKey: ["lowStock"] });
+                }}
             />
         </div>
     );

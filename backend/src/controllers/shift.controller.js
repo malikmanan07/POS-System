@@ -16,7 +16,11 @@ exports.getCurrentShift = async (req, res) => {
 
         const [activeShift] = await db.select()
             .from(shifts)
-            .where(and(eq(shifts.userId, userId), eq(shifts.status, 'active')))
+            .where(and(
+                eq(shifts.userId, userId),
+                eq(shifts.businessId, req.businessId),
+                eq(shifts.status, 'active')
+            ))
             .limit(1);
 
         if (!activeShift) return res.json(null);
@@ -27,7 +31,10 @@ exports.getCurrentShift = async (req, res) => {
             cashTotal: sql`COALESCE(SUM(CASE WHEN LOWER(${sales.paymentMethod}) = 'cash' THEN ${sales.total} - ${sales.returnedAmount} ELSE 0 END)::numeric, 0)`
         })
             .from(sales)
-            .where(eq(sales.shiftId, activeShift.id));
+            .where(and(
+                eq(sales.shiftId, activeShift.id),
+                eq(sales.businessId, req.businessId)
+            ));
 
         res.json({
             ...activeShift,
@@ -55,7 +62,11 @@ exports.startShift = async (req, res) => {
         // Check for existing active shift
         const [existing] = await db.select()
             .from(shifts)
-            .where(and(eq(shifts.userId, userId), eq(shifts.status, 'active')))
+            .where(and(
+                eq(shifts.userId, userId),
+                eq(shifts.businessId, req.businessId),
+                eq(shifts.status, 'active')
+            ))
             .limit(1);
 
         if (existing) {
@@ -65,6 +76,7 @@ exports.startShift = async (req, res) => {
         const [newShift] = await db.insert(shifts)
             .values({
                 userId,
+                businessId: req.businessId,
                 openingBalance: String(Math.max(0, parseFloat(openingBalance || 0))),
                 status: 'active',
                 startTime: new Date()
@@ -73,6 +85,7 @@ exports.startShift = async (req, res) => {
 
         await logActivity({
             userId: req.user.id,
+            businessId: req.businessId,
             userName: req.user.name,
             userRole: req.user.roles,
             action: 'CREATE',
@@ -101,7 +114,11 @@ exports.endShift = async (req, res) => {
 
         const [activeShift] = await db.select()
             .from(shifts)
-            .where(and(eq(shifts.userId, userId), eq(shifts.status, 'active')))
+            .where(and(
+                eq(shifts.userId, userId),
+                eq(shifts.businessId, req.businessId),
+                eq(shifts.status, 'active')
+            ))
             .limit(1);
 
         if (!activeShift) {
@@ -114,7 +131,10 @@ exports.endShift = async (req, res) => {
             cashTotal: sql`COALESCE(SUM(CASE WHEN LOWER(${sales.paymentMethod}) = 'cash' THEN ${sales.total} - ${sales.returnedAmount} ELSE 0 END)::numeric, 0)`
         })
             .from(sales)
-            .where(eq(sales.shiftId, activeShift.id));
+            .where(and(
+                eq(sales.shiftId, activeShift.id),
+                eq(sales.businessId, req.businessId)
+            ));
 
         const totalSales = parseFloat(salesSummary.total);
         const cashSales = parseFloat(salesSummary.cashTotal);
@@ -129,11 +149,15 @@ exports.endShift = async (req, res) => {
                 status: 'closed',
                 note: note || null
             })
-            .where(eq(shifts.id, activeShift.id))
+            .where(and(
+                eq(shifts.id, activeShift.id),
+                eq(shifts.businessId, req.businessId)
+            ))
             .returning();
 
         await logActivity({
             userId: req.user.id,
+            businessId: req.businessId,
             userName: req.user.name,
             userRole: req.user.roles,
             action: 'UPDATE',
@@ -161,8 +185,8 @@ exports.getAllShifts = async (req, res) => {
         if (!hasManageShifts && originalRoles.length > 0) {
             const [permResult] = await db.select({ roleId: rolePermissions.roleId })
                 .from(rolePermissions)
-                .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-                .innerJoin(roles, eq(rolePermissions.roleId, roles.id))
+                .innerJoin(permissions, and(eq(rolePermissions.permissionId, permissions.id), eq(permissions.businessId, req.businessId)))
+                .innerJoin(roles, and(eq(rolePermissions.roleId, roles.id), eq(roles.businessId, req.businessId)))
                 .where(and(
                     eq(permissions.name, 'manage_shifts'),
                     inArray(roles.name, originalRoles)
@@ -189,7 +213,8 @@ exports.getAllShifts = async (req, res) => {
             note: shifts.note
         })
             .from(shifts)
-            .leftJoin(users, eq(shifts.userId, users.id))
+            .leftJoin(users, and(eq(shifts.userId, users.id), eq(users.businessId, req.businessId)))
+            .where(eq(shifts.businessId, req.businessId))
             .orderBy(desc(shifts.id));
 
         // If no manage permission, only see own shifts

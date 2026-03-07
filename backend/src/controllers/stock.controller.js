@@ -1,6 +1,6 @@
 const pool = require("../config/db");
-const { eq, sql, asc, desc } = require("drizzle-orm");
-const { products, categories, stockMovements } = require("../db/schema");
+const { eq, and, sql, asc, desc } = require("drizzle-orm");
+const { products, categories, stockMovements, productBatches } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
@@ -8,6 +8,7 @@ const db = pool.db;
 // GET /api/stock
 exports.getStockStatus = async (req, res) => {
     try {
+        const businessId = req.businessId;
         const result = await db.select({
             id: products.id,
             name: products.name,
@@ -18,7 +19,11 @@ exports.getStockStatus = async (req, res) => {
             category_name: categories.name
         })
             .from(products)
-            .leftJoin(categories, eq(products.categoryId, categories.id))
+            .leftJoin(categories, and(
+                eq(products.categoryId, categories.id),
+                eq(categories.businessId, businessId)
+            ))
+            .where(eq(products.businessId, businessId))
             .orderBy(asc(products.stock));
 
         res.json(result);
@@ -30,7 +35,7 @@ exports.getStockStatus = async (req, res) => {
 // POST /api/stock/adjust
 exports.adjustStock = async (req, res) => {
     try {
-        const { product_id, type, qty, note, reference } = req.body;
+        const { product_id, type, qty, note, reference, purchase_cost } = req.body;
 
         if (!product_id || !type || qty === undefined) {
             return res.status(400).json({ error: "Missing required fields" });
@@ -40,7 +45,10 @@ exports.adjustStock = async (req, res) => {
             // 1. Get current stock
             const [prod] = await tx.select({ stock: products.stock })
                 .from(products)
-                .where(eq(products.id, product_id))
+                .where(and(
+                    eq(products.id, product_id),
+                    eq(products.businessId, req.businessId)
+                ))
                 .limit(1);
 
             if (!prod) {
@@ -63,13 +71,67 @@ exports.adjustStock = async (req, res) => {
             }
 
             // 2. Update product stock
-            await tx.update(products).set({ stock: newStock }).where(eq(products.id, product_id));
+            await tx.update(products).set({ stock: newStock }).where(and(eq(products.id, product_id), eq(products.businessId, req.businessId)));
+
+            // 4. Batch/Lot Tracking Logic
+            if (type === "increase" || type === "return") {
+                // Fetch product supplierId if not provided
+                const [productInfo] = await tx.select({ supplierId: products.supplierId }).from(products).where(eq(products.id, product_id));
+
+                await tx.insert(productBatches).values({
+                    businessId: req.businessId,
+                    productId: product_id,
+                    supplierId: productInfo?.supplierId,
+                    batchNumber: reference || `BATCH-${Date.now()}`,
+                    purchasePrice: purchase_cost || 0,
+                    originalQty: movementQty,
+                    remainingQty: movementQty,
+                });
+            } else if (type === "decrease" || type === "damaged") {
+                // FIFO Consumption
+                let qtyToConsume = movementQty;
+                const availableBatches = await tx.select()
+                    .from(productBatches)
+                    .where(and(
+                        eq(productBatches.productId, product_id),
+                        eq(productBatches.businessId, req.businessId),
+                        sql`${productBatches.remainingQty} > 0`
+                    ))
+                    .orderBy(asc(productBatches.createdAt));
+
+                for (const batch of availableBatches) {
+                    if (qtyToConsume <= 0) break;
+                    const canTake = Math.min(qtyToConsume, batch.remainingQty);
+                    await tx.update(productBatches)
+                        .set({ remainingQty: batch.remainingQty - canTake })
+                        .where(eq(productBatches.id, batch.id));
+                    qtyToConsume -= canTake;
+                }
+            } else if (type === "adjustment") {
+                // For direct adjustment, we force remainingQty of all batches to 0 and create a balancing batch
+                await tx.update(productBatches)
+                    .set({ remainingQty: 0 })
+                    .where(and(eq(productBatches.productId, product_id), eq(productBatches.businessId, req.businessId)));
+
+                if (newStock > 0) {
+                    await tx.insert(productBatches).values({
+                        businessId: req.businessId,
+                        productId: product_id,
+                        batchNumber: "ADJUSTMENT-BALANCING",
+                        originalQty: newStock,
+                        remainingQty: newStock,
+                        purchasePrice: purchase_cost || 0
+                    });
+                }
+            }
 
             // 3. Record movement
             await tx.insert(stockMovements).values({
+                businessId: req.businessId,
                 productId: product_id,
                 type,
-                qty: movementQty,
+                qty: (type === "adjustment") ? (newStock - currentStock) : movementQty,
+                purchaseCost: purchase_cost || 0,
                 reference: reference || "Manual Adjustment",
                 note: note || ""
             });
@@ -78,11 +140,18 @@ exports.adjustStock = async (req, res) => {
         });
 
         // Fetch product name for logging
-        const [prodInfo] = await db.select({ name: products.name }).from(products).where(eq(products.id, product_id)).limit(1);
+        const [prodInfo] = await db.select({ name: products.name })
+            .from(products)
+            .where(and(
+                eq(products.id, product_id),
+                eq(products.businessId, req.businessId)
+            ))
+            .limit(1);
 
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'UPDATE',
@@ -110,6 +179,7 @@ exports.getMovementHistory = async (req, res) => {
             productId: stockMovements.productId,
             type: stockMovements.type,
             qty: stockMovements.qty,
+            purchaseCost: stockMovements.purchaseCost,
             reference: stockMovements.reference,
             note: stockMovements.note,
             created_at: stockMovements.createdAt,
@@ -117,7 +187,8 @@ exports.getMovementHistory = async (req, res) => {
             sku: products.sku
         })
             .from(stockMovements)
-            .innerJoin(products, eq(stockMovements.productId, products.id))
+            .innerJoin(products, and(eq(stockMovements.productId, products.id), eq(products.businessId, req.businessId)))
+            .where(eq(stockMovements.businessId, req.businessId))
             .orderBy(desc(stockMovements.createdAt));
 
         if (limit) {
@@ -131,7 +202,9 @@ exports.getMovementHistory = async (req, res) => {
         }
 
         // Get total count for pagination
-        const [totalCount] = await db.select({ count: sql`count(*)::int` }).from(stockMovements);
+        const [totalCount] = await db.select({ count: sql`count(*)::int` })
+            .from(stockMovements)
+            .where(eq(stockMovements.businessId, req.businessId));
 
         res.json({
             data: result,

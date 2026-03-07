@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Container, Row, Col, Card, Button, Spinner } from "react-bootstrap";
-import { api } from "../api/client";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { fetchAnalyticsReport, exportSalesReportCsv } from "../api/reportApi";
+import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { toast } from "react-toastify";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Skeleton from "../components/Skeleton";
 
 // Shared Components
 import ChartTooltip from "../components/ChartTooltip";
@@ -15,37 +18,32 @@ import BestSellersTable from "../components/Reports/BestSellersTable";
 import CustomerBreakdownTable from "../components/Reports/CustomerBreakdownTable";
 
 export default function Reports() {
+    const { token } = useAuth();
     const { currencySymbol } = useSettings();
-    const [loading, setLoading] = useState(true);
-    const [exporting, setExporting] = useState(false);
-    const [data, setData] = useState({
-        summary: { totalSales: 0, totalRevenue: 0, totalCustomers: 0, avgOrderValue: 0 },
-        chartData: [],
-        topProducts: [],
-        customerStats: []
-    });
-
     const [filters, setFilters] = useState({
         startDate: new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0]
     });
+    const [exporting, setExporting] = useState(false);
 
-    const fetchAnalytics = async () => {
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams(filters).toString();
-            const res = await api.get(`/api/reports/analytics?${queryParams}`);
-            setData(res.data);
-        } catch (err) {
-            toast.error("Failed to load analytics");
-        } finally {
-            setLoading(false);
-        }
+    const { data: reportData, isLoading: queryLoading } = useQuery({
+        queryKey: ["analytics", filters],
+        queryFn: async () => {
+            const res = await fetchAnalyticsReport(filters, token);
+            return res.data;
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
+
+    const data = reportData || {
+        summary: { totalSales: 0, totalRevenue: 0, totalCustomers: 0, avgOrderValue: 0 },
+        chartData: [],
+        topProducts: [],
+        customerStats: []
     };
 
-    useEffect(() => {
-        fetchAnalytics();
-    }, []);
+    const loading = queryLoading;
 
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
@@ -54,10 +52,7 @@ export default function Reports() {
     const handleExportCsv = async () => {
         setExporting(true);
         try {
-            const queryParams = new URLSearchParams(filters).toString();
-            const response = await api.get(`/api/reports/export-csv?${queryParams}`, {
-                responseType: 'blob'
-            });
+            const response = await exportSalesReportCsv(filters, token);
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -73,14 +68,6 @@ export default function Reports() {
     };
 
     const handlePrint = () => window.print();
-
-    if (loading && !data.chartData.length) {
-        return (
-            <div className="d-flex justify-content-center align-items-center h-100">
-                <Spinner animation="border" variant="primary" />
-            </div>
-        );
-    }
 
     return (
         <Container fluid className="py-4 report-container">
@@ -109,32 +96,36 @@ export default function Reports() {
             <ReportFilter
                 filters={filters}
                 onChange={handleFilterChange}
-                onApply={fetchAnalytics}
+                onApply={() => { }} // useQuery will automatically refetch when filters change
                 loading={loading}
             />
 
-            <ReportsKPIs data={data} currencySymbol={currencySymbol} />
+            <ReportsKPIs data={data} currencySymbol={currencySymbol} loading={loading} />
 
             <Row className="mb-4">
                 <Col lg={12}>
                     <Card className="glass shadow-soft border-0 p-4">
                         <h6 className="fw-bold text-white mb-4">Daily Revenue Trend</h6>
                         <div style={{ width: "100%", height: 350 }}>
-                            <ResponsiveContainer>
-                                <AreaChart data={data.chartData}>
-                                    <defs>
-                                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
-                                    <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} tickFormatter={(val) => `${currencySymbol}${val}`} />
-                                    <Tooltip content={<ChartTooltip currencySymbol={currencySymbol} />} />
-                                    <Area type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={3} fill="url(#colorRevenue)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                            {loading && data.chartData.length === 0 ? (
+                                <Skeleton height="350px" />
+                            ) : (
+                                <ResponsiveContainer>
+                                    <AreaChart data={data.chartData}>
+                                        <defs>
+                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                        <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
+                                        <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} tickFormatter={(val) => `${currencySymbol}${val}`} />
+                                        <Tooltip content={<ChartTooltip currencySymbol={currencySymbol} />} />
+                                        <Area type="monotone" dataKey="revenue" stroke="#22c55e" strokeWidth={3} fill="url(#colorRevenue)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            )}
                         </div>
                     </Card>
                 </Col>
@@ -142,10 +133,10 @@ export default function Reports() {
 
             <Row className="g-4">
                 <Col lg={6}>
-                    <BestSellersTable data={data} currencySymbol={currencySymbol} />
+                    <BestSellersTable data={data} currencySymbol={currencySymbol} loading={loading} />
                 </Col>
                 <Col lg={6}>
-                    <CustomerBreakdownTable data={data} currencySymbol={currencySymbol} />
+                    <CustomerBreakdownTable data={data} currencySymbol={currencySymbol} loading={loading} />
                 </Col>
             </Row>
 

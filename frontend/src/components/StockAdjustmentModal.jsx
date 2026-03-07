@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
+import { adjustStock } from "../api/stockApi";
 import { api } from "../api/client";
 import { toast } from "react-toastify";
 import { useAuth } from "../auth/AuthContext";
@@ -9,6 +10,7 @@ export default function StockAdjustmentModal({ show, onHide, product, onSuccess 
     const [formData, setFormData] = useState({
         type: "increase", // increase, decrease, adjustment
         qty: 0,
+        purchase_cost: product?.costPrice || 0,
         note: "",
         reference: "Manual Adjustment"
     });
@@ -18,6 +20,7 @@ export default function StockAdjustmentModal({ show, onHide, product, onSuccess 
             setFormData({
                 type: "increase",
                 qty: 0,
+                purchase_cost: product?.costPrice || 0,
                 note: "",
                 reference: "Manual Adjustment"
             });
@@ -26,17 +29,15 @@ export default function StockAdjustmentModal({ show, onHide, product, onSuccess 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (formData.qty < 0 && formData.type !== "adjustment") {
-            return toast.error("Quantity must be positive for increase/decrease");
+        if (formData.qty <= 0 && formData.type !== "adjustment") {
+            return toast.error(`Quantity must be greater than 0 for ${formData.type}`);
         }
 
         try {
-            await api.post(`/api/stock/adjust`, {
+            await adjustStock({
                 product_id: product.id,
                 ...formData
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            }, token);
 
             toast.success("Stock updated successfully");
             onHide();
@@ -85,6 +86,23 @@ export default function StockAdjustmentModal({ show, onHide, product, onSuccess 
                             required
                         />
                     </Form.Group>
+
+                    {formData.type === "increase" && (
+                        <Form.Group className="mb-3">
+                            <Form.Label className="text-muted small fw-bold">PURCHASE COST (PER UNIT)</Form.Label>
+                            <Form.Control
+                                type="number"
+                                step="0.01"
+                                value={formData.purchase_cost}
+                                onChange={e => setFormData({ ...formData, purchase_cost: e.target.value })}
+                                className="bg-dark text-light border-secondary shadow-none"
+                                required
+                            />
+                            <Form.Text className="text-info fw-bold d-block mt-1" style={{ fontSize: '0.9rem' }}>
+                                Total Purchase Price: {(parseFloat(formData.qty || 0) * parseFloat(formData.purchase_cost || 0)).toLocaleString()}
+                            </Form.Text>
+                        </Form.Group>
+                    )}
 
                     <Form.Group className="mb-3">
                         <Form.Label className="text-muted small fw-bold">REFERENCE</Form.Label>

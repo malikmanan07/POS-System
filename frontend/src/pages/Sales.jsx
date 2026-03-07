@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { fetchSalesList, fetchSaleDetails } from "../api/saleApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
@@ -9,48 +11,44 @@ import SaleDetailsModal from "../components/SaleDetailsModal";
 import PaginationControl from "../components/PaginationControl";
 import SaleTable from "../components/Sales/SaleTable";
 import ReturnSaleModal from "../components/Sales/ReturnSaleModal";
+import Skeleton from "../components/Skeleton";
 
 export default function Sales() {
-  const [sales, setSales] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { token, hasPermission } = useAuth();
+  const { currencySymbol, settings } = useSettings();
+  const queryClient = useQueryClient();
+  const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
+
   const [filters, setFilters] = useState({
     search: "",
     startDate: "",
     endDate: ""
   });
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 1 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 10 });
   const [showModal, setShowModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [selectedReturnId, setSelectedReturnId] = useState(null);
-  const { token, hasPermission } = useAuth();
-  const { currencySymbol, settings } = useSettings();
-  const isCashierLike = hasPermission("create_sale") && !hasPermission("view_reports");
-  const API_PATH = "/api/sales";
 
-  useEffect(() => {
-    fetchSales(pagination.page);
-  }, [pagination.page]);
-
-  const fetchSales = async (page = 1) => {
-    setLoading(true);
-    try {
+  const { data: salesData, isLoading: loading } = useQuery({
+    queryKey: ["sales", pagination.page, filters],
+    queryFn: async () => {
       const { search, startDate, endDate } = filters;
-      const res = await api.get(`${API_PATH}?page=${page}&limit=${pagination.limit}&search=${search}&startDate=${startDate}&endDate=${endDate}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setSales(res.data.data);
-      setPagination(prev => ({
-        ...prev,
-        ...res.data.pagination,
-        pages: res.data.pagination.pages || res.data.pagination.totalPages || 1
-      }));
-    } catch (err) {
-      toast.error("Failed to load sales history");
-    } finally {
-      setLoading(false);
-    }
-  };
+      const res = await fetchSalesList({
+        page: pagination.page,
+        limit: pagination.limit,
+        search,
+        startDate,
+        endDate
+      }, token);
+      return res.data;
+    },
+    enabled: !!token,
+    placeholderData: keepPreviousData
+  });
+
+  const sales = salesData?.data || [];
+  const serverPagination = salesData?.pagination || { total: 0, pages: 1, page: 1, limit: 10 };
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -60,24 +58,17 @@ export default function Sales() {
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     setPagination(prev => ({ ...prev, page: 1 }));
-    // If we're already on page 1, manually call fetchSales
-    if (pagination.page === 1) {
-      fetchSales(1);
-    }
+    queryClient.invalidateQueries({ queryKey: ["sales"] });
   };
 
   const clearFilters = () => {
     setFilters({ search: "", startDate: "", endDate: "" });
     setPagination(prev => ({ ...prev, page: 1 }));
-    // Small timeout to allow state update if already on page 1
-    setTimeout(() => fetchSales(1), 0);
   };
 
   const handleViewDetail = async (id) => {
     try {
-      const res = await api.get(`${API_PATH}/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetchSaleDetails(id, token);
       setSelectedSale(res.data);
       setShowModal(true);
     } catch (err) {
@@ -168,7 +159,7 @@ export default function Sales() {
       <SaleTable
         loading={loading}
         sales={sales}
-        pagination={pagination}
+        pagination={{ ...pagination, total: serverPagination.total }}
         currencySymbol={currencySymbol}
         isCashierLike={isCashierLike}
         handleViewDetail={handleViewDetail}
@@ -177,7 +168,11 @@ export default function Sales() {
 
       <div className="mt-4">
         <PaginationControl
-          pagination={pagination}
+          pagination={{
+            ...pagination,
+            total: serverPagination.total,
+            pages: serverPagination.pages || serverPagination.totalPages || 1
+          }}
           setPage={(page) => setPagination(prev => ({ ...prev, page }))}
         />
       </div>
@@ -196,7 +191,11 @@ export default function Sales() {
         saleId={selectedReturnId}
         token={token}
         currencySymbol={currencySymbol}
-        onSuccess={() => fetchSales(pagination.page)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["sales"] });
+          queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+          queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+        }}
       />
     </div>
   );

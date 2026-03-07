@@ -1,9 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "react-toastify";
 import { api } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchProducts as getProducts, fetchCategoriesFlat } from "../api/productApi";
+import { fetchCustomersList, createCustomer } from "../api/customerSupplierApi";
+import { fetchDiscountsList } from "../api/discountApi";
+import { createSale } from "../api/saleApi";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 import { Row, Col, Form, Button } from "react-bootstrap";
+import Skeleton from "../components/Skeleton";
 
 // Components
 import POSProductCard from "../components/POSProductCard";
@@ -25,6 +31,7 @@ export default function POS() {
   const { token, hasPermission, user } = useAuth();
   const { settings, currencySymbol: currency } = useSettings();
   const { activeShift, loading: shiftLoading } = useShift();
+  const queryClient = useQueryClient();
 
   const userRoles = useMemo(() => (user?.roles || []).map(r => (typeof r === 'string' ? r : r.name || "").toLowerCase()), [user]);
   const isAdmin = useMemo(() =>
@@ -36,10 +43,53 @@ export default function POS() {
   const needsShift = isCashier;
 
   // State
-  const [products, setProducts] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [discounts, setDiscounts] = useState([]);
+  // React Query Fetching
+  const { data: productsData, isLoading: loadingProducts } = useQuery({
+    queryKey: ["products-pos"],
+    queryFn: async () => {
+      const res = await getProducts(token);
+      return res.data?.filter(p => p.is_active) || [];
+    },
+    enabled: !!token
+  });
+
+  const { data: customersData } = useQuery({
+    queryKey: ["customers-list"],
+    queryFn: async () => {
+      const res = await fetchCustomersList(token);
+      return Array.isArray(res.data) ? res.data : (res.data.data || []);
+    },
+    enabled: !!token
+  });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories-flat"],
+    queryFn: async () => {
+      const res = await fetchCategoriesFlat(token);
+      return res.data || [];
+    },
+    enabled: !!token
+  });
+
+  const { data: discountsData } = useQuery({
+    queryKey: ["discounts-pos"],
+    queryFn: async () => {
+      const res = await fetchDiscountsList(token);
+      const now = new Date();
+      return res.data?.filter(d => {
+        if (!d.isActive) return false;
+        if (d.startDate && new Date(d.startDate) > now) return false;
+        if (d.endDate && new Date(d.endDate) < now) return false;
+        return true;
+      }) || [];
+    },
+    enabled: !!token
+  });
+
+  const products = productsData || [];
+  const customers = customersData || [];
+  const categories = categoriesData || [];
+  const discounts = discountsData || [];
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
@@ -57,115 +107,7 @@ export default function POS() {
 
   const itemsPerPage = 12;
 
-  // Barcode Scanner Logic
-  const barcodeBuffer = useRef("");
-  const lastBarcodeCharTime = useRef(0);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Don't process barcode if a modal is open
-      if (showReceipt || showShiftModal) return;
-
-      // Ignore if typing in an input field normally (like search or note)
-      // BUT scanners often trigger Enter, so we allow it if the buffer is fast
-      const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
-
-      const currentTime = Date.now();
-      const timeDiff = currentTime - lastBarcodeCharTime.current;
-
-      // Scanners are extremely fast (usually < 20ms between keys)
-      // Manual typing is slower (> 80ms). 
-      // We use 50ms as a safe threshold.
-      if (timeDiff > 50) {
-        barcodeBuffer.current = "";
-      }
-
-      if (e.key === 'Enter') {
-        if (barcodeBuffer.current.length >= 2) {
-          const sku = barcodeBuffer.current.trim();
-          const product = products.find(p => p.sku && p.sku.toLowerCase() === sku.toLowerCase());
-
-          if (product) {
-            addToCart(product);
-            toast.success(`Scanned: ${product.name}`, { autoClose: 1500, position: "bottom-center" });
-            // If we were in an input, clear it to prevent the barcode from staying there
-            if (isInput) {
-              e.preventDefault();
-              document.activeElement.value = "";
-            }
-          }
-          barcodeBuffer.current = "";
-        }
-      } else if (e.key.length === 1) {
-        barcodeBuffer.current += e.key;
-      }
-
-      lastBarcodeCharTime.current = currentTime;
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [products, showReceipt, showShiftModal]);
-
-  useEffect(() => {
-    if (token) {
-      fetchProducts();
-      fetchCustomers();
-      fetchDiscounts();
-      fetchCategories();
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (settings?.payment?.defaultMethod) {
-      setPaymentMethod(settings.payment.defaultMethod);
-    }
-  }, [settings]);
-
-  const fetchDiscounts = async () => {
-    try {
-      const res = await api.get("/api/discounts", { headers: { Authorization: `Bearer ${token}` } });
-      const now = new Date();
-      const active = res.data.filter(d => {
-        if (!d.isActive) return false;
-        if (d.startDate && new Date(d.startDate) > now) return false;
-        if (d.endDate && new Date(d.endDate) < now) return false;
-        return true;
-      });
-      setDiscounts(active);
-    } catch (err) {
-      console.error("Error loading discounts");
-    }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      const res = await api.get("/api/products?limit=all", { headers: { Authorization: `Bearer ${token}` } });
-      setProducts(res.data.filter(p => p.is_active));
-    } catch (err) {
-      toast.error("Error loading products");
-    }
-  };
-
-  const fetchCustomers = async () => {
-    try {
-      const res = await api.get("/api/customers?limit=all", { headers: { Authorization: `Bearer ${token}` } });
-      const customerData = Array.isArray(res.data) ? res.data : (res.data.data || []);
-      setCustomers(customerData);
-    } catch (err) {
-      toast.error("Error loading customers");
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get("/api/categories?limit=all", { headers: { Authorization: `Bearer ${token}` } });
-      setCategories(res.data || []);
-    } catch (err) {
-      console.error("Error loading categories");
-    }
-  };
-
+  // Filter Logic (Moved up to prevent ReferenceError)
   const getDescendantCategoryIds = (catId) => {
     const ids = [catId];
     const children = categories.filter(c => c.parentId === catId);
@@ -182,6 +124,62 @@ export default function POS() {
       return matchesSearch && matchesCategory;
     });
   }, [products, searchTerm, selectedCategoryId, categories]);
+
+  // Barcode Scanner Logic
+  const barcodeBuffer = useRef("");
+  const lastBarcodeCharTime = useRef(0);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Don't process barcode if a modal is open
+      if (showReceipt || showShiftModal) return;
+
+      const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+      const isSearchInput = document.activeElement.classList.contains('pos-search-input');
+
+      // If we are in the search input, let its own onKeyDown handle the Enter
+      if (e.key === 'Enter' && isSearchInput) return;
+
+      const currentTime = Date.now();
+      const timeDiff = currentTime - lastBarcodeCharTime.current;
+
+      // Scanners are extremely fast (usually < 20ms between keys)
+      if (timeDiff > 50) {
+        barcodeBuffer.current = "";
+      }
+
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.current.length >= 2) {
+          const sku = barcodeBuffer.current.trim();
+          const product = products.find(p => p.sku && p.sku.toLowerCase() === sku.toLowerCase());
+
+          if (product) {
+            addToCart(product);
+            toast.success(`Scanned: ${product.name}`, { autoClose: 1500, position: "bottom-center" });
+            if (isInput) {
+              e.preventDefault();
+              document.activeElement.value = "";
+            }
+          }
+          barcodeBuffer.current = "";
+        }
+      } else if (e.key.length === 1) {
+        barcodeBuffer.current += e.key;
+      }
+
+      lastBarcodeCharTime.current = currentTime;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [products, showReceipt, showShiftModal, searchTerm, filteredProducts]);
+
+  useEffect(() => {
+    if (settings?.payment?.defaultMethod) {
+      setPaymentMethod(settings.payment.defaultMethod);
+    }
+  }, [settings]);
+
 
   const totalPosPages = Math.ceil(filteredProducts.length / itemsPerPage);
   const paginatedProducts = useMemo(() => {
@@ -324,13 +322,15 @@ export default function POS() {
     };
 
     try {
-      const res = await api.post("/api/sales", saleData, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await createSale(saleData, token);
       setLastSale({ ...res.data, items: cart });
       toast.success("Sale completed");
       window.dispatchEvent(new CustomEvent("saleCompleted"));
       setCart([]); setPaidAmount(""); setPaymentReference(""); setSelectedCustomer("");
       setSelectedDiscountId(""); setShowReceipt(true);
-      fetchProducts();
+      queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+      queryClient.invalidateQueries({ queryKey: ["stock"] });
+      queryClient.invalidateQueries({ queryKey: ["lowStock"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Checkout failed");
     }
@@ -339,16 +339,28 @@ export default function POS() {
   const handleAddCustomer = async (newCust) => {
     setIsSavingCustomer(true);
     try {
-      const res = await api.post("/api/customers", newCust, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await createCustomer(newCust, token);
       toast.success("Customer added");
-      await fetchCustomers();
       setSelectedCustomer(res.data.id);
+      queryClient.invalidateQueries({ queryKey: ["customers-list"] });
       return true;
     } catch (err) {
       toast.error(err.response?.data?.error || "Error adding customer");
       return false;
     } finally {
       setIsSavingCustomer(false);
+    }
+  };
+
+  const handleSearchEnter = () => {
+    if (filteredProducts.length > 0) {
+      const product = filteredProducts[0];
+      addToCart(product);
+      toast.success(`Added: ${product.name}`, { autoClose: 1000, position: "bottom-center" });
+      setSearchTerm("");
+      barcodeBuffer.current = ""; // Clear buffer to prevent double add from global listener
+    } else {
+      toast.info("No product found matching search", { autoClose: 1500 });
     }
   };
 
@@ -370,6 +382,7 @@ export default function POS() {
             totalProducts={filteredProducts.length}
             currentPage={posPage}
             totalPages={totalPosPages}
+            onSearchEnter={handleSearchEnter}
           />
 
           <POSCategoryFilter

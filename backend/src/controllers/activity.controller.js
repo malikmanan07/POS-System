@@ -12,8 +12,9 @@ exports.getAll = async (req, res) => {
         const offset = (page - 1) * limit;
 
         const { module, userName, startDate, endDate } = req.query;
+        const businessId = req.businessId;
 
-        let whereClauses = [];
+        let whereClauses = [eq(activityLogs.businessId, businessId)];
 
         if (module) {
             whereClauses.push(eq(activityLogs.module, module.toUpperCase()));
@@ -31,7 +32,7 @@ exports.getAll = async (req, res) => {
             whereClauses.push(lte(activityLogs.createdAt, end));
         }
 
-        const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
+        const where = and(...whereClauses);
 
         const results = await db.select()
             .from(activityLogs)
@@ -62,8 +63,9 @@ exports.getAll = async (req, res) => {
 exports.exportCsv = async (req, res) => {
     try {
         const { module, userName, startDate, endDate } = req.query;
+        const businessId = req.businessId;
 
-        let whereClauses = [];
+        let whereClauses = [eq(activityLogs.businessId, businessId)];
         if (module) whereClauses.push(eq(activityLogs.module, module.toUpperCase()));
         if (userName) whereClauses.push(ilike(activityLogs.userName, `%${userName}%`));
         if (startDate) whereClauses.push(gte(activityLogs.createdAt, new Date(startDate)));
@@ -73,7 +75,7 @@ exports.exportCsv = async (req, res) => {
             whereClauses.push(lte(activityLogs.createdAt, end));
         }
 
-        const where = whereClauses.length > 0 ? and(...whereClauses) : undefined;
+        const where = and(...whereClauses);
 
         const logs = await db.select()
             .from(activityLogs)
@@ -103,6 +105,7 @@ exports.getModules = async (req, res) => {
             module: activityLogs.module
         })
             .from(activityLogs)
+            .where(eq(activityLogs.businessId, req.businessId))
             .groupBy(activityLogs.module)
             .orderBy(activityLogs.module);
 

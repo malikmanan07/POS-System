@@ -1,10 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "react-bootstrap";
 import { toast } from "react-toastify";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { fetchSuppliersList, createSupplier, updateSupplier, deleteSupplier, fetchSupplierProducts } from "../api/customerSupplierApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import PaginationControl from "../components/PaginationControl";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Skeleton from "../components/Skeleton";
 
 // Components
 import SupplierFormModal from "../components/Suppliers/SupplierFormModal";
@@ -13,8 +16,7 @@ import SupplierTable from "../components/Suppliers/SupplierTable";
 
 export default function Suppliers() {
     const { token, hasPermission } = useAuth();
-    const [suppliers, setSuppliers] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [showModal, setShowModal] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
@@ -32,23 +34,17 @@ export default function Suppliers() {
     const [productSearchTerm, setProductSearchTerm] = useState("");
     const [productPagination, setProductPagination] = useState({ page: 1, limit: 5 });
 
-    useEffect(() => {
-        fetchSuppliers();
-    }, []);
+    const { data: suppliersData, isLoading: loading } = useQuery({
+        queryKey: ["suppliers"],
+        queryFn: async () => {
+            const res = await fetchSuppliersList(token);
+            return res.data || [];
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
 
-    const fetchSuppliers = async () => {
-        setLoading(true);
-        try {
-            const res = await api.get("/api/suppliers", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setSuppliers(res.data || []);
-        } catch (err) {
-            toast.error("Error loading suppliers");
-        } finally {
-            setLoading(false);
-        }
-    };
+    const suppliers = suppliersData || [];
 
     // Instant High-speed Search
     const filteredSuppliers = useMemo(() => {
@@ -67,9 +63,6 @@ export default function Suppliers() {
         return filteredSuppliers.slice(start, start + pagination.limit);
     }, [filteredSuppliers, pagination.page, pagination.limit]);
 
-    useEffect(() => {
-        setPagination(prev => ({ ...prev, page: 1 }));
-    }, [searchTerm]);
 
     // Modal Products Search & Pagination
     const filteredModalProducts = useMemo(() => {
@@ -114,17 +107,13 @@ export default function Suppliers() {
         setIsSaving(true);
         try {
             if (editingSupplier) {
-                await api.put(`/api/suppliers/${editingSupplier.id}`, formData, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await updateSupplier(editingSupplier.id, formData, token);
                 toast.success("Supplier updated successfully");
             } else {
-                await api.post("/api/suppliers", formData, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await createSupplier(formData, token);
                 toast.success("Supplier added successfully");
             }
-            fetchSuppliers();
+            queryClient.invalidateQueries({ queryKey: ["suppliers"] });
             setShowModal(false);
         } catch (err) {
             toast.error(err.response?.data?.error || "Error saving supplier");
@@ -141,11 +130,9 @@ export default function Suppliers() {
         const id = confirmDialog.id;
         setConfirmDialog({ show: false, id: null, name: "" });
         try {
-            await api.delete(`/api/suppliers/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await deleteSupplier(id, token);
             toast.success("Supplier deleted successfully");
-            fetchSuppliers();
+            queryClient.invalidateQueries({ queryKey: ["suppliers"] });
         } catch (err) {
             toast.error(err.response?.data?.error || "Error deleting supplier");
         }
@@ -159,9 +146,7 @@ export default function Suppliers() {
         setLoadingProducts(true);
         setShowProductsModal(true);
         try {
-            const res = await api.get(`/api/suppliers/${supplier.id}/products`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchSupplierProducts(supplier.id, token);
             setProductsList(res.data || []);
         } catch (err) {
             toast.error("Error loading linked products");

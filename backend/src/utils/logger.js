@@ -14,10 +14,11 @@ const db = pool.db;
  * @param {string} data.details - JSON string or descriptive text
  * @param {string} [data.ipAddress]
  */
-exports.logActivity = async ({ userId, userName, userRole, action, module, details, ipAddress }) => {
+exports.logActivity = async ({ userId, businessId, userName, userRole, action, module, details, ipAddress }) => {
     try {
         await db.insert(activityLogs).values({
             userId,
+            businessId,
             userName: userName || 'Unknown User',
             userRole: userRole ? (Array.isArray(userRole) ? userRole[0] : userRole) : 'User',
             action: action.toUpperCase(),
