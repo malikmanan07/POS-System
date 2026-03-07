@@ -1,61 +1,49 @@
-import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Table, Form, Button, Badge, Spinner } from "react-bootstrap";
+import { useState } from "react";
+import { Container, Row, Col, Card, Form, Button, Badge, Spinner } from "react-bootstrap";
 import PaginationControl from "../components/PaginationControl";
-import { api } from "../api/client";
+import { fetchActivityModules, fetchActivityLogs, exportActivityLogs } from "../api/activityApi";
 import { useAuth } from "../auth/AuthContext";
 import { toast } from "react-toastify";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import Skeleton from "../components/Skeleton";
 
 export default function ActivityLog() {
     const { token } = useAuth();
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [exporting, setExporting] = useState(false);
     const [filters, setFilters] = useState({
         module: "",
         userName: "",
         startDate: "",
         endDate: ""
     });
-    const [pagination, setPagination] = useState({
-        page: 1,
-        pages: 1,
-        total: 0,
-        limit: 12
+    const [page, setPage] = useState(1);
+    const [exporting, setExporting] = useState(false);
+
+    const { data: modulesData } = useQuery({
+        queryKey: ["activityModules"],
+        queryFn: async () => {
+            const res = await fetchActivityModules(token);
+            return res.data || [];
+        },
+        enabled: !!token
     });
-    const [availableModules, setAvailableModules] = useState([]);
 
-    const fetchModules = async () => {
-        try {
-            const res = await api.get("/api/activity/modules");
-            setAvailableModules(res.data);
-        } catch (err) {
-            console.error("Failed to fetch modules", err);
-        }
-    };
-
-    const fetchLogs = async (page = 1, overriddenFilters = null) => {
-        setLoading(true);
-        try {
-            const queryParams = new URLSearchParams({
+    const { data: logsData, isLoading: loading } = useQuery({
+        queryKey: ["activityLogs", page, filters],
+        queryFn: async () => {
+            const res = await fetchActivityLogs({
                 page,
                 limit: 12,
-                ...(overriddenFilters || filters)
-            }).toString();
+                ...filters
+            }, token);
+            return res.data;
+        },
+        enabled: !!token,
+        placeholderData: keepPreviousData
+    });
 
-            const res = await api.get(`/api/activity?${queryParams}`);
-            setLogs(res.data.data);
-            setPagination(res.data.pagination);
-        } catch (err) {
-            toast.error("Failed to fetch activity logs");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchLogs(1);
-        fetchModules();
-    }, []);
+    const logs = logsData?.data || [];
+    const pagination = logsData?.pagination || { page: 1, pages: 1, total: 0, limit: 12 };
+    const availableModules = modulesData || [];
 
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
@@ -64,24 +52,18 @@ export default function ActivityLog() {
 
     const handleSearch = (e) => {
         e.preventDefault();
-        fetchLogs(1);
+        setPage(1);
     };
 
     const resetFilters = () => {
-        const emptyFilters = { module: "", userName: "", startDate: "", endDate: "" };
-        setFilters(emptyFilters);
-        setPagination(prev => ({ ...prev, page: 1 }));
-        fetchLogs(1, emptyFilters);
+        setFilters({ module: "", userName: "", startDate: "", endDate: "" });
+        setPage(1);
     };
 
     const handleExport = async () => {
         setExporting(true);
         try {
-            const queryParams = new URLSearchParams(filters).toString();
-            const response = await api.get(`/api/activity/export?${queryParams}`, {
-                responseType: 'blob'
-            });
-
+            const response = await exportActivityLogs(filters, token);
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -124,14 +106,14 @@ export default function ActivityLog() {
 
     return (
         <Container fluid className="py-4">
-            <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
                 <div>
                     <h2 className="page-title text-white mb-0">System Activity Log</h2>
                     <p className="text-muted small">Track every action across the POS system</p>
                 </div>
                 <Button
                     variant="outline-success"
-                    className="d-flex align-items-center gap-2"
+                    className="d-flex align-items-center justify-content-center gap-2"
                     onClick={handleExport}
                     disabled={exporting}
                 >
@@ -140,11 +122,10 @@ export default function ActivityLog() {
                 </Button>
             </div>
 
-            {/* Filters */}
             <Card className="glass shadow-soft border-0 mb-4 p-3">
                 <Form onSubmit={handleSearch}>
                     <Row className="g-3 align-items-end">
-                        <Col md={3}>
+                        <Col xs={12} md={3}>
                             <Form.Label className="text-muted small">Module</Form.Label>
                             <Form.Select
                                 name="module"
@@ -160,7 +141,7 @@ export default function ActivityLog() {
                                 ))}
                             </Form.Select>
                         </Col>
-                        <Col md={3}>
+                        <Col xs={12} md={3}>
                             <Form.Label className="text-muted small">User Name</Form.Label>
                             <Form.Control
                                 type="text"
@@ -171,7 +152,7 @@ export default function ActivityLog() {
                                 className="bg-dark text-white border-secondary"
                             />
                         </Col>
-                        <Col md={2}>
+                        <Col xs={6} md={2}>
                             <Form.Label className="text-muted small">From</Form.Label>
                             <Form.Control
                                 type="date"
@@ -182,7 +163,7 @@ export default function ActivityLog() {
                                 style={{ fontSize: '0.85rem' }}
                             />
                         </Col>
-                        <Col md={2}>
+                        <Col xs={6} md={2}>
                             <Form.Label className="text-muted small">To</Form.Label>
                             <Form.Control
                                 type="date"
@@ -193,7 +174,7 @@ export default function ActivityLog() {
                                 style={{ fontSize: '0.85rem' }}
                             />
                         </Col>
-                        <Col md={2} className="d-flex gap-2">
+                        <Col xs={12} md={2} className="d-flex gap-2">
                             <Button type="submit" variant="primary" className="flex-grow-1">
                                 <i className="bi bi-search"></i>
                             </Button>
@@ -205,28 +186,33 @@ export default function ActivityLog() {
                 </Form>
             </Card>
 
-            {/* Table */}
-            <Card className="glass shadow-soft border-0 overflow-hidden">
+            <div className="table-darkx">
                 <div className="table-responsive">
-                    <Table hover variant="dark" className="mb-0">
-                        <thead className="bg-black">
-                            <tr>
-                                <th className="ps-4">Time</th>
-                                <th>User</th>
-                                <th>Role</th>
-                                <th>Module</th>
-                                <th>Action</th>
-                                <th>Details</th>
-                                <th className="pe-4 text-end">IP Address</th>
+                    <table className="table table-borderless table-hover mb-0">
+                        <thead>
+                            <tr className="text-nowrap">
+                                <th className="px-4 py-3">TIME</th>
+                                <th className="px-4 py-3">USER</th>
+                                <th className="px-4 py-3">ROLE</th>
+                                <th className="px-4 py-3">MODULE</th>
+                                <th className="px-4 py-3">ACTION</th>
+                                <th className="px-4 py-3">DETAILS</th>
+                                <th className="px-4 py-3 text-end pe-4">IP ADDRESS</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="7" className="text-center py-5">
-                                        <Spinner animation="border" variant="primary" />
-                                    </td>
-                                </tr>
+                            {loading && logs.length === 0 ? (
+                                [...Array(8)].map((_, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-3"><Skeleton width="120px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="100px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="80px" /></td>
+                                        <td className="px-4 py-3"><Skeleton width="220px" /></td>
+                                        <td className="px-4 py-3 text-end"><Skeleton width="100px" className="ms-auto" /></td>
+                                    </tr>
+                                ))
                             ) : logs.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="text-center py-5 text-muted">No logs found</td>
@@ -234,35 +220,35 @@ export default function ActivityLog() {
                             ) : (
                                 logs.map(log => (
                                     <tr key={log.id}>
-                                        <td className="ps-4 small">
+                                        <td className="px-4 py-3 align-middle small text-white">
                                             {new Date(log.createdAt).toLocaleString()}
                                         </td>
-                                        <td>
-                                            <div className="fw-bold">{log.userName || `User #${log.userId}`}</div>
+                                        <td className="px-4 py-3 align-middle">
+                                            <div className="fw-bold text-white">{log.userName || `User #${log.userId}`}</div>
                                             {log.userName && <div className="text-muted small" style={{ fontSize: '10px' }}>ID: {log.userId}</div>}
                                         </td>
-                                        <td className="small text-capitalize">{log.userRole}</td>
-                                        <td>{getModuleBadge(log.module)}</td>
-                                        <td>{getActionBadge(log.action)}</td>
-                                        <td>
-                                            <div style={{ maxWidth: '300px' }} className="text-truncate" title={log.details}>
+                                        <td className="px-4 py-3 align-middle small text-capitalize text-white-50">{log.userRole}</td>
+                                        <td className="px-4 py-3 align-middle">{getModuleBadge(log.module)}</td>
+                                        <td className="px-4 py-3 align-middle">{getActionBadge(log.action)}</td>
+                                        <td className="px-4 py-3 align-middle">
+                                            <div style={{ maxWidth: '300px' }} className="text-truncate text-white-50" title={log.details}>
                                                 {log.details}
                                             </div>
                                         </td>
-                                        <td className="pe-4 text-end small text-muted">
+                                        <td className="px-4 py-3 text-end align-middle small text-muted pe-4">
                                             {log.ipAddress || '—'}
                                         </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
-                    </Table>
+                    </table>
                 </div>
-            </Card>
+            </div>
 
             <PaginationControl
                 pagination={pagination}
-                setPage={(p) => fetchLogs(p)}
+                setPage={setPage}
             />
         </Container>
     );

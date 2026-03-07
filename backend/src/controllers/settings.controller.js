@@ -1,6 +1,7 @@
 const pool = require("../config/db");
-const { eq, sql } = require("drizzle-orm");
+const { eq, and, sql } = require("drizzle-orm");
 const { settings } = require("../db/schema");
+const { logActivity } = require("../utils/logger");
 
 const db = pool.db;
 
@@ -8,14 +9,17 @@ const db = pool.db;
 exports.getSettings = async (req, res) => {
     try {
         const { key } = req.params;
+        const businessId = req.businessId;
 
         if (key) {
-            const [setting] = await db.select().from(settings).where(eq(settings.key, key)).limit(1);
+            const [setting] = await db.select().from(settings)
+                .where(and(eq(settings.key, key), eq(settings.businessId, businessId)))
+                .limit(1);
             if (!setting) return res.status(404).json({ error: "Setting not found" });
             return res.json(setting);
         }
 
-        const result = await db.select().from(settings);
+        const result = await db.select().from(settings).where(eq(settings.businessId, businessId));
         const settingsMap = {};
         result.forEach(row => {
             settingsMap[row.key] = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
@@ -49,12 +53,28 @@ exports.updateSetting = async (req, res) => {
         }
 
         const [result] = await db.insert(settings)
-            .values({ key, value })
+            .values({
+                businessId: req.businessId,
+                key,
+                value
+            })
             .onConflictDoUpdate({
-                target: settings.key,
+                target: [settings.businessId, settings.key],
                 set: { value, updatedAt: new Date() }
             })
             .returning();
+
+        // Activity Log
+        await logActivity({
+            userId: req.user?.id,
+            businessId: req.businessId,
+            userName: req.user?.name,
+            userRole: req.user?.roles,
+            action: 'UPDATE',
+            module: 'SETTINGS',
+            details: `Updated system setting: ${key}`,
+            ipAddress: req.ip
+        });
 
         res.json({ message: "Setting updated successfully", data: result });
     } catch (err) {

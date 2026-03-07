@@ -13,9 +13,19 @@ const {
 } = require("drizzle-orm/pg-core");
 const { relations } = require("drizzle-orm");
 
+// 0️⃣ BUSINESSES (SaaS / Multi-Tenancy Root)
+const businesses = pgTable("businesses", {
+    id: serial("id").primaryKey(),
+    name: varchar("name", { length: 150 }).notNull(),
+    logo: text("logo"),
+    isSuspended: boolean("is_suspended").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
 // 1️⃣ USERS
 const users = pgTable("users", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     name: varchar("name", { length: 100 }).notNull(),
     email: varchar("email", { length: 120 }).unique().notNull(),
     passwordHash: text("password_hash").notNull(),
@@ -25,13 +35,19 @@ const users = pgTable("users", {
 // 2️⃣ ROLES
 const roles = pgTable("roles", {
     id: serial("id").primaryKey(),
-    name: varchar("name", { length: 50 }).unique().notNull(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
+    name: varchar("name", { length: 50 }).notNull(), // Removed unique() as roles are local to business
+}, (table) => {
+    return {
+        nameBusinessIdx: index("role_name_business_idx").on(table.name, table.businessId),
+    }
 });
 
 // 3️⃣ PERMISSIONS
 const permissions = pgTable("permissions", {
     id: serial("id").primaryKey(),
-    name: varchar("name", { length: 100 }).unique().notNull(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
+    name: varchar("name", { length: 100 }).notNull(), // Removed unique() as permissions are local to business
 });
 
 // 4️⃣ ROLE_PERMISSIONS
@@ -69,26 +85,37 @@ const userRoles = pgTable(
 // 6️⃣ CATEGORIES
 const categories = pgTable("categories", {
     id: serial("id").primaryKey(),
-    name: varchar("name", { length: 100 }).unique().notNull(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
+    name: varchar("name", { length: 100 }).notNull(),
     parentId: integer("parent_id").references(() => categories.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+    return {
+        nameBusinessIdx: index("category_name_business_idx").on(table.name, table.businessId),
+    }
 });
 
 // 7️⃣ CUSTOMERS
 const customers = pgTable("customers", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     name: varchar("name", { length: 120 }).notNull(),
-    phone: varchar("phone", { length: 30 }).unique(),
+    phone: varchar("phone", { length: 30 }),
     email: varchar("email", { length: 120 }),
     address: text("address"),
     createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+    return {
+        phoneBusinessIdx: index("customer_phone_business_idx").on(table.phone, table.businessId),
+    }
 });
 
 // 8️⃣ PRODUCTS
 const products = pgTable("products", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     name: varchar("name", { length: 150 }).notNull(),
-    sku: varchar("sku", { length: 50 }).unique(),
+    sku: varchar("sku", { length: 50 }),
     categoryId: integer("category_id").references(() => categories.id),
     costPrice: numeric("cost_price", { precision: 10, scale: 2 })
         .notNull()
@@ -100,11 +127,16 @@ const products = pgTable("products", {
     image: text("image"),
     supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+    return {
+        skuBusinessIdx: index("product_sku_business_idx").on(table.sku, table.businessId),
+    }
 });
 
 // 9️⃣ SALES
 const sales = pgTable("sales", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     userId: integer("user_id").references(() => users.id),
     customerId: integer("customer_id").references(() => customers.id),
     discountId: integer("discount_id").references(() => discounts.id, { onDelete: "set null" }), // <-- Campaign link
@@ -133,12 +165,14 @@ const sales = pgTable("sales", {
 }, (table) => {
     return {
         salesCreatedAtIndex: index("sales_created_at_idx").on(table.createdAt),
+        salesBusinessIdx: index("sales_business_idx").on(table.businessId),
     }
 });
 
 // 18️⃣ SHIFTS
 const shifts = pgTable("shifts", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     userId: integer("user_id").references(() => users.id).notNull(),
     openingBalance: numeric("opening_balance", { precision: 10, scale: 2 }).notNull().default("0"),
     closingBalance: numeric("closing_balance", { precision: 10, scale: 2 }),
@@ -153,6 +187,7 @@ const shifts = pgTable("shifts", {
 // 10️⃣ SALE_ITEMS
 const saleItems = pgTable("sale_items", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     saleId: integer("sale_id")
         .notNull()
         .references(() => sales.id, { onDelete: "cascade" }),
@@ -168,11 +203,13 @@ const saleItems = pgTable("sale_items", {
 // 11️⃣ STOCK_MOVEMENTS
 const stockMovements = pgTable("stock_movements", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     productId: integer("product_id")
         .notNull()
         .references(() => products.id),
     type: varchar("type", { length: 10 }).notNull(),
     qty: integer("qty").notNull(),
+    purchaseCost: numeric("purchase_cost", { precision: 10, scale: 2 }).default("0"),
     reference: varchar("reference", { length: 50 }),
     note: text("note"),
     createdAt: timestamp("created_at").defaultNow(),
@@ -180,14 +217,20 @@ const stockMovements = pgTable("stock_movements", {
 
 // 12️⃣ SETTINGS
 const settings = pgTable("settings", {
-    key: varchar("key", { length: 50 }).primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
+    key: varchar("key", { length: 50 }).notNull(),
     value: jsonb("value").notNull(),
     updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => {
+    return {
+        pk: primaryKey({ columns: [table.businessId, table.key] }),
+    };
 });
 
 // 13️⃣ ACTIVITY_LOGS
 const activityLogs = pgTable("activity_logs", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
     userName: varchar("user_name", { length: 150 }),
     userRole: varchar("user_role", { length: 100 }),
@@ -201,6 +244,7 @@ const activityLogs = pgTable("activity_logs", {
 // 14️⃣ SUPPLIERS
 const suppliers = pgTable("suppliers", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     name: varchar("name", { length: 150 }).notNull(),
     phone: varchar("phone", { length: 30 }),
     email: varchar("email", { length: 120 }),
@@ -211,6 +255,7 @@ const suppliers = pgTable("suppliers", {
 // 15️⃣ DISCOUNTS
 const discounts = pgTable("discounts", {
     id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
     name: varchar("name", { length: 150 }).notNull(),
     type: varchar("type", { length: 20 }).notNull().default("percentage"), // 'percentage' or 'flat'
     value: numeric("value", { precision: 10, scale: 2 }).notNull(),
@@ -232,6 +277,25 @@ const discountCategories = pgTable("discount_categories", {
     id: serial("id").primaryKey(),
     discountId: integer("discount_id").references(() => discounts.id, { onDelete: "cascade" }),
     categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }),
+});
+
+// 19️⃣ PRODUCT_BATCHES (Lot Tracking)
+const productBatches = pgTable("product_batches", {
+    id: serial("id").primaryKey(),
+    businessId: integer("business_id").references(() => businesses.id).notNull(),
+    productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
+    supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    batchNumber: varchar("batch_number", { length: 50 }), // Auto or Manual
+    purchasePrice: numeric("purchase_price", { precision: 10, scale: 2 }).notNull().default("0"),
+    originalQty: integer("original_qty").notNull().default(0),
+    remainingQty: integer("remaining_qty").notNull().default(0),
+    expiryDate: timestamp("expiry_date"),
+    createdAt: timestamp("created_at").defaultNow(),
+}, (table) => {
+    return {
+        batchProductIdx: index("batch_product_idx").on(table.productId),
+        batchBusinessIdx: index("batch_business_idx").on(table.businessId),
+    }
 });
 
 // --- RELATIONS ---
@@ -291,6 +355,7 @@ const productsRelations = relations(products, ({ one, many }) => ({
     }),
     saleItems: many(saleItems),
     stockMovements: many(stockMovements),
+    productBatches: many(productBatches),
 }));
 
 const customersRelations = relations(customers, ({ many }) => ({
@@ -348,8 +413,14 @@ const discountCategoriesRelations = relations(discountCategories, ({ one }) => (
     category: one(categories, { fields: [discountCategories.categoryId], references: [categories.id] }),
 }));
 
+const productBatchesRelations = relations(productBatches, ({ one }) => ({
+    product: one(products, { fields: [productBatches.productId], references: [products.id] }),
+    supplier: one(suppliers, { fields: [productBatches.supplierId], references: [suppliers.id] }),
+}));
+
 module.exports = {
     users,
+    businesses,
     roles,
     permissions,
     rolePermissions,
@@ -367,6 +438,7 @@ module.exports = {
     discountProducts,
     discountCategories,
     shifts,
+    productBatches,
     // Relations
     usersRelations,
     rolesRelations,
@@ -385,4 +457,5 @@ module.exports = {
     discountProductsRelations,
     discountCategoriesRelations,
     shiftsRelations,
+    productBatchesRelations,
 };

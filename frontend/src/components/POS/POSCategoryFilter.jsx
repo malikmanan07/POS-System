@@ -5,12 +5,13 @@ export default function POSCategoryFilter({ categories, selectedCategoryId, onSe
 
     return (
         <div className="category-scroll-wrapper mb-4">
-            <div className="d-flex gap-2 overflow-auto pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="d-flex gap-2 overflow-auto pb-2 px-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 <Button
                     variant={!selectedCategoryId ? "primary" : "outline-light"}
                     size="sm"
-                    className={`category-chip ${!selectedCategoryId ? 'active' : ''}`}
+                    className={`category-chip px-3 rounded-pill border-0 ${!selectedCategoryId ? 'active glass-active bg-primary' : 'glass-dark'}`}
                     onClick={() => onSelectCategory("")}
+                    style={{ whiteSpace: 'nowrap', minWidth: '60px' }}
                 >
                     All
                 </Button>
@@ -19,8 +20,9 @@ export default function POSCategoryFilter({ categories, selectedCategoryId, onSe
                         key={cat.id}
                         variant={selectedCategoryId === cat.id ? "primary" : "outline-light"}
                         size="sm"
-                        className={`category-chip ${selectedCategoryId === cat.id ? 'active' : ''} parent-chip`}
+                        className={`category-chip px-3 rounded-pill border-0 ${selectedCategoryId === cat.id ? 'active glass-active bg-primary' : 'glass-dark'}`}
                         onClick={() => onSelectCategory(cat.id)}
+                        style={{ whiteSpace: 'nowrap' }}
                     >
                         {cat.name}
                     </Button>

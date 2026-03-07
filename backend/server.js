@@ -1,3 +1,4 @@
+// Backend Server Starting...
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
@@ -18,6 +19,7 @@ const reportsRoutes = require("./src/routes/reports.routes");
 const supplierRoutes = require("./src/routes/suppliers.routes"); // <-- Supplier Routes
 const discountRoutes = require("./src/routes/discounts.routes"); // <-- Discount Routes
 const shiftRoutes = require("./src/routes/shift.routes"); // <-- Shift Routes
+const devRoutes = require("./src/routes/dev.routes"); // <-- Dev Routes
 const { syncPermissions } = require("./src/utils/permission.sync"); // <-- Import sync utility
 const { initCronJobs } = require("./src/utils/cronJobs"); // <-- Import cron jobs
 
@@ -44,6 +46,7 @@ app.use("/api/reports", reportsRoutes);
 app.use("/api/suppliers", supplierRoutes); // <-- New Suppliers route
 app.use("/api/discounts", discountRoutes); // <-- New Discounts route
 app.use("/api/shifts", shiftRoutes); // <-- New Shift Management routes
+app.use("/api/dev", devRoutes); // <-- New Dev routes
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {

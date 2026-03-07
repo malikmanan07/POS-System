@@ -1,7 +1,7 @@
 import { Row, Col } from "react-bootstrap";
 import StatCard from "../StatCard";
 
-export default function ReportsKPIs({ data, currencySymbol }) {
+export default function ReportsKPIs({ data, currencySymbol, loading }) {
     return (
         <Row className="g-3 mb-4">
             <Col md={3}>
@@ -10,6 +10,7 @@ export default function ReportsKPIs({ data, currencySymbol }) {
                     value={data.summary.totalSales}
                     icon="bi-receipt"
                     color="#6d5efc"
+                    loading={loading}
                 />
             </Col>
             <Col md={3}>
@@ -18,6 +19,7 @@ export default function ReportsKPIs({ data, currencySymbol }) {
                     value={`${currencySymbol}${parseFloat(data.summary.totalRevenue).toLocaleString()}`}
                     icon="bi-currency-dollar"
                     color="#22c55e"
+                    loading={loading}
                 />
             </Col>
             <Col md={3}>
@@ -26,6 +28,7 @@ export default function ReportsKPIs({ data, currencySymbol }) {
                     value={data.summary.totalCustomers}
                     icon="bi-people"
                     color="#06b6d4"
+                    loading={loading}
                 />
             </Col>
             <Col md={3}>
@@ -34,6 +37,7 @@ export default function ReportsKPIs({ data, currencySymbol }) {
                     value={`${currencySymbol}${parseFloat(data.summary.avgOrderValue).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                     icon="bi-calculator"
                     color="#f59e0b"
+                    loading={loading}
                 />
             </Col>
         </Row>

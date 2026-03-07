@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { fetchSettingsList, saveSettingsSection } from "../api/settingsApi";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { useSettings } from "../context/SettingsContext";
 
 export default function useSettingsLogic() {
     const [activeTab, setActiveTab] = useState("business");
-    const [loading, setLoading] = useState(true);
     const { token, user } = useAuth();
-    const { refreshSettings } = useSettings();
+    const { settings: globalSettings, loading, refreshSettings } = useSettings();
 
     const [settings, setSettings] = useState({
         business: {
@@ -40,16 +40,8 @@ export default function useSettingsLogic() {
     const [logoPreview, setLogoPreview] = useState(null);
 
     useEffect(() => {
-        if (token) fetchSettings();
-    }, [token]);
-
-    const fetchSettings = async () => {
-        try {
-            setLoading(true);
-            const res = await api.get("/api/settings", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const fetched = res.data;
+        if (!loading && globalSettings) {
+            const fetched = { ...globalSettings };
             if (fetched.payment?.acceptedMethods) {
                 fetched.payment.acceptedMethods = fetched.payment.acceptedMethods.filter(m => m !== "Wallet");
             }
@@ -67,12 +59,8 @@ export default function useSettingsLogic() {
                 if (updated.business.logo) setLogoPreview(updated.business.logo);
                 return updated;
             });
-        } catch (err) {
-            toast.error("Failed to load settings");
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [globalSettings, loading, user]);
 
     const handleChange = (section, field, value) => {
         setSettings(prev => ({
@@ -93,20 +81,13 @@ export default function useSettingsLogic() {
                 formData.append("currency", settings.business.currency);
                 formData.append("email", user?.email || settings.business.email);
 
-                await api.post(`/api/settings/business`, formData, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "multipart/form-data"
-                    }
-                });
+                await saveSettingsSection("business", formData, token);
             } else {
                 const sectionData = { ...settings[activeTab] };
                 if (activeTab === "business") {
                     sectionData.email = user?.email || sectionData.email;
                 }
-                await api.post(`/api/settings/${activeTab}`, sectionData, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await saveSettingsSection(activeTab, sectionData, token);
             }
 
             await refreshSettings();

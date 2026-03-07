@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Modal, Button, Table, Form, Spinner } from "react-bootstrap";
 import { toast } from "react-toastify";
+import { fetchSaleDetails, returnSale } from "../../api/saleApi";
 import { api } from "../../api/client";
 
 export default function ReturnSaleModal({ show, onHide, saleId, token, currencySymbol, onSuccess }) {
@@ -22,9 +23,7 @@ export default function ReturnSaleModal({ show, onHide, saleId, token, currencyS
     const fetchSale = async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/api/sales/${saleId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await fetchSaleDetails(saleId, token);
             setSale(res.data);
             // Initialize return quantities to 0
             const initial = {};
@@ -64,10 +63,7 @@ export default function ReturnSaleModal({ show, onHide, saleId, token, currencyS
 
         setIsSaving(true);
         try {
-            await api.post(`/api/sales/${saleId}/return`,
-                { items: itemsToReturn },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            await returnSale(saleId, { items: itemsToReturn }, token);
             toast.success("Return processed successfully!");
             onSuccess();
             onHide();

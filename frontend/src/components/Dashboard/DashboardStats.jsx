@@ -7,7 +7,8 @@ export default function DashboardStats({
     showCustomerStats,
     data,
     currencySymbol,
-    isCashier
+    isCashier,
+    loading
 }) {
     return (
         <Row className="g-3 mb-4">
@@ -18,6 +19,7 @@ export default function DashboardStats({
                         value={data.kpis.totalProducts}
                         icon="bi-box-seam"
                         hint="Total registered items"
+                        loading={loading}
                     />
                 </Col>
             )}
@@ -30,6 +32,7 @@ export default function DashboardStats({
                         icon="bi-graph-up-arrow"
                         hint="Real-time revenue"
                         color="#22c55e"
+                        loading={loading}
                     />
                 </Col>
             )}
@@ -42,6 +45,7 @@ export default function DashboardStats({
                         icon="bi-exclamation-triangle"
                         hint="SKUs needing refill"
                         color="#ef4444"
+                        loading={loading}
                     />
                 </Col>
             )}
@@ -54,6 +58,7 @@ export default function DashboardStats({
                         icon="bi-people"
                         hint={isCashier ? "Add & search customers" : "Registered clients"}
                         color="#06b6d4"
+                        loading={loading}
                     />
                 </Col>
             )}

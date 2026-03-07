@@ -1,45 +1,39 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { toast } from "react-toastify";
-import { api } from "../api/client";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { fetchCategoriesAll, createCategory, updateCategory, deleteCategory } from "../api/categoryApi";
 import { useAuth } from "../auth/AuthContext";
-// No react-bootstrap imports needed here
 
 import CategoryFormModal from "../components/CategoryFormModal";
 import PaginationControl from "../components/PaginationControl";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Skeleton from "../components/Skeleton";
 
 export default function Categories() {
-  const [categories, setCategories] = useState([]);
+  const { token } = useAuth();
+  const queryClient = useQueryClient();
+
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState("");
-  const [allCategories, setAllCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [pagination, setPagination] = useState({ page: 1, limit: 12 }); // Consistent with other pages
+  const [pagination, setPagination] = useState({ page: 1, limit: 12 });
   const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
-  const [expandedCats, setExpandedCats] = useState({}); // Track which cats are expanded
-  const { token } = useAuth();
-  const API_PATH = "/api/categories";
+  const [expandedCats, setExpandedCats] = useState({});
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  const { data: categoriesData, isLoading: loading } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const res = await fetchCategoriesAll(token);
+      return res.data || [];
+    },
+    enabled: !!token,
+    placeholderData: keepPreviousData
+  });
 
-  const fetchCategories = async () => {
-    try {
-      const res = await api.get(`${API_PATH}?limit=all`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = res.data || [];
-      setCategories(data);
-      setAllCategories(data);
-    } catch (err) {
-      toast.error("Failed to load categories");
-    }
-  };
+  const categories = categoriesData || [];
 
-  // No need for separate fetchAllCategories now as fetchCategories gets everything
   const processedCategories = useMemo(() => {
     const getFullPath = (catId, cats) => {
       const cat = cats.find(c => c.id === catId);
@@ -56,7 +50,7 @@ export default function Categories() {
   }, [categories]);
 
   const filteredCategories = useMemo(() => {
-    return processedCategories; // Can add search term filtering here if needed
+    return processedCategories;
   }, [processedCategories]);
 
   const totalPages = Math.ceil(filteredCategories.length / pagination.limit);
@@ -64,10 +58,9 @@ export default function Categories() {
   const paginatedCategories = useMemo(() => {
     const start = (pagination.page - 1) * pagination.limit;
     return filteredCategories.slice(start, start + pagination.limit);
-  }, [filteredCategories, pagination.page]);
+  }, [filteredCategories, pagination.page, pagination.limit]);
 
   const handleOpenAdd = (pId = "") => {
-    // If called directly from onClick={handleOpenAdd}, pId will be the event object
     const finalParentId = (typeof pId === 'object' && pId !== null) ? "" : pId;
     setEditMode(false);
     setEditId(null);
@@ -92,11 +85,10 @@ export default function Categories() {
     const id = confirmDialog.id;
     setConfirmDialog({ show: false, id: null, name: "" });
     try {
-      await api.delete(`${API_PATH}/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await deleteCategory(id, token);
       toast.success("Category deleted successfully");
-      fetchCategories();
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-flat"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Error deleting category");
     }
@@ -108,35 +100,106 @@ export default function Categories() {
 
     try {
       if (editMode) {
-        await api.put(`${API_PATH}/${editId}`, { name, parentId: parentId || null }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await updateCategory(editId, { name, parentId: parentId || null }, token);
         toast.success("Category updated successfully");
       } else {
-        await api.post(API_PATH, { name, parentId: parentId || null }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await createCategory({ name, parentId: parentId || null }, token);
         toast.success("Category created successfully");
       }
 
       setName("");
       setParentId("");
       setShowModal(false);
-      fetchCategories();
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories-flat"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Error saving category");
     }
   };
 
+  const toggleExpand = (id) => {
+    setExpandedCats(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const renderRows = (parentId = null, level = 0, prefix = "") => {
+    const levelItems = parentId === null
+      ? processedCategories.filter(c => !c.parentId).slice((pagination.page - 1) * pagination.limit, pagination.page * pagination.limit)
+      : processedCategories.filter(c => c.parentId === parentId);
+
+    return levelItems.map((c, index) => {
+      const children = processedCategories.filter(child => child.parentId === c.id);
+      const hasChildren = children.length > 0;
+      const isExpanded = expandedCats[c.id];
+      const currentPrefix = prefix ? `${prefix}.${index + 1}` : `${(pagination.page - 1) * pagination.limit + index + 1}`;
+
+      return (
+        <React.Fragment key={c.id}>
+          <tr className={level > 0 ? "bg-dark-subtle" : ""}>
+            <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${c.id}`}>
+              {currentPrefix}
+            </td>
+            <td className="px-4 py-3 align-middle">
+              <div className="d-flex align-items-center" style={{ marginLeft: `${level * 25}px` }}>
+                {hasChildren ? (
+                  <button
+                    className="btn btn-sm p-0 border-0 text-primary me-2 shadow-none"
+                    onClick={() => toggleExpand(c.id)}
+                  >
+                    <i className={`bi bi-chevron-${isExpanded ? 'down' : 'right'}`} style={{ fontSize: '0.9rem' }}></i>
+                  </button>
+                ) : (
+                  <div style={{ width: '22px' }}></div>
+                )}
+                <span
+                  className={`badge-soft ${level === 0 ? 'fw-bold text-white' : ''} ${hasChildren ? 'cursor-pointer' : ''}`}
+                  onClick={() => hasChildren && toggleExpand(c.id)}
+                >
+                  {c.name}
+                </span>
+              </div>
+            </td>
+            <td className="px-4 py-3 align-middle text-muted small">
+              {c.parentName || (level === 0 ? "Root" : "-")}
+            </td>
+            <td className="px-4 py-3 text-end align-middle">
+              <button
+                className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
+                onClick={() => handleOpenAdd(c.id)}
+                title="Add Sub-category"
+              >
+                <i className="bi bi-plus-circle text-success"></i>
+              </button>
+              <button
+                className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
+                onClick={() => handleOpenEdit(c)}
+                title="Edit"
+              >
+                <i className="bi bi-pencil-square text-primary"></i>
+              </button>
+              <button
+                className="btn btn-sm btn-outline-light rounded-3 border-0"
+                onClick={() => askDelete(c)}
+                title="Delete"
+              >
+                <i className="bi bi-trash text-danger"></i>
+              </button>
+            </td>
+          </tr>
+          {hasChildren && isExpanded && renderRows(c.id, level + 1, currentPrefix)}
+        </React.Fragment>
+      );
+    });
+  };
+
   return (
     <div className="p-4 h-100">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div>
           <h2 className="page-title mb-1">Manage Categories</h2>
-          <p className="text-white mb-0">Group your products by category</p>
+          <p className="text-white opacity-75 mb-0">Group your products by category</p>
         </div>
         <button
-          className="btn btn-gradient gap-2 d-flex align-items-center"
+          className="btn btn-gradient gap-2 d-flex align-items-center justify-content-center"
           onClick={handleOpenAdd}
         >
           <i className="bi bi-plus-lg"></i> Add Category
@@ -144,134 +207,68 @@ export default function Categories() {
       </div>
 
       <div className="table-darkx">
-        <table className="table table-borderless table-hover mb-0">
-          <thead>
-            <tr>
-              <th className="px-4 py-3">ID</th>
-              <th className="px-4 py-3">NAME</th>
-              <th className="px-4 py-3">PARENT CATEGORY</th>
-              <th className="px-4 py-3 text-end">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(() => {
-              const toggleExpand = (id) => {
-                setExpandedCats(prev => ({ ...prev, [id]: !prev[id] }));
-              };
+        <div className="table-responsive">
+          <table className="table table-borderless table-hover mb-0">
+            <thead>
+              <tr className="text-nowrap">
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">NAME</th>
+                <th className="px-4 py-3">PARENT CATEGORY</th>
+                <th className="px-4 py-3 text-end">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && categories.length === 0 ? (
+                [...Array(6)].map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3"><Skeleton width="30px" /></td>
+                    <td className="px-4 py-3"><Skeleton width="150px" /></td>
+                    <td className="px-4 py-3"><Skeleton width="120px" /></td>
+                    <td className="px-4 py-3 text-end"><Skeleton width="80px" className="ms-auto" /></td>
+                  </tr>
+                ))
+              ) : (
+                categories.length > 0 ? renderRows(null, 0) : (
+                  <tr>
+                    <td colSpan="4" className="text-center py-4 text-muted">No categories found</td>
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
 
-              const renderRows = (parentId = null, level = 0, prefix = "") => {
-                const results = [];
-                // If parentId is null, we only want to show things that HAVE NO parent
-                const levelItems = parentId === null
-                  ? processedCategories.filter(c => !c.parentId).slice((pagination.page - 1) * pagination.limit, pagination.page * pagination.limit)
-                  : processedCategories.filter(c => c.parentId === parentId);
+        <PaginationControl
+          pagination={{
+            ...pagination,
+            total: processedCategories.filter(c => !c.parentId).length,
+            pages: Math.ceil(processedCategories.filter(c => !c.parentId).length / pagination.limit)
+          }}
+          setPage={(page) => setPagination(prev => ({ ...prev, page }))}
+        />
 
-                return levelItems.map((c, index) => {
-                  const children = processedCategories.filter(child => child.parentId === c.id);
-                  const hasChildren = children.length > 0;
-                  const isExpanded = expandedCats[c.id];
-                  const currentPrefix = prefix ? `${prefix}.${index + 1}` : `${(pagination.page - 1) * pagination.limit + index + 1}`;
-
-                  return (
-                    <React.Fragment key={c.id}>
-                      <tr className={level > 0 ? "bg-dark-subtle" : ""}>
-                        <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${c.id}`}>
-                          {currentPrefix}
-                        </td>
-                        <td className="px-4 py-3 align-middle">
-                          <div className="d-flex align-items-center" style={{ marginLeft: `${level * 25}px` }}>
-                            {hasChildren ? (
-                              <button
-                                className="btn btn-sm p-0 border-0 text-primary me-2 shadow-none"
-                                onClick={() => toggleExpand(c.id)}
-                              >
-                                <i className={`bi bi-chevron-${isExpanded ? 'down' : 'right'}`} style={{ fontSize: '0.9rem' }}></i>
-                              </button>
-                            ) : (
-                              <div style={{ width: '22px' }}></div>
-                            )}
-                            <span
-                              className={`badge-soft ${level === 0 ? 'fw-bold text-white' : ''} ${hasChildren ? 'cursor-pointer' : ''}`}
-                              onClick={() => hasChildren && toggleExpand(c.id)}
-                            >
-                              {c.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 align-middle text-muted small">
-                          {c.parentName || (level === 0 ? "Root" : "-")}
-                        </td>
-                        <td className="px-4 py-3 text-end align-middle">
-                          <button
-                            className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                            onClick={() => handleOpenAdd(c.id)}
-                            title="Add Sub-category"
-                          >
-                            <i className="bi bi-plus-circle text-success"></i>
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                            onClick={() => handleOpenEdit(c)}
-                            title="Edit"
-                          >
-                            <i className="bi bi-pencil-square text-primary"></i>
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-light rounded-3 border-0"
-                            onClick={() => askDelete(c)}
-                            title="Delete"
-                          >
-                            <i className="bi bi-trash text-danger"></i>
-                          </button>
-                        </td>
-                      </tr>
-                      {hasChildren && isExpanded && renderRows(c.id, level + 1, currentPrefix)}
-                    </React.Fragment>
-                  );
-                });
-              };
-
-              const rootItemsCount = processedCategories.filter(c => !c.parentId).length;
-              return rootItemsCount > 0 ? renderRows(null, 0) : (
-                <tr>
-                  <td colSpan="4" className="text-center py-4 text-muted">No categories found</td>
-                </tr>
-              );
-            })()}
-          </tbody>
-        </table>
+        <CategoryFormModal
+          show={showModal}
+          onHide={() => setShowModal(false)}
+          handleSubmit={handleSubmit}
+          name={name}
+          setName={setName}
+          parentId={parentId}
+          setParentId={setParentId}
+          allCategories={processedCategories}
+          editMode={editMode}
+          editId={editId}
+        />
+        <ConfirmDialog
+          show={confirmDialog.show}
+          title="Delete Category"
+          message={`Are you sure you want to delete "${confirmDialog.name}"? This cannot be undone.`}
+          confirmText="Delete"
+          confirmVariant="danger"
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setConfirmDialog({ show: false, id: null, name: "" })}
+        />
       </div>
-
-      <PaginationControl
-        pagination={{
-          ...pagination,
-          total: processedCategories.filter(c => !c.parentId).length,
-          pages: Math.ceil(processedCategories.filter(c => !c.parentId).length / pagination.limit)
-        }}
-        setPage={(page) => setPagination(prev => ({ ...prev, page }))}
-      />
-
-      <CategoryFormModal
-        show={showModal}
-        onHide={() => setShowModal(false)}
-        handleSubmit={handleSubmit}
-        name={name}
-        setName={setName}
-        parentId={parentId}
-        setParentId={setParentId}
-        allCategories={processedCategories}
-        editMode={editMode}
-        editId={editId}
-      />
-      <ConfirmDialog
-        show={confirmDialog.show}
-        title="Delete Category"
-        message={`Are you sure you want to delete "${confirmDialog.name}"? This cannot be undone.`}
-        confirmText="Delete"
-        confirmVariant="danger"
-        onConfirm={handleDeleteConfirmed}
-        onCancel={() => setConfirmDialog({ show: false, id: null, name: "" })}
-      />
     </div>
   );
 }

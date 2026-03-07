@@ -1,37 +1,34 @@
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
-import { api } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchRolesList, createRole, updateRole, deleteRole } from "../api/roleApi";
 import { useAuth } from "../auth/AuthContext";
 import { Modal, Button, Form } from "react-bootstrap";
 import ConfirmDialog from "../components/ConfirmDialog";
 import PaginationControl from "../components/PaginationControl";
+import Skeleton from "../components/Skeleton";
 
 export default function Roles() {
-    const [roles, setRoles] = useState([]);
+    const { token } = useAuth();
+    const queryClient = useQueryClient();
+
+    const { data: rolesData, isLoading: loading } = useQuery({
+        queryKey: ["roles"],
+        queryFn: async () => {
+            const res = await fetchRolesList(token);
+            return res.data || [];
+        },
+        enabled: !!token
+    });
+
+    const roles = rolesData || [];
+
     const [name, setName] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [editId, setEditId] = useState(null);
-    const { token } = useAuth();
-    const API_PATH = "/api/roles";
     const [confirmDialog, setConfirmDialog] = useState({ show: false, id: null, name: "" });
     const [pagination, setPagination] = useState({ page: 1, limit: 10 });
-
-    useEffect(() => {
-        fetchRoles();
-    }, []);
-
-    const fetchRoles = async () => {
-        try {
-            const res = await api.get(API_PATH, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setRoles(res.data);
-            setPagination(prev => ({ ...prev, page: 1 }));
-        } catch (err) {
-            toast.error("Failed to load roles");
-        }
-    };
 
     const paginatedRoles = useMemo(() => {
         const start = (pagination.page - 1) * pagination.limit;
@@ -62,11 +59,9 @@ export default function Roles() {
         const id = confirmDialog.id;
         setConfirmDialog({ show: false, id: null, name: "" });
         try {
-            await api.delete(`${API_PATH}/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await deleteRole(id, token);
             toast.success("Role deleted successfully");
-            fetchRoles();
+            queryClient.invalidateQueries({ queryKey: ["roles"] });
         } catch (err) {
             toast.error(err.response?.data?.error || "Error deleting role");
         }
@@ -78,20 +73,16 @@ export default function Roles() {
 
         try {
             if (editMode) {
-                await api.put(`${API_PATH}/${editId}`, { name }, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await updateRole(editId, { name }, token);
                 toast.success("Role updated successfully");
             } else {
-                await api.post(API_PATH, { name }, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                await createRole({ name }, token);
                 toast.success("Role created successfully");
             }
 
             setName("");
             setShowModal(false);
-            fetchRoles();
+            queryClient.invalidateQueries({ queryKey: ["roles"] });
         } catch (err) {
             toast.error(err.response?.data?.error || "Error saving role");
         }
@@ -99,13 +90,13 @@ export default function Roles() {
 
     return (
         <div className="p-4 h-100">
-            <div className="d-flex justify-content-between align-items-center mb-4">
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
                 <div>
                     <h2 className="page-title mb-1">Manage Roles</h2>
-                    <p className="text-white mb-0">System roles and permissions management</p>
+                    <p className="text-white opacity-75 mb-0">System roles and permissions management</p>
                 </div>
                 <button
-                    className="btn btn-gradient gap-2 d-flex align-items-center"
+                    className="btn btn-gradient gap-2 d-flex align-items-center justify-content-center"
                     onClick={handleOpenAdd}
                 >
                     <i className="bi bi-plus-lg"></i> Add Role
@@ -113,48 +104,62 @@ export default function Roles() {
             </div>
 
             <div className="table-darkx">
-                <table className="table table-borderless table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th className="px-4 py-3">S.NO</th>
-                            <th className="px-4 py-3">NAME</th>
-                            <th className="px-4 py-3 text-end">ACTIONS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedRoles.map((r, index) => (
-                            <tr key={r.id}>
-                                <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${r.id}`}>
-                                    {(pagination.page - 1) * pagination.limit + index + 1}
-                                </td>
-                                <td className="px-4 py-3 align-middle">
-                                    <span className="badge-soft" style={{ textTransform: "capitalize" }}>
-                                        {r.name}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 text-end align-middle">
-                                    <button
-                                        className="btn btn-sm btn-outline-light me-2 rounded-3 border-0"
-                                        onClick={() => handleOpenEdit(r)}
-                                    >
-                                        <i className="bi bi-pencil-square text-primary"></i>
-                                    </button>
-                                    <button
-                                        className="btn btn-sm btn-outline-light rounded-3 border-0"
-                                        onClick={() => askDelete(r)}
-                                    >
-                                        <i className="bi bi-trash text-danger"></i>
-                                    </button>
-                                </td>
+                <div className="table-responsive">
+                    <table className="table table-borderless table-hover mb-0">
+                        <thead>
+                            <tr className="text-nowrap">
+                                <th className="px-4 py-3">S.NO</th>
+                                <th className="px-4 py-3">NAME</th>
+                                <th className="px-4 py-3 text-end">ACTIONS</th>
                             </tr>
-                        ))}
-                        {roles.length === 0 && (
-                            <tr>
-                                <td colSpan="3" className="text-center py-4 text-muted">No roles found</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {loading && roles.length === 0 ? (
+                                [...Array(5)].map((_, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-3 align-middle"><Skeleton width="20px" /></td>
+                                        <td className="px-4 py-3 align-middle"><Skeleton width="120px" /></td>
+                                        <td className="px-4 py-3 text-end align-middle"><Skeleton width="80px" className="ms-auto" /></td>
+                                    </tr>
+                                ))
+                            ) : (
+                                paginatedRoles.map((r, index) => (
+                                    <tr key={r.id}>
+                                        <td className="px-4 py-3 align-middle text-muted small" title={`DB ID: ${r.id}`}>
+                                            {(pagination.page - 1) * pagination.limit + index + 1}
+                                        </td>
+                                        <td className="px-4 py-3 align-middle text-nowrap">
+                                            <span className="badge-soft" style={{ textTransform: "capitalize" }}>
+                                                {r.name}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-end align-middle">
+                                            <div className="d-flex justify-content-end gap-1">
+                                                <button
+                                                    className="btn btn-sm btn-outline-light rounded-3 border-0"
+                                                    onClick={() => handleOpenEdit(r)}
+                                                >
+                                                    <i className="bi bi-pencil-square text-primary"></i>
+                                                </button>
+                                                <button
+                                                    className="btn btn-sm btn-outline-light rounded-3 border-0"
+                                                    onClick={() => askDelete(r)}
+                                                >
+                                                    <i className="bi bi-trash text-danger"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                            {!loading && roles.length === 0 && (
+                                <tr>
+                                    <td colSpan="3" className="text-center py-4 text-muted">No roles found</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <PaginationControl

@@ -23,11 +23,16 @@ exports.create = async (req, res) => {
         } = req.body;
 
         const user_id = req.user?.id || 1;
+        const businessId = req.businessId;
 
         // Fetch active shift
         const [activeShift] = await db.select()
             .from(shifts)
-            .where(and(eq(shifts.userId, user_id), eq(shifts.status, 'active')))
+            .where(and(
+                eq(shifts.userId, user_id),
+                eq(shifts.businessId, businessId),
+                eq(shifts.status, 'active')
+            ))
             .limit(1);
 
         if (!items || items.length === 0) {
@@ -44,6 +49,7 @@ exports.create = async (req, res) => {
             // 1. Insert Sale record
             const [newSale] = await tx.insert(sales)
                 .values({
+                    businessId: businessId,
                     userId: user_id,
                     customerId: customer_id || null,
                     subtotal: String(subtotal),
@@ -64,6 +70,7 @@ exports.create = async (req, res) => {
                 // Insert item
                 await tx.insert(saleItems)
                     .values({
+                        businessId: businessId,
                         saleId: newSale.id,
                         productId: item.product_id,
                         qty: item.qty,
@@ -76,7 +83,10 @@ exports.create = async (req, res) => {
                     .set({
                         stock: sql`${products.stock} - ${item.qty}`,
                     })
-                    .where(eq(products.id, item.product_id))
+                    .where(and(
+                        eq(products.id, item.product_id),
+                        eq(products.businessId, businessId)
+                    ))
                     .returning({ stock: products.stock });
 
                 if (!updatedProduct) {
@@ -86,6 +96,7 @@ exports.create = async (req, res) => {
                 // Log stock movement
                 await tx.insert(stockMovements)
                     .values({
+                        businessId: businessId,
                         productId: item.product_id,
                         type: 'out',
                         qty: item.qty,
@@ -100,6 +111,7 @@ exports.create = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: user_id,
+            businessId: businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'CREATE',
@@ -145,10 +157,10 @@ exports.getAll = async (req, res) => {
             customer_name: customers.name,
         })
             .from(sales)
-            .leftJoin(users, eq(sales.userId, users.id))
-            .leftJoin(customers, eq(sales.customerId, customers.id));
+            .leftJoin(users, and(eq(sales.userId, users.id), eq(users.businessId, req.businessId)))
+            .leftJoin(customers, and(eq(sales.customerId, customers.id), eq(customers.businessId, req.businessId)));
 
-        const conditions = [];
+        const conditions = [eq(sales.businessId, req.businessId)];
 
         if (isCashier) {
             conditions.push(eq(sales.userId, req.user.id));
@@ -238,9 +250,12 @@ exports.getById = async (req, res) => {
             customer_name: customers.name,
         })
             .from(sales)
-            .leftJoin(users, eq(sales.userId, users.id))
-            .leftJoin(customers, eq(sales.customerId, customers.id))
-            .where(eq(sales.id, saleId));
+            .leftJoin(users, and(eq(sales.userId, users.id), eq(users.businessId, req.businessId)))
+            .leftJoin(customers, and(eq(sales.customerId, customers.id), eq(customers.businessId, req.businessId)))
+            .where(and(
+                eq(sales.id, saleId),
+                eq(sales.businessId, req.businessId)
+            ));
 
         if (!sale) {
             return res.status(404).json({ error: "Sale not found" });
@@ -262,8 +277,11 @@ exports.getById = async (req, res) => {
             sku: products.sku,
         })
             .from(saleItems)
-            .innerJoin(products, eq(saleItems.productId, products.id))
-            .where(eq(saleItems.saleId, saleId));
+            .innerJoin(products, and(eq(saleItems.productId, products.id), eq(products.businessId, req.businessId)))
+            .where(and(
+                eq(saleItems.saleId, saleId),
+                eq(saleItems.businessId, req.businessId)
+            ));
 
         res.json({
             ...sale,
@@ -286,7 +304,7 @@ exports.returnItems = async (req, res) => {
 
         const returnResult = await db.transaction(async (tx) => {
             // 1. Fetch the sale
-            const [sale] = await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1);
+            const [sale] = await tx.select().from(sales).where(and(eq(sales.id, saleId), eq(sales.businessId, req.businessId))).limit(1);
             if (!sale) throw new Error("Sale not found");
 
             let totalRefund = 0;
@@ -297,7 +315,11 @@ exports.returnItems = async (req, res) => {
             for (const rItem of items) {
                 const [sItem] = await tx.select()
                     .from(saleItems)
-                    .where(and(eq(saleItems.saleId, saleId), eq(saleItems.productId, rItem.productId)))
+                    .where(and(
+                        eq(saleItems.saleId, saleId),
+                        eq(saleItems.productId, rItem.productId),
+                        eq(saleItems.businessId, req.businessId)
+                    ))
                     .limit(1);
 
                 if (!sItem) throw new Error(`Item ${rItem.productId} not found in sale`);
@@ -311,7 +333,10 @@ exports.returnItems = async (req, res) => {
                 // Update saleItems
                 await tx.update(saleItems)
                     .set({ returnedQty: newReturnedQty })
-                    .where(eq(saleItems.id, sItem.id));
+                    .where(and(
+                        eq(saleItems.id, sItem.id),
+                        eq(saleItems.businessId, req.businessId)
+                    ));
 
                 // Calculate refund for this item (proportionate to price)
                 const refundAmount = parseFloat(sItem.price) * rItem.returnQty;
@@ -320,11 +345,15 @@ exports.returnItems = async (req, res) => {
                 // Update product stock
                 await tx.update(products)
                     .set({ stock: sql`${products.stock} + ${rItem.returnQty}` })
-                    .where(eq(products.id, rItem.productId));
+                    .where(and(
+                        eq(products.id, rItem.productId),
+                        eq(products.businessId, req.businessId)
+                    ));
 
                 // Log movement
                 await tx.insert(stockMovements)
                     .values({
+                        businessId: req.businessId,
                         productId: rItem.productId,
                         type: 'increase',
                         qty: rItem.returnQty,
@@ -334,7 +363,11 @@ exports.returnItems = async (req, res) => {
             }
 
             // 3. Check final status
-            const currentSaleItems = await tx.select().from(saleItems).where(eq(saleItems.saleId, saleId));
+            const currentSaleItems = await tx.select().from(saleItems)
+                .where(and(
+                    eq(saleItems.saleId, saleId),
+                    eq(saleItems.businessId, req.businessId)
+                ));
             const totalItems = currentSaleItems.reduce((acc, i) => acc + i.qty, 0);
             const totalReturned = currentSaleItems.reduce((acc, i) => acc + i.returnedQty, 0);
 
@@ -352,12 +385,19 @@ exports.returnItems = async (req, res) => {
                     status: newStatus,
                     returnedAmount: String(updatedReturnedAmount)
                 })
-                .where(eq(sales.id, saleId));
+                .where(and(
+                    eq(sales.id, saleId),
+                    eq(sales.businessId, req.businessId)
+                ));
 
             // 4. Update Shift (if active shift exists for this user)
             const [activeShift] = await tx.select()
                 .from(shifts)
-                .where(and(eq(shifts.userId, req.user.id), eq(shifts.status, 'active')))
+                .where(and(
+                    eq(shifts.userId, req.user.id),
+                    eq(shifts.businessId, req.businessId),
+                    eq(shifts.status, 'active')
+                ))
                 .limit(1);
 
             if (activeShift && totalRefund > 0) {
@@ -366,7 +406,10 @@ exports.returnItems = async (req, res) => {
                         expectedCash: sql`${shifts.expectedCash} - ${totalRefund}`,
                         totalSales: sql`${shifts.totalSales} - ${totalRefund}`,
                     })
-                    .where(eq(shifts.id, activeShift.id));
+                    .where(and(
+                        eq(shifts.id, activeShift.id),
+                        eq(shifts.businessId, req.businessId)
+                    ));
             }
 
             return { refund: totalRefund, status: newStatus };
@@ -375,6 +418,7 @@ exports.returnItems = async (req, res) => {
         // Activity Log
         await logActivity({
             userId: req.user?.id,
+            businessId: req.businessId,
             userName: req.user?.name,
             userRole: req.user?.roles,
             action: 'RETURN',
