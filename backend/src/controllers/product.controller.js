@@ -26,7 +26,12 @@ exports.getAll = async (req, res) => {
         alert_quantity: products.alertQuantity,
         is_active: products.isActive,
         image: products.image,
+        description: products.description,
+        variant_name: products.variantName,
+        variant_value: products.variantValue,
+        customAttributes: products.customAttributes,
         supplierId: products.supplierId, // <-- Include supplierId
+        parentId: products.parentId,
         createdAt: products.createdAt,
       })
       .from(products)
@@ -67,7 +72,7 @@ exports.getAll = async (req, res) => {
 // POST /api/products
 exports.create = async (req, res) => {
   try {
-    const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
+    const { name, sku, category_id, cost_price, price, stock, is_active, alert_quantity, description, variant_name, custom_attributes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
     const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
@@ -78,11 +83,15 @@ exports.create = async (req, res) => {
         sku: sku || null,
         categoryId: category_id || null,
         supplierId: req.body.supplier_id || null, // <-- Handle supplierId
+        parentId: req.body.parent_id || null,
         costPrice: String(cost_price ?? 0),
         price: String(price ?? 0),
         stock: stock ?? 0,
         isActive: is_active ?? true,
         alertQuantity: alert_quantity ?? 5,
+        description: description || null,
+        variantName: variant_name || null,
+        customAttributes: custom_attributes ? JSON.parse(custom_attributes) : null,
         image: imagePath,
       })
       .returning();
@@ -98,6 +107,50 @@ exports.create = async (req, res) => {
           reference: 'Initial Stock',
           note: 'Product created with opening balance',
         });
+    }
+
+    let parsedVariants = [];
+    if (req.body.variants) {
+      if (typeof req.body.variants === 'string') {
+        try { parsedVariants = JSON.parse(req.body.variants); } catch (e) { }
+      } else if (Array.isArray(req.body.variants)) {
+        parsedVariants = req.body.variants;
+      }
+    }
+
+    // Handle variants if provided
+    if (parsedVariants.length > 0) {
+      for (const v of parsedVariants) {
+        const variantSku = (product.sku ? `${product.sku}-${v.name}` : null);
+        const [variant] = await db.insert(products).values({
+          businessId: req.businessId,
+          name: `${product.name} - ${v.name}`,
+          sku: variantSku,
+          categoryId: product.categoryId,
+          supplierId: product.supplierId,
+          parentId: product.id,
+          costPrice: String(v.cost_price ?? product.costPrice),
+          price: String(v.price ?? product.price),
+          stock: v.stock ?? 0,
+          isActive: true,
+          alertQuantity: v.alert_quantity ?? product.alertQuantity,
+          description: v.description || product.description,
+          variantValue: v.name || null,
+          customAttributes: v.custom_attributes || null,
+          image: product.image
+        }).returning();
+
+        if (variant.stock > 0) {
+          await db.insert(stockMovements).values({
+            businessId: req.businessId,
+            productId: variant.id,
+            type: 'increase',
+            qty: variant.stock,
+            reference: 'Initial Variant Stock',
+            note: 'Variant created with opening balance',
+          });
+        }
+      }
     }
 
     // Activity Log
@@ -122,18 +175,25 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, sku, category_id, supplier_id, cost_price, price, stock, is_active, alert_quantity } = req.body;
+    const { name, sku, category_id, supplier_id, cost_price, price, stock, is_active, alert_quantity, parent_id, description, variant_name, custom_attributes, variants } = req.body;
     const updateData = {
       name,
       sku: sku || null,
       categoryId: category_id || null,
       supplierId: supplier_id || null, // <-- Update supplierId
+      parentId: parent_id || null,
       costPrice: String(cost_price ?? 0),
       price: String(price ?? 0),
       stock: stock ?? 0,
       isActive: is_active ?? true,
       alertQuantity: alert_quantity ?? 5,
+      description: description || null,
+      variantName: variant_name || null,
     };
+
+    if (custom_attributes !== undefined) {
+      updateData.customAttributes = custom_attributes ? JSON.parse(custom_attributes) : null;
+    }
 
     if (req.file) {
       updateData.image = `/uploads/${req.file.filename}`;
@@ -151,6 +211,60 @@ exports.update = async (req, res) => {
 
     if (!updatedProduct)
       return res.status(404).json({ error: "Product not found" });
+
+    // Handle variants if provided
+    let parsedVariants = [];
+    if (variants) {
+      if (typeof variants === 'string') {
+        try { parsedVariants = JSON.parse(variants); } catch (e) { }
+      } else if (Array.isArray(variants)) {
+        parsedVariants = variants;
+      }
+    }
+
+    console.log("UPDATING PRODUCT. Variants received:", parsedVariants.length);
+
+    if (parsedVariants.length > 0) {
+      for (const v of parsedVariants) {
+        console.log(`Processing variant: ${v.id || 'NEW'} - Name: ${v.name}, Price: ${v.price}, Stock: ${v.stock}`);
+        if (v.id) {
+          // Update existing variant
+          const stockVal = v.stock !== undefined && v.stock !== "" ? Number(v.stock) : 0;
+
+          await db.update(products).set({
+            name: `${updatedProduct.name} - ${v.name}`,
+            sku: (updatedProduct.sku ? `${updatedProduct.sku}-${v.name}` : null),
+            categoryId: updatedProduct.categoryId,
+            supplierId: updatedProduct.supplierId,
+            costPrice: (v.cost_price && v.cost_price !== "0") ? String(v.cost_price) : updatedProduct.costPrice,
+            price: (v.price && v.price !== "0") ? String(v.price) : updatedProduct.price,
+            stock: stockVal,
+            alertQuantity: v.alert_quantity !== undefined ? Number(v.alert_quantity) : updatedProduct.alertQuantity,
+            variantValue: v.name || null,
+            customAttributes: v.custom_attributes || null,
+          }).where(and(eq(products.id, parseInt(v.id)), eq(products.businessId, req.businessId)));
+        } else {
+          // Add new variant
+          await db.insert(products).values({
+            businessId: req.businessId,
+            name: `${updatedProduct.name} - ${v.name}`,
+            sku: (updatedProduct.sku ? `${updatedProduct.sku}-${v.name}` : null),
+            categoryId: updatedProduct.categoryId,
+            supplierId: updatedProduct.supplierId,
+            parentId: updatedProduct.id,
+            costPrice: String(v.cost_price ?? updatedProduct.costPrice),
+            price: String(v.price ?? updatedProduct.price),
+            stock: v.stock ?? 0,
+            isActive: true,
+            alertQuantity: v.alert_quantity ?? updatedProduct.alertQuantity,
+            description: v.description || updatedProduct.description,
+            variantValue: v.name || null,
+            customAttributes: v.custom_attributes || null,
+            image: updatedProduct.image
+          });
+        }
+      }
+    }
 
     // Activity Log
     await logActivity({
@@ -273,6 +387,7 @@ exports.bulkImport = async (req, res) => {
             stock: parseInt(item.stock) || 0,
             isActive: true,
             alertQuantity: parseInt(item.alert_quantity) || 5,
+            description: item.description || null,
           })
           .returning();
 

@@ -82,7 +82,8 @@ export default function Suppliers() {
 
     useEffect(() => {
         setProductPagination(prev => ({ ...prev, page: 1 }));
-    }, [productSearchTerm]);
+        setPagination(prev => ({ ...prev, page: 1 }));
+    }, [productSearchTerm, searchTerm]);
 
     const handleOpenModal = (supplier = null) => {
         if (supplier) {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetchStockList } from "../api/stockApi";
@@ -43,6 +43,10 @@ export default function LowStock() {
     }, [filteredProducts, pagination.page, pagination.limit]);
 
     const totalPages = Math.ceil(filteredProducts.length / pagination.limit);
+
+    useEffect(() => {
+        setPagination(prev => ({ ...prev, page: 1 }));
+    }, [searchTerm]);
 
     const handleOpenAdjust = (product) => {
         setSelectedProduct(product);
