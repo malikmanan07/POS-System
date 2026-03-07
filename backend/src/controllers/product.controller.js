@@ -222,11 +222,8 @@ exports.update = async (req, res) => {
       }
     }
 
-    console.log("UPDATING PRODUCT. Variants received:", parsedVariants.length);
-
     if (parsedVariants.length > 0) {
       for (const v of parsedVariants) {
-        console.log(`Processing variant: ${v.id || 'NEW'} - Name: ${v.name}, Price: ${v.price}, Stock: ${v.stock}`);
         if (v.id) {
           // Update existing variant
           const stockVal = v.stock !== undefined && v.stock !== "" ? Number(v.stock) : 0;
