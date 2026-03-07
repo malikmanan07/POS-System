@@ -72,8 +72,8 @@ exports.getHistory = async (req, res) => {
             productName: products.name,
             sku: products.sku,
             qty: stockMovements.qty,
-            purchasePrice: stockMovements.purchaseCost,
-            totalCost: sql`${stockMovements.qty} * ${stockMovements.purchaseCost}`,
+            purchasePrice: sql`CASE WHEN ${stockMovements.purchaseCost} > 0 THEN ${stockMovements.purchaseCost} ELSE ${products.costPrice} END`,
+            totalCost: sql`${stockMovements.qty} * (CASE WHEN ${stockMovements.purchaseCost} > 0 THEN ${stockMovements.purchaseCost} ELSE ${products.costPrice} END)`,
             date: stockMovements.createdAt,
             reference: stockMovements.reference,
             note: stockMovements.note
@@ -89,7 +89,7 @@ exports.getHistory = async (req, res) => {
 
         // Calculate grand total from this supplier
         const [summary] = await db.select({
-            totalPurchased: sql`COALESCE(SUM(${stockMovements.qty} * ${stockMovements.purchaseCost}), 0)::numeric`
+            totalPurchased: sql`COALESCE(SUM(${stockMovements.qty} * (CASE WHEN ${stockMovements.purchaseCost} > 0 THEN ${stockMovements.purchaseCost} ELSE ${products.costPrice} END)), 0)::numeric`
         })
             .from(stockMovements)
             .innerJoin(products, eq(stockMovements.productId, products.id))

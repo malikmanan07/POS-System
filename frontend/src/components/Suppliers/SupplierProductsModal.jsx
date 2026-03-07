@@ -23,6 +23,8 @@ export default function SupplierProductsModal({
     const [history, setHistory] = useState([]);
     const [totalPurchased, setTotalPurchased] = useState(0);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [historySearchTerm, setHistorySearchTerm] = useState("");
+    const [historyPagination, setHistoryPagination] = useState({ page: 1, limit: 10 });
 
     useEffect(() => {
         if (show && activeTab === "history" && selectedSupplier) {
@@ -46,6 +48,23 @@ export default function SupplierProductsModal({
             setLoadingHistory(false);
         }
     };
+
+    const filteredHistory = history.filter(h => {
+        if (!historySearchTerm) return true;
+        const s = historySearchTerm.toLowerCase();
+        return (
+            h.productName?.toLowerCase().includes(s) ||
+            h.sku?.toLowerCase().includes(s) ||
+            h.reference?.toLowerCase().includes(s)
+        );
+    });
+
+    const paginatedHistory = filteredHistory.slice(
+        (historyPagination.page - 1) * historyPagination.limit,
+        historyPagination.page * historyPagination.limit
+    );
+
+    const historyTotalPages = Math.ceil(filteredHistory.length / historyPagination.limit);
 
     return (
         <Modal
@@ -94,7 +113,7 @@ export default function SupplierProductsModal({
                                                 <th className="px-4 py-3">PRODUCT</th>
                                                 <th className="px-4 py-3">SKU</th>
                                                 <th className="px-4 py-3 text-center">PURCHASE PRICE</th>
-                                                <th className="px-4 py-3 text-center">SELLING PRICE</th>
+                                                <th className="px-4 py-3 text-center">TOTAL PRICE</th>
                                                 <th className="px-4 py-3 text-center">STOCK</th>
                                             </tr>
                                         </thead>
@@ -126,7 +145,7 @@ export default function SupplierProductsModal({
                                                             Rs.{parseFloat(p.costPrice || 0).toLocaleString()}
                                                         </td>
                                                         <td className="px-4 py-3 align-middle text-center text-white small">
-                                                            Rs.{parseFloat(p.price || 0).toLocaleString()}
+                                                            Rs.{(parseFloat(p.costPrice || 0) * (p.stock || 0)).toLocaleString()}
                                                         </td>
                                                         <td className="px-4 py-3 align-middle text-center">
                                                             <Badge bg={p.stock <= 5 ? 'danger' : 'success'} className="pill fw-bold">
@@ -184,6 +203,9 @@ export default function SupplierProductsModal({
                                         setPage={(page) => setProductPagination(prev => ({ ...prev, page }))}
                                     />
                                 </div>
+                                <div className="p-3 bg-black-25 border-top border-secondary">
+                                    <div className="text-muted small">Total records: <strong>{filteredModalProducts.length}</strong></div>
+                                </div>
                             </>
                         ) : (
                             <div className="text-center py-5 text-muted">
@@ -198,51 +220,80 @@ export default function SupplierProductsModal({
                                 <Spinner animation="border" variant="primary" className="mb-2" />
                                 <span className="text-muted">Loading purchase records...</span>
                             </div>
-                        ) : history.length > 0 ? (
-                            <>
-                                <div className="table-responsive" style={{ maxHeight: '420px' }}>
-                                    <Table borderless hover className="table-dark mb-0">
-                                        <thead className="sticky-top bg-dark">
-                                            <tr className="border-bottom border-secondary">
-                                                <th className="px-4 py-3">DATE</th>
-                                                <th className="px-4 py-3">PRODUCT</th>
-                                                <th className="px-4 py-3 text-center">QTY</th>
-                                                <th className="px-4 py-3 text-center">RATE</th>
-                                                <th className="px-4 py-3 text-end">TOTAL</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {history.map(h => (
-                                                <tr key={h.id} className="border-bottom border-secondary-subtle">
-                                                    <td className="px-4 py-3 align-middle small text-muted">
-                                                        {new Date(h.date).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="px-4 py-3 align-middle">
-                                                        <div className="small text-white">{h.productName}</div>
-                                                        <div className="x-small text-muted">{h.sku}</div>
-                                                    </td>
-                                                    <td className="px-4 py-3 align-middle text-center fw-bold">+{h.qty}</td>
-                                                    <td className="px-4 py-3 align-middle text-center small text-emerald">
-                                                        Rs.{parseFloat(h.purchasePrice || 0).toLocaleString()}
-                                                    </td>
-                                                    <td className="px-4 py-3 align-middle text-end text-white fw-bold">
-                                                        Rs.{parseFloat(h.totalCost || 0).toLocaleString()}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </Table>
-                                </div>
-                                <div className="p-4 bg-black-25 border-top border-secondary d-flex justify-content-between align-items-center">
-                                    <div className="text-muted">Total records: <strong>{history.length}</strong></div>
-                                    <div className="text-white h5 mb-0 d-flex gap-3 align-items-center">
-                                        <span className="text-muted small fw-normal">GRAND TOTAL PURCHASE:</span>
-                                        <span className="text-primary fw-800">Rs.{parseFloat(totalPurchased).toLocaleString()}</span>
-                                    </div>
-                                </div>
-                            </>
                         ) : (
-                            <div className="text-center py-5 text-muted">No purchase records found for this supplier.</div>
+                            <>
+                                <div className="p-3 bg-black-25 border-bottom border-secondary d-flex align-items-center gap-3">
+                                    <i className="bi bi-search text-primary small"></i>
+                                    <input
+                                        type="text"
+                                        placeholder="Search in purchase history..."
+                                        className="bg-transparent border-0 text-white shadow-none small w-100 outline-none"
+                                        value={historySearchTerm}
+                                        onChange={(e) => {
+                                            setHistorySearchTerm(e.target.value);
+                                            setHistoryPagination(prev => ({ ...prev, page: 1 }));
+                                        }}
+                                    />
+                                </div>
+                                {filteredHistory.length > 0 ? (
+                                    <>
+                                        <div className="table-responsive" style={{ maxHeight: '420px' }}>
+                                            <Table borderless hover className="table-dark mb-0">
+                                                <thead className="sticky-top bg-dark">
+                                                    <tr className="border-bottom border-secondary">
+                                                        <th className="px-4 py-3">DATE</th>
+                                                        <th className="px-4 py-3">PRODUCT</th>
+                                                        <th className="px-4 py-3 text-center">QTY</th>
+                                                        <th className="px-4 py-3 text-center">RATE</th>
+                                                        <th className="px-4 py-3 text-end">TOTAL</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {paginatedHistory.map(h => (
+                                                        <tr key={h.id} className="border-bottom border-secondary-subtle">
+                                                            <td className="px-4 py-3 align-middle small text-muted">
+                                                                {new Date(h.date).toLocaleDateString()}
+                                                            </td>
+                                                            <td className="px-4 py-3 align-middle">
+                                                                <div className="small text-white">{h.productName}</div>
+                                                                <div className="x-small text-muted">{h.sku}</div>
+                                                            </td>
+                                                            <td className="px-4 py-3 align-middle text-center fw-bold">+{h.qty}</td>
+                                                            <td className="px-4 py-3 align-middle text-center small text-emerald">
+                                                                Rs.{parseFloat(h.purchasePrice || 0).toLocaleString()}
+                                                            </td>
+                                                            <td className="px-4 py-3 align-middle text-end text-white fw-bold">
+                                                                Rs.{parseFloat(h.totalCost || 0).toLocaleString()}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </Table>
+                                        </div>
+                                        <div className="p-3 border-top border-secondary">
+                                            <PaginationControl
+                                                pagination={{
+                                                    ...historyPagination,
+                                                    total: filteredHistory.length,
+                                                    pages: historyTotalPages
+                                                }}
+                                                setPage={(page) => setHistoryPagination(prev => ({ ...prev, page }))}
+                                            />
+                                        </div>
+                                        <div className="p-4 bg-black-25 border-top border-secondary d-flex justify-content-between align-items-center">
+                                            <div className="text-muted">Total records: <strong>{filteredHistory.length}</strong></div>
+                                            <div className="text-white h5 mb-0 d-flex gap-3 align-items-center">
+                                                <span className="text-muted small fw-normal">GRAND TOTAL PURCHASE:</span>
+                                                <span className="text-primary fw-800">Rs.{parseFloat(totalPurchased).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-center py-5 text-muted">
+                                        {historySearchTerm ? "No records match your search." : "No purchase records found for this supplier."}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </Tab>
                 </Tabs>

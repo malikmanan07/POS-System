@@ -265,12 +265,12 @@ exports.getById = async (req, res) => {
             return res.status(403).json({ error: "Access denied" });
         }
 
-        const items = await db.select({
+        const rawItems = await db.select({
             id: saleItems.id,
             saleId: saleItems.saleId,
             productId: saleItems.productId,
             qty: saleItems.qty,
-            price: saleItems.price,
+            salePrice: saleItems.price,
             line_total: saleItems.lineTotal,
             returned_qty: saleItems.returnedQty,
             product_name: products.name,
@@ -282,6 +282,11 @@ exports.getById = async (req, res) => {
                 eq(saleItems.saleId, saleId),
                 eq(saleItems.businessId, req.businessId)
             ));
+
+        const items = rawItems.map(item => ({
+            ...item,
+            price: item.salePrice
+        }));
 
         res.json({
             ...sale,

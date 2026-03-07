@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetchProducts as getProducts, createProduct, updateProduct, deleteProduct, fetchCategoriesFlat, fetchSuppliersList } from "../api/productApi";
@@ -96,12 +96,24 @@ export default function Products() {
 
   // Instant Search & Pagination logic
   const filteredProducts = useMemo(() => {
-    if (!searchTerm) return products;
+    // Group variants
+    const parents = products.filter(p => !p.parentId);
+    const variantsList = products.filter(p => p.parentId);
+
+    let grouped = parents.map(parent => ({
+      ...parent,
+      variants: variantsList.filter(v => v.parentId === parent.id)
+    }));
+
+    if (!searchTerm) return grouped;
     const s = searchTerm.toLowerCase();
-    return products.filter(p =>
-      p.name.toLowerCase().includes(s) ||
-      (p.sku && p.sku.toLowerCase().includes(s))
-    );
+
+    return grouped.filter(p => {
+      const hasMatchInVariant = p.variants?.some(v => v.name.toLowerCase().includes(s) || (v.sku && v.sku.toLowerCase().includes(s)));
+      return p.name.toLowerCase().includes(s) ||
+        (p.sku && p.sku.toLowerCase().includes(s)) ||
+        hasMatchInVariant;
+    });
   }, [products, searchTerm]);
 
   const totalPages = Math.ceil(filteredProducts.length / pagination.limit);
@@ -109,10 +121,11 @@ export default function Products() {
   const paginatedProducts = useMemo(() => {
     const start = (pagination.page - 1) * pagination.limit;
     return filteredProducts.slice(start, start + pagination.limit);
-  }, [filteredProducts, pagination.page]);
+  }, [filteredProducts, pagination.page, pagination.limit]);
 
-
-
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, [searchTerm]);
 
   const handleOpenAdd = () => {
     setEditMode(false);
@@ -127,7 +140,10 @@ export default function Products() {
       is_active: true,
       alert_quantity: 5,
       supplier_id: "",
-      image: null
+      description: "",
+      image: null,
+      parent_id: "",
+      variants: []
     });
     setImagePreview(null);
     setRemoveImageFlag(false);
@@ -147,6 +163,42 @@ export default function Products() {
       is_active: p.is_active,
       alert_quantity: p.alert_quantity || 5,
       supplier_id: p.supplierId || "",
+      description: p.description || "",
+      variant_name: p.variant_name || "Variant",
+      parent_id: p.parentId || "",
+      variants: (p.variants || []).map(v => ({
+        id: v.id,
+        name: v.variant_value || (v.name ? v.name.split(' - ').pop() : ""),
+        sku: v.sku || "",
+        cost_price: v.cost_price ?? p.cost_price ?? 0,
+        price: v.price ?? p.price ?? 0,
+        stock: v.stock ?? 0,
+        alert_quantity: v.alert_quantity ?? p.alert_quantity ?? 5,
+      })),
+      image: null
+    });
+    setImagePreview(p.image ? `${api.defaults.baseURL}${p.image}` : null);
+    setRemoveImageFlag(false);
+    setShowModal(true);
+  };
+
+  const handleDuplicate = (p) => {
+    setEditMode(false);
+    setEditId(null);
+    setFormData({
+      name: `${p.name} (Copy)`,
+      sku: p.sku ? `${p.sku}-COPY` : "",
+      category_id: p.category_id || "",
+      cost_price: p.cost_price,
+      price: p.price,
+      stock: p.stock,
+      is_active: p.is_active,
+      alert_quantity: p.alert_quantity || 5,
+      supplier_id: p.supplierId || "",
+      description: p.description || "",
+      variant_name: p.variant_name || "Variant",
+      parent_id: p.parentId || "",
+      variants: [],
       image: null
     });
     setImagePreview(p.image ? `${api.defaults.baseURL}${p.image}` : null);
@@ -198,6 +250,13 @@ export default function Products() {
       data.append("is_active", formData.is_active);
       data.append("alert_quantity", formData.alert_quantity);
       data.append("supplier_id", formData.supplier_id === "" ? "" : formData.supplier_id);
+      data.append("description", formData.description);
+      data.append("variant_name", formData.variant_name || "Variant");
+
+      // Append variants
+      if (formData.variants && formData.variants.length > 0) {
+        data.append("variants", JSON.stringify(formData.variants));
+      }
 
       if (formData.image) {
         data.append("image", formData.image);
@@ -264,6 +323,7 @@ export default function Products() {
         products={products}
         handleOpenEdit={handleOpenEdit}
         askDelete={askDelete}
+        handleDuplicate={handleDuplicate}
         currencySymbol={currencySymbol}
         apiBaseURL={api.defaults.baseURL}
       />

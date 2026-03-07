@@ -102,6 +102,8 @@ export default function POS() {
   const [selectedDiscountId, setSelectedDiscountId] = useState("");
   const [showReceipt, setShowReceipt] = useState(false);
   const [showShiftModal, setShowShiftModal] = useState(false);
+  const [showVariantModal, setShowVariantModal] = useState(false);
+  const [selectedParentProduct, setSelectedParentProduct] = useState(null);
   const [lastSale, setLastSale] = useState(null);
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
 
@@ -117,9 +119,20 @@ export default function POS() {
 
   const filteredProducts = useMemo(() => {
     const descendantIds = selectedCategoryId ? getDescendantCategoryIds(selectedCategoryId) : [];
-    return products.filter(p => {
+
+    const parents = products.filter(p => !p.parentId);
+    const variantsList = products.filter(p => p.parentId);
+
+    const grouped = parents.map(parent => ({
+      ...parent,
+      variants: variantsList.filter(v => v.parentId === parent.id)
+    }));
+
+    return grouped.filter(p => {
+      const hasMatchInVariant = p.variants?.some(v => v.name.toLowerCase().includes(searchTerm.toLowerCase()) || (v.sku && v.sku.toLowerCase().includes(searchTerm.toLowerCase())));
       const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+        (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        hasMatchInVariant;
       const matchesCategory = selectedCategoryId ? descendantIds.includes(p.category_id) : true;
       return matchesSearch && matchesCategory;
     });
@@ -188,6 +201,15 @@ export default function POS() {
   }, [filteredProducts, posPage]);
 
   // Cart Operations
+  const handleProductClick = (product) => {
+    if (product.variants && product.variants.length > 0) {
+      setSelectedParentProduct(product);
+      setShowVariantModal(true);
+    } else {
+      addToCart(product);
+    }
+  };
+
   const addToCart = (product) => {
     if (product.stock <= 0) return toast.error("Product out of stock");
     setCart(prev => {
@@ -355,8 +377,7 @@ export default function POS() {
   const handleSearchEnter = () => {
     if (filteredProducts.length > 0) {
       const product = filteredProducts[0];
-      addToCart(product);
-      toast.success(`Added: ${product.name}`, { autoClose: 1000, position: "bottom-center" });
+      handleProductClick(product);
       setSearchTerm("");
       barcodeBuffer.current = ""; // Clear buffer to prevent double add from global listener
     } else {
@@ -394,7 +415,7 @@ export default function POS() {
           <POSProductGrid
             products={products}
             paginatedProducts={paginatedProducts}
-            onAdd={addToCart}
+            onAdd={handleProductClick}
             currency={currency}
             apiBaseUrl={api.defaults.baseURL}
             onSearchClear={() => { setSearchTerm(""); setSelectedCategoryId(""); }}
@@ -468,6 +489,43 @@ export default function POS() {
           type="start"
           currencySymbol={currency}
         />
+      )}
+
+      {/* Variant Selection Modal */}
+      {showVariantModal && selectedParentProduct && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1055 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content glass border-0 shadow-lg">
+              <div className="modal-header border-bottom border-secondary p-3">
+                <h5 className="modal-title text-white fw-bold mb-0">Select Variant</h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setShowVariantModal(false)}></button>
+              </div>
+              <div className="modal-body p-0">
+                <div className="list-group list-group-flush">
+                  {selectedParentProduct.variants.map((variant) => (
+                    <button
+                      key={variant.id}
+                      onClick={() => {
+                        addToCart(variant);
+                        setShowVariantModal(false);
+                      }}
+                      className="list-group-item list-group-item-action bg-transparent border-bottom border-secondary text-white p-3 d-flex justify-content-between align-items-center"
+                      disabled={variant.stock <= 0}
+                    >
+                      <div>
+                        <div className="fw-bold">{variant.name}</div>
+                        <div className="text-muted small">SKU: {variant.sku || 'N/A'} • Stock: <span className={variant.stock > 0 ? 'text-success' : 'text-danger'}>{variant.stock}</span></div>
+                      </div>
+                      <div className="fw-bold text-info">
+                        {currency}{parseFloat(variant.price).toFixed(2)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -125,7 +125,12 @@ const products = pgTable("products", {
     alertQuantity: integer("alert_quantity").notNull().default(5),
     isActive: boolean("is_active").notNull().default(true),
     image: text("image"),
+    description: text("description"),
     supplierId: integer("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    parentId: integer("parent_id"), // Manually defining self-reference to avoid circular dependency issues sometimes
+    variantName: varchar("variant_name", { length: 50 }), // For Parents (e.g. 'Color')
+    variantValue: varchar("variant_value", { length: 50 }), // For Variants (e.g. 'Red')
+    customAttributes: jsonb("custom_attributes"), // JSON to map random key:values
     createdAt: timestamp("created_at").defaultNow(),
 }, (table) => {
     return {
