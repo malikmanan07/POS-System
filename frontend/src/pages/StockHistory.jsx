@@ -28,7 +28,9 @@ export default function StockHistory() {
             return res.data || [];
         },
         enabled: !!token,
-        placeholderData: keepPreviousData
+        placeholderData: keepPreviousData,
+        refetchInterval: 10000, // Refetch every 10 seconds for "real-time" feel
+        refetchIntervalInBackground: true
     });
 
     const history = stockHistoryData || [];

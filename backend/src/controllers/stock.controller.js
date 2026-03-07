@@ -41,6 +41,10 @@ exports.adjustStock = async (req, res) => {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
+        if ((type === "increase" || type === "return" || type === "adjustment") && (!purchase_cost || parseFloat(purchase_cost) <= 0)) {
+            return res.status(400).json({ error: "Purchase cost is required and must be greater than 0 for adding or adjusting stock" });
+        }
+
         const result = await db.transaction(async (tx) => {
             // 1. Get current stock
             const [prod] = await tx.select({ stock: products.stock })

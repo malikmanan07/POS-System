@@ -152,6 +152,7 @@ export default function LowStock() {
                     queryClient.invalidateQueries({ queryKey: ["stock"] });
                     queryClient.invalidateQueries({ queryKey: ["products"] });
                     queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+                    queryClient.invalidateQueries({ queryKey: ["stockHistory"] });
                 }}
             />
         </div>
