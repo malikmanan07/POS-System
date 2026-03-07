@@ -353,6 +353,7 @@ export default function POS() {
       queryClient.invalidateQueries({ queryKey: ["products-pos"] });
       queryClient.invalidateQueries({ queryKey: ["stock"] });
       queryClient.invalidateQueries({ queryKey: ["lowStock"] });
+      queryClient.invalidateQueries({ queryKey: ["stockHistory"] });
     } catch (err) {
       toast.error(err.response?.data?.error || "Checkout failed");
     }

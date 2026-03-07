@@ -160,6 +160,7 @@ export default function ManageStock() {
                     queryClient.invalidateQueries({ queryKey: ["stock"] });
                     queryClient.invalidateQueries({ queryKey: ["products"] });
                     queryClient.invalidateQueries({ queryKey: ["products-pos"] });
+                    queryClient.invalidateQueries({ queryKey: ["stockHistory"] });
                     queryClient.invalidateQueries({ queryKey: ["lowStock"] });
                 }}
             />

@@ -33,6 +33,10 @@ export default function StockAdjustmentModal({ show, onHide, product, onSuccess 
             return toast.error(`Quantity must be greater than 0 for ${formData.type}`);
         }
 
+        if ((formData.type === "increase" || formData.type === "return" || formData.type === "adjustment") && (!formData.purchase_cost || parseFloat(formData.purchase_cost) <= 0)) {
+            return toast.error("Purchase cost is required and must be greater than 0 for adding or adjusting stock");
+        }
+
         try {
             await adjustStock({
                 product_id: product.id,
@@ -87,7 +91,7 @@ export default function StockAdjustmentModal({ show, onHide, product, onSuccess 
                         />
                     </Form.Group>
 
-                    {formData.type === "increase" && (
+                    {(formData.type === "increase" || formData.type === "adjustment" || formData.type === "return") && (
                         <Form.Group className="mb-3">
                             <Form.Label className="text-muted small fw-bold">PURCHASE COST (PER UNIT)</Form.Label>
                             <Form.Control
