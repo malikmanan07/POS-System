@@ -106,8 +106,15 @@ export default function POS() {
   const [selectedParentProduct, setSelectedParentProduct] = useState(null);
   const [lastSale, setLastSale] = useState(null);
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('pos-view-mode') || 'classic');
 
-  const itemsPerPage = 12;
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('pos-view-mode', mode);
+    setPosPage(1);
+  };
+
+  const itemsPerPage = viewMode === 'touch' ? 20 : 12;
 
   // Filter Logic (Moved up to prevent ReferenceError)
   const getDescendantCategoryIds = (catId) => {
@@ -212,13 +219,18 @@ export default function POS() {
 
   const addToCart = (product) => {
     if (product.stock <= 0) return toast.error("Product out of stock");
+
+    // Check stock limit OUTSIDE the updater to avoid duplicate toasts (React 18 StrictMode)
+    const existing = cart.find(item => item.id === product.id);
+    if (existing && existing.qty >= product.stock) {
+      toast.error("Stock limit reached");
+      return;
+    }
+
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        if (existing.qty >= product.stock) {
-          toast.error("Stock limit reached");
-          return prev;
-        }
+      const existingItem = prev.find(item => item.id === product.id);
+      if (existingItem) {
+        if (existingItem.qty >= product.stock) return prev;
         return prev.map(item =>
           item.id === product.id ? { ...item, qty: item.qty + 1, line_total: (item.qty + 1) * item.price } : item
         );
@@ -231,14 +243,19 @@ export default function POS() {
   };
 
   const updateQty = (id, delta) => {
+    // Check stock limit OUTSIDE the updater to avoid duplicate toasts
+    if (delta > 0) {
+      const currentItem = cart.find(item => item.id === id);
+      const product = products.find(p => p.id === id);
+      if (currentItem && (currentItem.qty + delta) > (product?.stock || 0)) {
+        toast.error("Stock limit reached");
+        return;
+      }
+    }
+
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = Math.max(0, item.qty + delta);
-        const product = products.find(p => p.id === id);
-        if (delta > 0 && newQty > (product?.stock || 0)) {
-          toast.error("Stock limit reached");
-          return item;
-        }
         return { ...item, qty: newQty, line_total: newQty * item.price };
       }
       return item;
@@ -405,6 +422,8 @@ export default function POS() {
             currentPage={posPage}
             totalPages={totalPosPages}
             onSearchEnter={handleSearchEnter}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
           />
 
           <POSCategoryFilter
@@ -425,6 +444,7 @@ export default function POS() {
             totalPages={totalPosPages}
             onPageChange={setPosPage}
             discounts={discounts}
+            viewMode={viewMode}
           />
         </Col>
 

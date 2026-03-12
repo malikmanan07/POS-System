@@ -12,7 +12,8 @@ export default function POSProductGrid({
     currentPage,
     totalPages,
     onPageChange,
-    discounts = []
+    discounts = [],
+    viewMode = 'classic'
 }) {
     return (
         <>
@@ -35,7 +36,23 @@ export default function POSProductGrid({
                             Clear all filters
                         </Button>
                     </div>
+                ) : viewMode === 'touch' ? (
+                    /* Touch Mode — horizontal list layout */
+                    <div className="pos-touch-list pb-3">
+                        {paginatedProducts.map(p => (
+                            <POSProductCard
+                                key={p.id}
+                                product={p}
+                                onAdd={onAdd}
+                                currency={currency}
+                                apiBaseUrl={apiBaseUrl}
+                                discounts={discounts}
+                                touchMode
+                            />
+                        ))}
+                    </div>
                 ) : (
+                    /* Classic Mode — grid layout */
                     <Row className="g-3 pb-3">
                         {paginatedProducts.map(p => (
                             <Col key={p.id} xs={6} sm={6} md={4} lg={4}>

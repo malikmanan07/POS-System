@@ -1,6 +1,6 @@
 import { Card } from "react-bootstrap";
 
-export default function POSProductCard({ product, currency, onAdd, apiBaseUrl, discounts = [] }) {
+export default function POSProductCard({ product, currency, onAdd, apiBaseUrl, discounts = [], touchMode = false }) {
     // Find applicable discounts for this product
     const applicableDiscount = discounts.find(d => {
         const hasProducts = (d.products?.length || 0) > 0;
@@ -28,6 +28,62 @@ export default function POSProductCard({ product, currency, onAdd, apiBaseUrl, d
         ? product.variants.reduce((sum, v) => sum + parseInt(v.stock || 0), 0)
         : parseInt(product.stock || 0);
 
+    /* ─── Touch Mode: Horizontal compact card ─── */
+    if (touchMode) {
+        return (
+            <div
+                className="pos-touch-card"
+                onClick={() => onAdd(product)}
+            >
+                {/* Image / Placeholder */}
+                <div className="pos-touch-card-img">
+                    {product.image ? (
+                        <img
+                            src={`${apiBaseUrl}${product.image}`}
+                            alt={product.name}
+                        />
+                    ) : (
+                        <span className="pos-touch-card-placeholder">{product.name.charAt(0)}</span>
+                    )}
+                    {applicableDiscount && !hasVariants && (
+                        <span className="pos-touch-discount-dot" title={
+                            applicableDiscount.type === 'percentage'
+                                ? `${parseFloat(applicableDiscount.value)}% OFF`
+                                : `${currency}${parseFloat(applicableDiscount.value)} OFF`
+                        }>
+                            <i className="bi bi-tag-fill"></i>
+                        </span>
+                    )}
+                </div>
+
+                {/* Info */}
+                <div className="pos-touch-card-info">
+                    <div className="pos-touch-card-name">{product.name}</div>
+                    <div className="pos-touch-card-meta">
+                        <span className="pos-touch-category">{product.category_name || "General"}</span>
+                        {hasVariants && <span className="pos-touch-variants">{product.variants.length} Variants</span>}
+                        <span className={`pos-touch-stock ${displayStock < 10 ? 'low' : ''}`}>{displayStock} in stock</span>
+                    </div>
+                </div>
+
+                {/* Price + Add */}
+                <div className="pos-touch-card-actions">
+                    <div className="pos-touch-price">
+                        {hasVariants && <span className="pos-touch-price-from">From </span>}
+                        {currency}{displayPrice.toFixed(2)}
+                    </div>
+                    <button
+                        className="pos-touch-add-btn"
+                        onClick={(e) => { e.stopPropagation(); onAdd(product); }}
+                    >
+                        <i className={`bi bi-${hasVariants ? 'list-ul' : 'plus-lg'}`}></i>
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    /* ─── Classic Mode: Vertical grid card (unchanged) ─── */
     return (
         <Card
             className="pos-product-card border-0 h-100"
@@ -82,4 +138,3 @@ export default function POSProductCard({ product, currency, onAdd, apiBaseUrl, d
         </Card>
     );
 }
-
