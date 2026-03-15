@@ -19,6 +19,10 @@ const businesses = pgTable("businesses", {
     name: varchar("name", { length: 150 }).notNull(),
     logo: text("logo"),
     isSuspended: boolean("is_suspended").default(false).notNull(),
+<<<<<<< HEAD
+=======
+    tenantId: integer("tenant_id"), // Grouping branches under one owner/group
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -26,9 +30,16 @@ const businesses = pgTable("businesses", {
 const users = pgTable("users", {
     id: serial("id").primaryKey(),
     businessId: integer("business_id").references(() => businesses.id).notNull(),
+<<<<<<< HEAD
     name: varchar("name", { length: 100 }).notNull(),
     email: varchar("email", { length: 120 }).unique().notNull(),
     passwordHash: text("password_hash").notNull(),
+=======
+    email: varchar("email", { length: 255 }).unique().notNull(),
+    passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+    name: varchar("name", { length: 150 }).notNull(),
+    tenantId: integer("tenant_id"), // Grouping users under one group
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -82,6 +93,25 @@ const userRoles = pgTable(
     })
 );
 
+<<<<<<< HEAD
+=======
+// 5.1️⃣ USER_BRANCHES (Assignment of users to specific branches)
+const userBranches = pgTable(
+    "user_branches",
+    {
+        userId: integer("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        businessId: integer("business_id")
+            .references(() => businesses.id, { onDelete: "cascade" })
+            .notNull(),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.userId, t.businessId] }),
+    })
+);
+
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 // 6️⃣ CATEGORIES
 const categories = pgTable("categories", {
     id: serial("id").primaryKey(),
@@ -312,6 +342,10 @@ const shiftsRelations = relations(shifts, ({ one, many }) => ({
 
 const usersRelations = relations(users, ({ many }) => ({
     roles: many(userRoles),
+<<<<<<< HEAD
+=======
+    branches: many(userBranches),
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     sales: many(sales),
 }));
 
@@ -329,6 +363,14 @@ const userRolesRelations = relations(userRoles, ({ one }) => ({
     role: one(roles, { fields: [userRoles.roleId], references: [roles.id] }),
 }));
 
+<<<<<<< HEAD
+=======
+const userBranchesRelations = relations(userBranches, ({ one }) => ({
+    user: one(users, { fields: [userBranches.userId], references: [users.id] }),
+    branch: one(businesses, { fields: [userBranches.businessId], references: [businesses.id] }),
+}));
+
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
     role: one(roles, { fields: [rolePermissions.roleId], references: [roles.id] }),
     permission: one(permissions, {
@@ -444,6 +486,10 @@ module.exports = {
     discountCategories,
     shifts,
     productBatches,
+<<<<<<< HEAD
+=======
+    userBranches,
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     // Relations
     usersRelations,
     rolesRelations,
@@ -463,4 +509,8 @@ module.exports = {
     discountCategoriesRelations,
     shiftsRelations,
     productBatchesRelations,
+<<<<<<< HEAD
+=======
+    userBranchesRelations,
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 };
