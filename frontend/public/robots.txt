@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /#faq
+Allow: /#features
+Allow: /#pricing
+
+Sitemap: https://forcepos.com/sitemap.xml

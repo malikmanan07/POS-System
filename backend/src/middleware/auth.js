@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 const { eq, and, inArray } = require("drizzle-orm");
-const { users, roles: rolesTable, rolePermissions, permissions } = require("../db/schema");
+const { users, roles: rolesTable, rolePermissions, permissions, businesses } = require("../db/schema");
 const jwt = require("jsonwebtoken");
 
 exports.requireAuth = async (req, res, next) => {
@@ -14,24 +14,51 @@ exports.requireAuth = async (req, res, next) => {
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!payload.name || !payload.businessId) {
-      const [u] = await pool.db.select({ name: users.name, businessId: users.businessId })
-        .from(users)
-        .where(eq(users.id, payload.id))
-        .limit(1);
-      if (u) {
-        payload.name = u.name;
-        payload.businessId = u.businessId;
+    // Get Active Business ID from Header or Token
+    const headerBusinessId = req.headers["x-business-id"];
+    const activeBusinessId = headerBusinessId ? parseInt(headerBusinessId) : payload.businessId;
+
+    const userRoles = payload.roles || [];
+    const isSuperAdmin = userRoles.some(r => r.toLowerCase() === "super admin");
+
+    // Verify Business Ownership (Circle of Trust)
+    const [targetBusiness] = await pool.db
+      .select({ id: businesses.id, tenantId: businesses.tenantId })
+      .from(businesses)
+      .where(eq(businesses.id, activeBusinessId))
+      .limit(1);
+
+    if (!targetBusiness || targetBusiness.tenantId !== payload.tenantId) {
+      return res.status(403).json({ error: "Access denied. Business not in your group." });
+    }
+
+    if (!isSuperAdmin) {
+      // Verify if Admin/Staff has access to this specific branch
+      if (activeBusinessId !== payload.businessId) {
+        const [assignment] = await pool.db
+          .select()
+          .from(require("../db/schema").userBranches)
+          .where(and(
+            eq(require("../db/schema").userBranches.userId, payload.id),
+            eq(require("../db/schema").userBranches.businessId, activeBusinessId)
+          ))
+          .limit(1);
+
+        if (!assignment) {
+          return res.status(403).json({ error: "Access denied. You are not assigned to this branch." });
+        }
       }
     }
 
     req.user = {
       id: payload.id,
-      businessId: payload.businessId,
+      businessId: payload.businessId, // home business
+      tenantId: payload.tenantId,
+      activeBusinessId: activeBusinessId,
       name: payload.name,
-      roles: payload.roles || []
+      roles: userRoles
     };
-    req.businessId = payload.businessId; // Convenience attachment
+    req.businessId = activeBusinessId;
     next();
   } catch (err) {
     return res.status(401).json({ error: "Invalid token" });

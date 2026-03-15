@@ -19,6 +19,7 @@ const businesses = pgTable("businesses", {
     name: varchar("name", { length: 150 }).notNull(),
     logo: text("logo"),
     isSuspended: boolean("is_suspended").default(false).notNull(),
+    tenantId: integer("tenant_id"), // Grouping branches under one owner/group
     createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -26,9 +27,10 @@ const businesses = pgTable("businesses", {
 const users = pgTable("users", {
     id: serial("id").primaryKey(),
     businessId: integer("business_id").references(() => businesses.id).notNull(),
-    name: varchar("name", { length: 100 }).notNull(),
-    email: varchar("email", { length: 120 }).unique().notNull(),
-    passwordHash: text("password_hash").notNull(),
+    email: varchar("email", { length: 255 }).unique().notNull(),
+    passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+    name: varchar("name", { length: 150 }).notNull(),
+    tenantId: integer("tenant_id"), // Grouping users under one group
     createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -79,6 +81,22 @@ const userRoles = pgTable(
     },
     (t) => ({
         pk: primaryKey({ columns: [t.userId, t.roleId] }),
+    })
+);
+
+// 5.1️⃣ USER_BRANCHES (Assignment of users to specific branches)
+const userBranches = pgTable(
+    "user_branches",
+    {
+        userId: integer("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        businessId: integer("business_id")
+            .references(() => businesses.id, { onDelete: "cascade" })
+            .notNull(),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.userId, t.businessId] }),
     })
 );
 
@@ -312,6 +330,7 @@ const shiftsRelations = relations(shifts, ({ one, many }) => ({
 
 const usersRelations = relations(users, ({ many }) => ({
     roles: many(userRoles),
+    branches: many(userBranches),
     sales: many(sales),
 }));
 
@@ -327,6 +346,11 @@ const permissionsRelations = relations(permissions, ({ many }) => ({
 const userRolesRelations = relations(userRoles, ({ one }) => ({
     user: one(users, { fields: [userRoles.userId], references: [users.id] }),
     role: one(roles, { fields: [userRoles.roleId], references: [roles.id] }),
+}));
+
+const userBranchesRelations = relations(userBranches, ({ one }) => ({
+    user: one(users, { fields: [userBranches.userId], references: [users.id] }),
+    branch: one(businesses, { fields: [userBranches.businessId], references: [businesses.id] }),
 }));
 
 const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
@@ -444,6 +468,7 @@ module.exports = {
     discountCategories,
     shifts,
     productBatches,
+    userBranches,
     // Relations
     usersRelations,
     rolesRelations,
@@ -463,4 +488,5 @@ module.exports = {
     discountCategoriesRelations,
     shiftsRelations,
     productBatchesRelations,
+    userBranchesRelations,
 };

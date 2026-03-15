@@ -19,6 +19,12 @@ export default function Sidebar({ onNavigate }) {
         </NavLink>
       )}
 
+      {hasPermission("manage_branches") && (
+        <NavLink to="/app/branches" className="nav-itemx" onClick={handleLinkClick}>
+          <i className="bi bi-diagram-3"></i> Branches
+        </NavLink>
+      )}
+
       {hasPermission("manage_products") && (
         <NavLink to="/app/products" className="nav-itemx" onClick={handleLinkClick}>
           <i className="bi bi-box-seam"></i> Products

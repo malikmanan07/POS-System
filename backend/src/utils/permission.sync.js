@@ -24,7 +24,8 @@ const REQUIRED_PERMISSIONS = [
     "manage_suppliers", // <-- New permission
     "manage_discounts",
     "manage_shifts",
-    "view_activity_logs"
+    "view_activity_logs",
+    "manage_branches"
 ];
 
 exports.REQUIRED_PERMISSIONS = REQUIRED_PERMISSIONS;

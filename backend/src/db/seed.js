@@ -9,6 +9,7 @@ const {
     permissions,
     rolePermissions,
     settings,
+    businesses
 } = require("./schema");
 
 const db = pool.db;
@@ -17,6 +18,15 @@ async function seed() {
     console.log("🌱 Starting database seeding...");
 
     try {
+        // 0. Ensure Default Business
+        console.log("Ensuring default business...");
+        let [business] = await db.select().from(businesses).where(eq(businesses.name, "Default Business")).limit(1);
+        if (!business) {
+            [business] = await db.insert(businesses).values({ name: "Default Business" }).returning();
+            await db.update(businesses).set({ tenantId: business.id }).where(eq(businesses.id, business.id));
+            business.tenantId = business.id;
+        }
+
         const roleNames = ['super admin', 'admin', 'cashier'];
         const allPerms = [
             "view_dashboard",
@@ -30,7 +40,8 @@ async function seed() {
             "manage_roles",
             "system_settings",
             "manage_inventory",
-            "view_activity_logs"
+            "view_activity_logs",
+            "manage_branches"
         ];
 
         // 1. Ensure Roles
@@ -38,10 +49,16 @@ async function seed() {
         const roleIds = {};
         for (const name of roleNames) {
             const res = await db.insert(roles)
-                .values({ name })
-                .onConflictDoUpdate({ target: roles.name, set: { name: sql`EXCLUDED.name` } })
+                .values({ name, businessId: business.id })
+                .onConflictDoNothing()
                 .returning({ id: roles.id });
-            roleIds[name] = res[0].id;
+
+            if (res.length > 0) {
+                roleIds[name] = res[0].id;
+            } else {
+                const [existing] = await db.select().from(roles).where(and(eq(roles.name, name), eq(roles.businessId, business.id))).limit(1);
+                roleIds[name] = existing.id;
+            }
         }
 
         // 2. Ensure Permissions
@@ -49,10 +66,16 @@ async function seed() {
         const permIds = {};
         for (const name of allPerms) {
             const res = await db.insert(permissions)
-                .values({ name })
-                .onConflictDoUpdate({ target: permissions.name, set: { name: sql`EXCLUDED.name` } })
+                .values({ name, businessId: business.id })
+                .onConflictDoNothing()
                 .returning({ id: permissions.id });
-            permIds[name] = res[0].id;
+
+            if (res.length > 0) {
+                permIds[name] = res[0].id;
+            } else {
+                const [existing] = await db.select().from(permissions).where(and(eq(permissions.name, name), eq(permissions.businessId, business.id))).limit(1);
+                permIds[name] = existing.id;
+            }
         }
 
         // 3. Grant Permissions to Super Admin (EVERYTHING)
@@ -93,7 +116,7 @@ async function seed() {
 
         for (const s of defaultSettings) {
             await db.insert(settings)
-                .values({ key: s.key, value: s.value })
+                .values({ businessId: business.id, key: s.key, value: s.value })
                 .onConflictDoNothing();
         }
 
@@ -110,6 +133,8 @@ async function seed() {
 
             const [newAdmin] = await db.insert(users)
                 .values({
+                    businessId: business.id,
+                    tenantId: business.id,
                     name: 'Super Admin',
                     email: adminEmail,
                     passwordHash: hashedPassword,
