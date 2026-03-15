@@ -1,4 +1,3 @@
-@"
 # dependencies
 node_modules/
 
@@ -26,4 +25,3 @@ Thumbs.db
 # editor
 .vscode/
 .idea/
-"@ | Out-File -Encoding utf8 .gitignore

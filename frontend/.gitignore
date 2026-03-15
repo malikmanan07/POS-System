@@ -1,10 +1,4 @@
-<<<<<<< HEAD
-# =========================
 # Logs
-# =========================
-=======
-# Logs
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 logs
 *.log
 npm-debug.log*
@@ -13,58 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-<<<<<<< HEAD
-# =========================
-# Dependencies
-# =========================
-node_modules/
-backend/node_modules/
-
-# =========================
-# Environment files
-# =========================
-.env
-.env.*
-backend/.env
-frontend/.env
-!.env.example
-
-# =========================
-# Build folders
-# =========================
-dist
-dist-ssr
-build
-coverage
-
-# =========================
-# Uploads (images/files)
-# =========================
-uploads/
-backend/uploads/
-
-# =========================
-# Local config
-# =========================
-*.local
-
-# =========================
-# Editor directories
-# =========================
-.vscode/*
-!.vscode/extensions.json
-.idea
-
-# =========================
-# OS files
-# =========================
-.DS_Store
-Thumbs.db
-
-# =========================
-# Visual Studio
-# =========================
-=======
 node_modules
 dist
 dist-ssr
@@ -75,13 +17,8 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-<<<<<<< HEAD
 *.sw?
-=======
-*.sw?
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
