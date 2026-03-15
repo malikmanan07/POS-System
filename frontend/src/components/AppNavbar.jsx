@@ -6,18 +6,11 @@ import { api } from "../api/client";
 import { useState, useEffect, useMemo } from "react";
 import { useSettings } from "../context/SettingsContext";
 import { useShift } from "../context/ShiftContext";
-<<<<<<< HEAD
-import ShiftModal from "./Shifts/ShiftModal";
-
-export default function AppNavbar({ onMenu }) {
-  const { user, logout, token, hasPermission, permissions } = useAuth();
-=======
 import { toast } from "react-toastify";
 import ShiftModal from "./Shifts/ShiftModal";
 
 export default function AppNavbar({ onMenu }) {
   const { user, logout, token, hasPermission, permissions, branches, activeBranchId, switchBranch } = useAuth();
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
   const { activeShift, loading: shiftLoading } = useShift();
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [shiftType, setShiftType] = useState('start');
@@ -68,10 +61,6 @@ export default function AppNavbar({ onMenu }) {
     }
   }, [token, dismissedAlerts, permissions]);
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
   const fetchLowStock = async () => {
     try {
       const res = await fetchStockList(token);
@@ -129,11 +118,7 @@ export default function AppNavbar({ onMenu }) {
             )}
           </div>
           <div>
-<<<<<<< HEAD
-            <div className="fw-bold">{settings?.business?.storeName || "POS System"}</div>
-=======
             <div className="fw-bold">{branches.find(b => b.id === activeBranchId)?.name || settings?.business?.storeName || "POS System"}</div>
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
             <div className="small" style={{ color: "var(--muted)", textTransform: "capitalize" }}>
               {user?.roles?.length > 0 ? (typeof user.roles[0] === 'string' ? user.roles[0] : user.roles[0].name || "Staff") : "Console"}
             </div>
@@ -223,10 +208,6 @@ export default function AppNavbar({ onMenu }) {
               {user?.name || "User"}
             </Dropdown.Toggle>
 
-<<<<<<< HEAD
-            <Dropdown.Menu className="glass shadow-soft border-secondary mt-2">
-              <Dropdown.Item onClick={handleLogout} className="text-danger d-flex align-items-center gap-2">
-=======
             <Dropdown.Menu className="shadow-lg border-0 mt-2 p-0 overflow-hidden" style={{ zIndex: 1050, minWidth: '220px', backgroundColor: '#ffffff', borderRadius: '12px' }}>
               {branches.length > 1 && hasPermission?.("manage_branches") && (
                 <>
@@ -254,7 +235,6 @@ export default function AppNavbar({ onMenu }) {
                 </>
               )}
               <Dropdown.Item onClick={handleLogout} className="text-danger d-flex align-items-center gap-2 py-2 px-3">
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
                 <i className="bi bi-box-arrow-right"></i> Logout
               </Dropdown.Item>
             </Dropdown.Menu>

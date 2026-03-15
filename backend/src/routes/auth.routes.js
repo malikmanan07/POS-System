@@ -11,7 +11,10 @@ router.post("/login", auth.login);
 router.post("/signup", auth.signup);
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
+=======
+>>>>>>> Manan
 module.exports = router;

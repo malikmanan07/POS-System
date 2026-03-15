@@ -4,10 +4,7 @@ import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-quer
 import { fetchUsersList, createUser, updateUser, deleteUser } from "../api/userApi";
 import { fetchRolesList } from "../api/roleApi";
 import { useAuth } from "../auth/AuthContext";
-<<<<<<< HEAD
-=======
 import { api } from "../api/client";
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 import { Modal, Button, Form } from "react-bootstrap";
 import ConfirmDialog from "../components/ConfirmDialog";
 import PaginationControl from "../components/PaginationControl";
@@ -27,12 +24,8 @@ export default function Users() {
         name: "",
         email: "",
         password: "",
-<<<<<<< HEAD
-        role_ids: []
-=======
         role_ids: [],
         branch_ids: []
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     });
 
     const { data: usersData, isLoading: loadingUsers } = useQuery({
@@ -54,8 +47,6 @@ export default function Users() {
         enabled: !!token
     });
 
-<<<<<<< HEAD
-=======
     const { data: branchesData } = useQuery({
         queryKey: ["branches-minimal"],
         queryFn: async () => {
@@ -65,7 +56,6 @@ export default function Users() {
         enabled: !!token
     });
 
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     const users = usersData || [];
     const roles = rolesData || [];
 
@@ -79,11 +69,7 @@ export default function Users() {
     const handleOpenAdd = () => {
         setEditMode(false);
         setEditId(null);
-<<<<<<< HEAD
-        setFormData({ name: "", email: "", password: "", role_ids: [] });
-=======
         setFormData({ name: "", email: "", password: "", role_ids: [], branch_ids: [] });
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         setShowModal(true);
     };
 
@@ -94,12 +80,8 @@ export default function Users() {
             name: user.name,
             email: user.email,
             password: "",
-<<<<<<< HEAD
-            role_ids: user.roles ? user.roles.map(r => r.id) : []
-=======
             role_ids: user.roles ? user.roles.map(r => r.id) : [],
             branch_ids: user.assignedBranches ? user.assignedBranches.map(b => b.id) : []
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         });
         setShowModal(true);
     };
@@ -134,10 +116,6 @@ export default function Users() {
         if (!editMode && !formData.password) return toast.error("Password is required for new users");
         if (formData.role_ids.length === 0) return toast.error("Please select a role for the user");
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         try {
             if (editMode) {
                 const updateData = { ...formData };
@@ -208,17 +186,6 @@ export default function Users() {
                                                 <button
                                                     className="btn btn-sm btn-outline-light rounded-3 border-0"
                                                     onClick={() => handleOpenEdit(u)}
-<<<<<<< HEAD
-                                                >
-                                                    <i className="bi bi-pencil-square text-primary"></i>
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm btn-outline-light rounded-3 border-0"
-                                                    onClick={() => askDelete(u)}
-                                                >
-                                                    <i className="bi bi-trash text-danger"></i>
-                                                </button>
-=======
                                                     title="Edit User"
                                                 >
                                                     <i className="bi bi-pencil-square text-primary"></i>
@@ -232,7 +199,6 @@ export default function Users() {
                                                         <i className="bi bi-trash text-danger"></i>
                                                     </button>
                                                 )}
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
                                             </div>
                                         </td>
                                     </tr>
@@ -306,8 +272,6 @@ export default function Users() {
                                 ))}
                             </Form.Select>
                         </Form.Group>
-<<<<<<< HEAD
-=======
 
                         <Form.Group className="mb-3">
                             <Form.Label className="text-muted small fw-bold">ASSIGNED BRANCHES</Form.Label>
@@ -334,7 +298,6 @@ export default function Users() {
                             </Form.Text>
                         </Form.Group>
 
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
                     </Modal.Body>
                     <Modal.Footer className="border-top border-secondary">
                         <Button variant="outline-secondary" onClick={() => setShowModal(false)} className="border-0">
@@ -345,11 +308,7 @@ export default function Users() {
                         </Button>
                     </Modal.Footer>
                 </Form>
-<<<<<<< HEAD
-            </Modal>
-=======
             </Modal >
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
             <ConfirmDialog
                 show={confirmDialog.show}
                 title="Delete User"
@@ -359,10 +318,6 @@ export default function Users() {
                 onConfirm={handleDeleteConfirmed}
                 onCancel={() => setConfirmDialog({ show: false, id: null, name: "" })}
             />
-<<<<<<< HEAD
-        </div>
-=======
         </div >
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     );
 }

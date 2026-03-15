@@ -11,19 +11,13 @@ import Skeleton from "../components/Skeleton";
 import DashboardStats from "../components/Dashboard/DashboardStats";
 import RevenueChart from "../components/Dashboard/RevenueChart";
 import TopProductsChart from "../components/Dashboard/TopProductsChart";
-<<<<<<< HEAD
-=======
 import BranchComparisonChart from "../components/Dashboard/BranchComparisonChart";
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
 export default function Dashboard() {
   const { hasPermission, user, token } = useAuth();
   const { currencySymbol } = useSettings();
   const navigate = useNavigate();
-<<<<<<< HEAD
-=======
   const [isGlobal, setIsGlobal] = useState(false);
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
   const roles = (user?.roles || []).map(r => r.toLowerCase());
   const isBranchManager = roles.some(r => r === "branch manager" || r === "manager");
@@ -80,15 +74,9 @@ export default function Dashboard() {
   const quickActions = getQuickActions();
 
   const { data: dashboardStats, isLoading: loading } = useQuery({
-<<<<<<< HEAD
-    queryKey: ["dashboard-stats"],
-    queryFn: async () => {
-      const res = await fetchDashboardStats(token);
-=======
     queryKey: ["dashboard-stats", isGlobal],
     queryFn: async () => {
       const res = await fetchDashboardStats(token, isGlobal);
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       return {
         ...res.data,
         revenueData: (res.data.revenueData || []).map(row => ({ ...row, revenue: parseFloat(row.revenue) || 0 })),
@@ -114,13 +102,6 @@ export default function Dashboard() {
             Welcome back, {user?.name} — {isCashier ? "Ready to start your shift?" : "Here's the current business status."}
           </div>
         </div>
-<<<<<<< HEAD
-        {hasPermission("create_sale") && (
-          <Button onClick={() => navigate("/app/pos")} className="btn btn-gradient gap-2 d-flex align-items-center justify-content-center">
-            <i className="bi bi-cart3"></i> Open POS
-          </Button>
-        )}
-=======
         <div className="d-flex align-items-center gap-2">
           {isAdmin && hasPermission?.("manage_branches") && (
             <div className="glass d-flex p-1 rounded-pill border-0 me-2">
@@ -150,7 +131,6 @@ export default function Dashboard() {
             </Button>
           )}
         </div>
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       </div>
 
       <DashboardStats
@@ -164,11 +144,7 @@ export default function Dashboard() {
       />
 
       {(showRevenueChart || showTopProductsChart) && (
-<<<<<<< HEAD
-        <Row className="g-3">
-=======
         <Row className="g-3 mb-4">
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
           {showRevenueChart && (
             <Col lg={showTopProductsChart ? 8 : 12}>
               <RevenueChart data={data} currencySymbol={currencySymbol} loading={loading} />
@@ -182,8 +158,6 @@ export default function Dashboard() {
         </Row>
       )}
 
-<<<<<<< HEAD
-=======
       {isGlobal && data.branchComparison?.length > 0 && (
         <Row className="mb-4">
           <Col lg={12}>
@@ -192,7 +166,6 @@ export default function Dashboard() {
         </Row>
       )}
 
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       {!(showRevenueStats || showInventoryStats || showCustomerStats || showRevenueChart || showTopProductsChart) && quickActions.length === 0 && (
         <div className="text-center py-5 mt-5">
           <div className="brand-badge mx-auto mb-3" style={{ width: 60, height: 60, fontSize: "24px" }}>
