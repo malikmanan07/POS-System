@@ -32,8 +32,15 @@ const Reports = lazy(() => import("./pages/Reports"));
 const Suppliers = lazy(() => import("./pages/Suppliers"));
 const Discounts = lazy(() => import("./pages/Discounts"));
 const Shifts = lazy(() => import("./pages/Shifts"));
+<<<<<<< HEAD
 const DevLogin = lazy(() => import("./pages/DevPanel/DevLogin"));
 const DevDashboard = lazy(() => import("./pages/DevPanel/DevDashboard"));
+=======
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const DevLogin = lazy(() => import("./pages/DevPanel/DevLogin"));
+const DevDashboard = lazy(() => import("./pages/DevPanel/DevDashboard"));
+const Branches = lazy(() => import("./pages/Branches"));
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
 // Global fallback skeleton/spinner for lazy loading
 const PageLoader = () => (
@@ -42,6 +49,7 @@ const PageLoader = () => (
   </div>
 );
 
+<<<<<<< HEAD
 export default function App() {
   return (
     <AuthProvider>
@@ -241,5 +249,218 @@ export default function App() {
       </SettingsProvider>
     </AuthProvider>
 
+=======
+import { HelmetProvider } from "react-helmet-async";
+
+export default function App() {
+  return (
+    <HelmetProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <ShiftProvider>
+            <BrowserRouter>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  {/* Default entry -> Landing Page */}
+                  <Route path="/" element={<LandingPage />} />
+
+                  {/* Public */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+
+                  {/* Protected Layout */}
+                  <Route
+                    path="/app"
+                    element={
+                      <ProtectedRoute>
+                        <PageShell />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route
+                      index
+                      element={<Dashboard />}
+                    />
+
+                    <Route
+                      path="branches"
+                      element={
+                        <PermissionRoute permission="manage_branches">
+                          <Branches />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="products"
+                      element={
+                        <PermissionRoute permission="manage_products">
+                          <Products />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="categories"
+                      element={
+                        <PermissionRoute permission="manage_categories">
+                          <Categories />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="customers"
+                      element={
+                        <PermissionRoute permission="manage_customers">
+                          <Customers />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="roles"
+                      element={
+                        <PermissionRoute permission="manage_roles">
+                          <Roles />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="access"
+                      element={
+                        <PermissionRoute permission="manage_roles">
+                          <Access />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="users"
+                      element={
+                        <PermissionRoute permission="manage_users">
+                          <Users />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="sales"
+                      element={
+                        <PermissionRoute permission="view_sales">
+                          <Sales />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="pos"
+                      element={
+                        <PermissionRoute permission="create_sale">
+                          <POS />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="settings"
+                      element={
+                        <PermissionRoute permission="system_settings">
+                          <Settings />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    {/* ✅ Inventory Routes */}
+                    <Route
+                      path="inventory"
+                      element={
+                        <PermissionRoute permission="manage_inventory">
+                          <ManageStock />
+                        </PermissionRoute>
+                      }
+                    />
+                    <Route
+                      path="inventory/history"
+                      element={
+                        <PermissionRoute permission="manage_inventory">
+                          <StockHistory />
+                        </PermissionRoute>
+                      }
+                    />
+                    <Route
+                      path="inventory/low-stock"
+                      element={
+                        <PermissionRoute permission="manage_inventory">
+                          <LowStock />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="activity"
+                      element={
+                        <PermissionRoute permission="view_activity_logs">
+                          <ActivityLog />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="reports"
+                      element={
+                        <PermissionRoute permission="view_reports">
+                          <Reports />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="suppliers"
+                      element={
+                        <PermissionRoute permission="manage_suppliers">
+                          <Suppliers />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="discounts"
+                      element={
+                        <PermissionRoute permission="manage_discounts">
+                          <Discounts />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route
+                      path="shifts"
+                      element={
+                        <PermissionRoute permission="manage_shifts">
+                          <Shifts />
+                        </PermissionRoute>
+                      }
+                    />
+
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
+
+                  {/* Dev Panel */}
+                  <Route path="/dev-panel" element={<DevLogin />} />
+                  <Route path="/dev-panel/dashboard" element={<DevDashboard />} />
+
+                  {/* fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
+
+              <ToastContainer position="top-right" autoClose={2000} />
+            </BrowserRouter>
+          </ShiftProvider>
+        </SettingsProvider>
+      </AuthProvider>
+    </HelmetProvider>
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
   );
 }

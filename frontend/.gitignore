@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 # =========================
 # Logs
 # =========================
+=======
+# Logs
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 logs
 *.log
 npm-debug.log*
@@ -9,6 +13,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+<<<<<<< HEAD
 # =========================
 # Dependencies
 # =========================
@@ -59,8 +64,24 @@ Thumbs.db
 # =========================
 # Visual Studio
 # =========================
+=======
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
+<<<<<<< HEAD
 *.sw?
+=======
+*.sw?
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb

@@ -1,8 +1,13 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+<<<<<<< HEAD
 const { eq, sql } = require("drizzle-orm");
 const { users, userRoles, roles, rolePermissions, permissions, businesses } = require("../db/schema");
+=======
+const { eq, sql, and } = require("drizzle-orm");
+const { users, userRoles, roles, rolePermissions, permissions, businesses, userBranches } = require("../db/schema");
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 const { logActivity } = require("../utils/logger");
 const { REQUIRED_PERMISSIONS } = require("../utils/permission.sync");
 
@@ -35,6 +40,41 @@ async function getUserPermissions(userId) {
   return result.map((p) => p.name);
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * Helper: get accessible branches for a user
+ */
+async function getAccessibleBranches(userId, userEmail, rolesList, tenantId) {
+  const isSuperAdmin = rolesList.some(r => r.toLowerCase() === 'super admin');
+
+  if (isSuperAdmin) {
+    // Super Admins see ALL businesses in their TENANT group
+    return await db.select({ id: businesses.id, name: businesses.name })
+      .from(businesses)
+      .where(eq(businesses.tenantId, tenantId));
+  }
+
+  // Admins see assigned branches from userBranches table + their home business
+  const assigned = await db
+    .select({ id: businesses.id, name: businesses.name })
+    .from(businesses)
+    .innerJoin(users, eq(users.businessId, businesses.id))
+    .where(eq(users.id, userId)); // Home business
+
+  const extra = await db
+    .select({ id: businesses.id, name: businesses.name })
+    .from(userBranches)
+    .innerJoin(businesses, eq(userBranches.businessId, businesses.id))
+    .where(eq(userBranches.userId, userId));
+
+  // Merge and deduplicate
+  const all = [...assigned, ...extra];
+  const unique = Array.from(new Map(all.map(b => [b.id, b])).values());
+  return unique;
+}
+
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
 /**
  * POST /api/auth/login
@@ -50,6 +90,10 @@ exports.login = async (req, res) => {
       .select({
         id: users.id,
         businessId: users.businessId,
+<<<<<<< HEAD
+=======
+        tenantId: users.tenantId,
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         name: users.name,
         email: users.email,
         passwordHash: users.passwordHash,
@@ -72,13 +116,28 @@ exports.login = async (req, res) => {
 
     const rolesList = await getUserRoles(user.id);
     const permissionsList = await getUserPermissions(user.id);
+<<<<<<< HEAD
+=======
+    const branchesList = await getAccessibleBranches(user.id, user.email, rolesList, user.tenantId);
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ error: "JWT_SECRET not set in .env" });
     }
 
     const token = jwt.sign(
+<<<<<<< HEAD
       { id: user.id, businessId: user.businessId, name: user.name, email: user.email, roles: rolesList },
+=======
+      {
+        id: user.id,
+        businessId: user.businessId,
+        tenantId: user.tenantId,
+        name: user.name,
+        email: user.email,
+        roles: rolesList
+      },
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -99,6 +158,10 @@ exports.login = async (req, res) => {
       token,
       user: { id: user.id, businessId: user.businessId, name: user.name, email: user.email, roles: rolesList },
       permissions: permissionsList,
+<<<<<<< HEAD
+=======
+      branches: branchesList
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -129,6 +192,13 @@ exports.signup = async (req, res) => {
         name: businessName
       }).returning();
 
+<<<<<<< HEAD
+=======
+      // 1.1 Set tenantId for the business (it's the first business, so it's the root)
+      await tx.update(businesses).set({ tenantId: newBusiness.id }).where(eq(businesses.id, newBusiness.id));
+      newBusiness.tenantId = newBusiness.id;
+
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       // 2. Seed Default Roles
       const defaultRoleNames = ["Super Admin", "Admin", "Manager", "Cashier"];
       const createdRoles = {};
@@ -159,6 +229,10 @@ exports.signup = async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
       const [newOwner] = await tx.insert(users).values({
         businessId: newBusiness.id,
+<<<<<<< HEAD
+=======
+        tenantId: newBusiness.id, // Inherit from business
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         name,
         email,
         passwordHash: hashedPassword
@@ -192,3 +266,7 @@ exports.signup = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
