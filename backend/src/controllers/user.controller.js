@@ -1,14 +1,9 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const { eq, sql, desc, notInArray, and } = require("drizzle-orm");
-<<<<<<< HEAD
-const { users, userRoles, roles } = require("../db/schema");
-const { logActivity } = require("../utils/logger");
-=======
 const { users, userRoles, roles, businesses, permissions, rolePermissions } = require("../db/schema");
 const { logActivity } = require("../utils/logger");
 const { REQUIRED_PERMISSIONS } = require("../utils/permission.sync");
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
 const db = pool.db;
 
@@ -16,24 +11,17 @@ const db = pool.db;
 exports.getAllUsers = async (req, res) => {
     try {
         const result = await db.query.users.findMany({
-<<<<<<< HEAD
-            where: eq(users.businessId, req.businessId),
-=======
             where: eq(users.tenantId, req.user.tenantId),
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
             with: {
                 roles: {
                     with: {
                         role: true
                     }
-<<<<<<< HEAD
-=======
                 },
                 branches: {
                     with: {
                         branch: true
                     }
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
                 }
             },
             orderBy: [desc(users.id)]
@@ -41,12 +29,8 @@ exports.getAllUsers = async (req, res) => {
 
         const formatted = result.map(u => ({
             ...u,
-<<<<<<< HEAD
-            roles: u.roles.map(ur => ur.role)
-=======
             roles: u.roles.map(ur => ur.role),
             assignedBranches: u.branches?.map(ub => ub.branch) || []
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         }));
 
         res.json(formatted);
@@ -74,10 +58,7 @@ exports.createUser = async (req, res) => {
             const [createdUser] = await tx.insert(users)
                 .values({
                     businessId: req.businessId,
-<<<<<<< HEAD
-=======
                     tenantId: req.user.tenantId, // Inherit from creator
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
                     name,
                     email,
                     passwordHash: hash
@@ -89,8 +70,6 @@ exports.createUser = async (req, res) => {
                     role_ids.map(rid => ({ userId: createdUser.id, roleId: rid }))
                 ).onConflictDoNothing();
             }
-<<<<<<< HEAD
-=======
 
             if (req.body.branch_ids && Array.isArray(req.body.branch_ids)) {
                 const { userBranches } = require("../db/schema");
@@ -98,7 +77,6 @@ exports.createUser = async (req, res) => {
                     req.body.branch_ids.map(bid => ({ userId: createdUser.id, businessId: bid }))
                 ).onConflictDoNothing();
             }
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
             return [createdUser];
         });
 
@@ -161,11 +139,7 @@ exports.updateUser = async (req, res) => {
                 .set(updateData)
                 .where(and(
                     eq(users.id, id),
-<<<<<<< HEAD
-                    eq(users.businessId, req.businessId)
-=======
                     eq(users.tenantId, req.user.tenantId)
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
                 ))
                 .returning();
 
@@ -181,8 +155,6 @@ exports.updateUser = async (req, res) => {
                     );
                 }
             }
-<<<<<<< HEAD
-=======
 
             if (req.body.branch_ids && Array.isArray(req.body.branch_ids)) {
                 const { userBranches } = require("../db/schema");
@@ -193,7 +165,6 @@ exports.updateUser = async (req, res) => {
                     ).onConflictDoNothing();
                 }
             }
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
             return [resUser];
         });
 
@@ -224,11 +195,7 @@ exports.deleteUser = async (req, res) => {
         const victim = await db.query.users.findFirst({
             where: and(
                 eq(users.id, targetId),
-<<<<<<< HEAD
-                eq(users.businessId, req.businessId)
-=======
                 eq(users.tenantId, req.user.tenantId)
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
             ),
             with: {
                 roles: {
@@ -244,12 +211,6 @@ exports.deleteUser = async (req, res) => {
         const victimName = victim.name;
         const victimRole = victim.roles?.map(r => r.role.name).join(', ') || 'No Role';
 
-<<<<<<< HEAD
-        // 2. Perform deletion
-        await db.delete(users).where(and(
-            eq(users.id, targetId),
-            eq(users.businessId, req.businessId)
-=======
         // Prevent deletion of Super Admin
         const isSuperAdmin = victim.roles?.some(r => r.role?.name?.toLowerCase() === 'super admin');
         if (isSuperAdmin) {
@@ -260,7 +221,6 @@ exports.deleteUser = async (req, res) => {
         await db.delete(users).where(and(
             eq(users.id, targetId),
             eq(users.tenantId, req.user.tenantId)
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         ));
 
         // 3. Activity Log

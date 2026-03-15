@@ -1,13 +1,8 @@
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-<<<<<<< HEAD
-const { eq, sql } = require("drizzle-orm");
-const { users, userRoles, roles, rolePermissions, permissions, businesses } = require("../db/schema");
-=======
 const { eq, sql, and } = require("drizzle-orm");
 const { users, userRoles, roles, rolePermissions, permissions, businesses, userBranches } = require("../db/schema");
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 const { logActivity } = require("../utils/logger");
 const { REQUIRED_PERMISSIONS } = require("../utils/permission.sync");
 
@@ -40,8 +35,6 @@ async function getUserPermissions(userId) {
   return result.map((p) => p.name);
 }
 
-<<<<<<< HEAD
-=======
 /**
  * Helper: get accessible branches for a user
  */
@@ -74,7 +67,6 @@ async function getAccessibleBranches(userId, userEmail, rolesList, tenantId) {
   return unique;
 }
 
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
 /**
  * POST /api/auth/login
@@ -82,6 +74,7 @@ async function getAccessibleBranches(userId, userEmail, rolesList, tenantId) {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("Login attempt:", { email, password });
 
     if (!email || !password)
       return res.status(400).json({ error: "email and password are required" });
@@ -90,10 +83,7 @@ exports.login = async (req, res) => {
       .select({
         id: users.id,
         businessId: users.businessId,
-<<<<<<< HEAD
-=======
         tenantId: users.tenantId,
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         name: users.name,
         email: users.email,
         passwordHash: users.passwordHash,
@@ -101,34 +91,34 @@ exports.login = async (req, res) => {
       })
       .from(users)
       .innerJoin(businesses, eq(users.businessId, businesses.id))
-      .where(eq(users.email, email))
+      .where(eq(sql`LOWER(${users.email})`, email.toLowerCase().trim()))
       .limit(1);
 
-    if (!user)
+    if (!user) {
+      console.log("Login failed: User not found for email:", email);
       return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     if (user.isSuspended) {
+      console.log("Login failed: User is suspended:", email);
       return res.status(403).json({ error: "Your account has been suspended. Please contact support." });
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+    if (!ok) {
+      console.log("Login failed: Password mismatch for email:", email);
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     const rolesList = await getUserRoles(user.id);
     const permissionsList = await getUserPermissions(user.id);
-<<<<<<< HEAD
-=======
     const branchesList = await getAccessibleBranches(user.id, user.email, rolesList, user.tenantId);
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({ error: "JWT_SECRET not set in .env" });
     }
 
     const token = jwt.sign(
-<<<<<<< HEAD
-      { id: user.id, businessId: user.businessId, name: user.name, email: user.email, roles: rolesList },
-=======
       {
         id: user.id,
         businessId: user.businessId,
@@ -137,7 +127,6 @@ exports.login = async (req, res) => {
         email: user.email,
         roles: rolesList
       },
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -158,10 +147,7 @@ exports.login = async (req, res) => {
       token,
       user: { id: user.id, businessId: user.businessId, name: user.name, email: user.email, roles: rolesList },
       permissions: permissionsList,
-<<<<<<< HEAD
-=======
       branches: branchesList
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -192,13 +178,10 @@ exports.signup = async (req, res) => {
         name: businessName
       }).returning();
 
-<<<<<<< HEAD
-=======
       // 1.1 Set tenantId for the business (it's the first business, so it's the root)
       await tx.update(businesses).set({ tenantId: newBusiness.id }).where(eq(businesses.id, newBusiness.id));
       newBusiness.tenantId = newBusiness.id;
 
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       // 2. Seed Default Roles
       const defaultRoleNames = ["Super Admin", "Admin", "Manager", "Cashier"];
       const createdRoles = {};
@@ -229,10 +212,7 @@ exports.signup = async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, 10);
       const [newOwner] = await tx.insert(users).values({
         businessId: newBusiness.id,
-<<<<<<< HEAD
-=======
         tenantId: newBusiness.id, // Inherit from business
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
         name,
         email,
         passwordHash: hashedPassword
@@ -266,7 +246,3 @@ exports.signup = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-<<<<<<< HEAD
-=======
-
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb

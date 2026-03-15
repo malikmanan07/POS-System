@@ -1,23 +1,12 @@
-<<<<<<< HEAD
-import { useState } from "react";
-import { Button, Offcanvas } from "react-bootstrap";
-import { Outlet } from "react-router-dom";
-=======
 import { useState, useMemo } from "react";
 import { Button, Offcanvas } from "react-bootstrap";
 import { Outlet, useLocation } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
 import AppNavbar from "./AppNavbar";
 import Sidebar from "./Sidebar";
 
 export default function PageShell() {
   const [show, setShow] = useState(false);
-<<<<<<< HEAD
-
-  return (
-    <div className="app-shell">
-=======
   const location = useLocation();
 
   // Dynamic SEO Title based on current route
@@ -39,7 +28,6 @@ export default function PageShell() {
         <title>{`${pageTitle} | Force POS`}</title>
       </Helmet>
 
->>>>>>> 790210fce64f26269098e10d3d46cfa0442c96eb
       <AppNavbar onMenu={() => setShow(true)} />
 
       {/* Mobile Sidebar */}
