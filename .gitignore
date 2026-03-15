@@ -1,25 +1,32 @@
+# =========================
 # Node
+# =========================
 node_modules/
-npm-debug.log
+npm-debug.log*
 .DS_Store
 
-# Environments
+# =========================
+# Environment files
+# =========================
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Backend environment (should never be committed)
+.env.*
 backend/.env
 
+# =========================
 # Build
+# =========================
 dist/
 dist-ssr/
 build/
+
+# =========================
+# Uploads
+# =========================
 backend/uploads/
 
+# =========================
 # Editors
+# =========================
 .vscode/
 .idea/
 *.suo
