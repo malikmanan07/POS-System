@@ -10,6 +10,9 @@ npm-debug.log
 .env.test.local
 .env.production.local
 
+# Backend environment (should never be committed)
+backend/.env
+
 # Build
 dist/
 dist-ssr/
